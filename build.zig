@@ -32,6 +32,7 @@ pub fn build(b: *std.Build) void {
 
     const argv = [_][]const u8{"./deploy_raspi.sh"};
     const deploy = b.addSystemCommand(&argv);
+    deploy.step.dependOn(b.getInstallStep());
     const deploy_step = b.step("deploy", "Deploy the executable on the raspberry pi");
     deploy_step.dependOn(&deploy.step);
 }
