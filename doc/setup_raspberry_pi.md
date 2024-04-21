@@ -1,7 +1,6 @@
 etc/wpa_supplicant/wpa_supplicant.conf 
 
 
-
 network={
     ssid="SCHOOLS NETWORK NAME"
     psk="SCHOOLS PASSWORD"

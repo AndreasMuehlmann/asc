@@ -1,0 +1,13 @@
+TODOS: 
+- github repository
+- static ip address for raspi
+- document how to setup raspberry pi
+- document the cross-compilation
+- document build process
+- document deployment
+
+- Send Data with WLAN
+- Connecting BNO055 (either with library, probably has to be cross-compiled, or from scratch, or transpile to zig)
+
+- maybe look at GSL - GNU Scientific Library - and see if it is necessary
+

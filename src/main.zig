@@ -1,6 +1,6 @@
 const std = @import("std");
 const gpio = @cImport({
-    @cInclude("/home/andi/programming/nlslotter/libs/pigpio/pigpio.h");
+    @cInclude("pigpio.h");
 });
 
 fn button_callback(gpio_pin: c_int, level: c_int, ticks: u32) callconv(.C) void {
@@ -9,6 +9,8 @@ fn button_callback(gpio_pin: c_int, level: c_int, ticks: u32) callconv(.C) void 
 }
 
 pub fn main() !void {
+    const stdout = std.io.getStdOut().writer();
+    stdout.print("program running", .{}) catch return;
     _ = gpio.gpioInitialise();
     defer gpio.gpioTerminate();
 
@@ -23,5 +25,12 @@ pub fn main() !void {
 
     _ = gpio.gpioSetMode(2, gpio.PI_INPUT);
     _ = gpio.gpioSetISRFunc(2, gpio.FALLING_EDGE, 0, button_callback);
-    std.time.sleep(30_000_000_000);
+    //std.time.sleep(20_000_000_000);
+}
+
+test "simple test" {
+    var list = std.ArrayList(i32).init(std.testing.allocator);
+    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
+    try list.append(42);
+    try std.testing.expectEqual(@as(i32, 42), list.pop());
 }
