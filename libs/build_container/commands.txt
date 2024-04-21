@@ -1,0 +1,10 @@
+sudo systemctl (status|start|restart|stop) docker => for docker daemon
+
+docker build . => builds the image
+docker run -it <image-id> /bin/bash => for a shell
+docker ps => shows running containers (-a for all containers)
+
+docker rm $(docker ps -a -q) => deleting all containers
+
+docker cp <path> <container-id>:<path>  => copying file (other way around also possible)
+
