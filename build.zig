@@ -12,6 +12,7 @@ pub fn build(b: *std.Build) void {
         .default_target = std.zig.CrossTarget{
             .cpu_arch = std.Target.Cpu.Arch.arm,
             .os_tag = std.Target.Os.Tag.linux,
+            .abi = std.Target.Abi.gnueabi,
         },
     });
 
@@ -26,9 +27,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.linkLibC();
 
-    exe.addIncludePath(.{ .path = "/home/andi/programming/nlslotter/libs/pigpio/" });
+    exe.linkLibC();
+    exe.addIncludePath(.{ .path = "/home/andi/programming/nlslotter/pigpio" });
+    exe.addLibraryPath(.{ .path = "/home/andi/programming/nlslotter/cross-compiled-libs/pigpio/" });
     exe.linkSystemLibrary("pigpio");
 
     // This declares intent for the executable to be installed into the
