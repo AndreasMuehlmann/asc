@@ -12,3 +12,6 @@ network={
     psk="HOME PASSWORD"
     id_str="home"
 }
+
+sudo apt install pigpio
+sudo apt-get install libczmq-dev
