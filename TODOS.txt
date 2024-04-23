@@ -1,10 +1,10 @@
 TODOS: 
-- github repository
-- static ip address for raspi
+- static ip address for raspi and multiple wlans
 - document how to setup raspberry pi
-- document the cross-compilation
+- document cross-compilation
 - document build process
 - document deployment
+- write README.md
 
 - Send Data with WLAN
 - Connecting BNO055 (either with library, probably has to be cross-compiled, or from scratch, or transpile to zig)

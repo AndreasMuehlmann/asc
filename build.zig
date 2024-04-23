@@ -17,8 +17,15 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibC();
     exe.addIncludePath(.{ .path = "/home/andi/programming/asc/libs/pigpio" });
+    exe.addIncludePath(.{ .path = "/home/andi/programming/asc/libs/czmq/include/" });
+    exe.addIncludePath(.{ .path = "/home/andi/programming/asc/libs/libzmq/include/" });
     exe.addLibraryPath(.{ .path = "/home/andi/programming/asc/cross_compiled_libs/pigpio/" });
+    exe.addLibraryPath(.{ .path = "/home/andi/programming/asc/cross_compiled_libs/libczmq/" });
+    exe.addLibraryPath(.{ .path = "/home/andi/programming/asc/cross_compiled_libs/libzmq/" });
     exe.linkSystemLibrary("pigpio");
+    exe.linkSystemLibrary("zmq");
+    exe.linkSystemLibrary("czmq");
+
     b.installArtifact(exe);
 
     const unit_tests = b.addTest(.{

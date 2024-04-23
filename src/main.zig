@@ -2,6 +2,9 @@ const std = @import("std");
 const gpio = @cImport({
     @cInclude("pigpio.h");
 });
+const zmq = @cImport({
+    @cInclude("czmq.h");
+});
 
 fn button_callback(gpio_pin: c_int, level: c_int, ticks: u32) callconv(.C) void {
     const stdout = std.io.getStdOut().writer();
@@ -11,6 +14,9 @@ fn button_callback(gpio_pin: c_int, level: c_int, ticks: u32) callconv(.C) void 
 pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
     stdout.print("program running", .{}) catch return;
+
+    _ = zmq.zsock_new_push("inproc://example");
+
     _ = gpio.gpioInitialise();
     defer gpio.gpioTerminate();
 
@@ -26,6 +32,7 @@ pub fn main() !void {
     _ = gpio.gpioSetMode(2, gpio.PI_INPUT);
     _ = gpio.gpioSetISRFunc(2, gpio.FALLING_EDGE, 0, button_callback);
     //std.time.sleep(20_000_000_000);
+
 }
 
 test "simple test" {
