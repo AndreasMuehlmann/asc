@@ -15,16 +15,21 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.linkLibC();
+
+    const zzmq = b.dependency("zzmq", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.addModule("zzmq", zzmq.module("zzmq"));
+
     exe.addIncludePath(.{ .path = "/home/andi/programming/asc/libs/pigpio" });
-    exe.addIncludePath(.{ .path = "/home/andi/programming/asc/libs/czmq/include/" });
     exe.addIncludePath(.{ .path = "/home/andi/programming/asc/libs/libzmq/include/" });
+
     exe.addLibraryPath(.{ .path = "/home/andi/programming/asc/cross_compiled_libs/pigpio/" });
-    exe.addLibraryPath(.{ .path = "/home/andi/programming/asc/cross_compiled_libs/libczmq/" });
     exe.addLibraryPath(.{ .path = "/home/andi/programming/asc/cross_compiled_libs/libzmq/" });
     exe.linkSystemLibrary("pigpio");
     exe.linkSystemLibrary("zmq");
-    exe.linkSystemLibrary("czmq");
+    exe.linkLibC();
 
     b.installArtifact(exe);
 

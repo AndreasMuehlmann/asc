@@ -1,43 +1,54 @@
 const std = @import("std");
+const zzmq = @import("zzmq");
 const gpio = @cImport({
     @cInclude("pigpio.h");
 });
-const zmq = @cImport({
-    @cInclude("czmq.h");
-});
-
-fn button_callback(gpio_pin: c_int, level: c_int, ticks: u32) callconv(.C) void {
-    const stdout = std.io.getStdOut().writer();
-    stdout.print("interrupt gpio_pin {} level {} ticks {}", .{ gpio_pin, level, ticks }) catch return;
-}
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut().writer();
-    stdout.print("program running", .{}) catch return;
+    std.log.info("Starting the server...", .{});
 
-    _ = zmq.zsock_new_push("inproc://example");
+    {
+        const version = zzmq.ZContext.version();
 
-    _ = gpio.gpioInitialise();
-    defer gpio.gpioTerminate();
+        std.log.info("libzmq version: {}.{}.{}", .{ version.major, version.minor, version.patch });
+    }
 
-    _ = gpio.gpioSetMode(3, gpio.PI_OUTPUT);
-    _ = gpio.gpioWrite(3, 1);
-    std.time.sleep(1_000_000_000);
-    _ = gpio.gpioWrite(3, 0);
-    std.time.sleep(1_000_000_000);
-    _ = gpio.gpioWrite(3, 1);
-    std.time.sleep(1_000_000_000);
-    _ = gpio.gpioWrite(3, 0);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        if (gpa.deinit() == .leak)
+            @panic("Memory leaked");
+    }
 
-    _ = gpio.gpioSetMode(2, gpio.PI_INPUT);
-    _ = gpio.gpioSetISRFunc(2, gpio.FALLING_EDGE, 0, button_callback);
-    //std.time.sleep(20_000_000_000);
+    const allocator = gpa.allocator();
 
-}
+    var context = try zzmq.ZContext.init(allocator);
+    defer context.deinit();
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    var socket = try zzmq.ZSocket.init(zzmq.ZSocketType.Rep, &context);
+    defer socket.deinit();
+
+    try socket.bind("tcp://*:5555");
+
+    while (true) {
+        // Wait for next request from client
+        {
+            var frame = try socket.receive(.{});
+            defer frame.deinit();
+
+            const data = try frame.data();
+
+            std.log.info("Received: {s}", .{data});
+        }
+
+        // Do some 'work'
+        std.time.sleep(std.time.ns_per_s);
+
+        // Send reply back to client
+        {
+            var msg = try zzmq.ZMessage.initUnmanaged("World", null);
+            defer msg.deinit();
+
+            try socket.send(&msg, .{});
+        }
+    }
 }

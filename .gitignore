@@ -1,4 +1,4 @@
 zig-cache
 libs/pigpio
-libs/czmq
 libs/libzmq
+client/pyvenv
