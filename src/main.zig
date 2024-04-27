@@ -1,54 +1,39 @@
 const std = @import("std");
-const zzmq = @import("zzmq");
+
 const gpio = @cImport({
     @cInclude("pigpio.h");
 });
 
+const zmq_server = @import("zmq_server.zig");
+
 pub fn main() !void {
-    std.log.info("Starting the server...", .{});
-
-    {
-        const version = zzmq.ZContext.version();
-
-        std.log.info("libzmq version: {}.{}.{}", .{ version.major, version.minor, version.patch });
-    }
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer {
         if (gpa.deinit() == .leak)
             @panic("Memory leaked");
     }
-
     const allocator = gpa.allocator();
 
-    var context = try zzmq.ZContext.init(allocator);
-    defer context.deinit();
-
-    var socket = try zzmq.ZSocket.init(zzmq.ZSocketType.Rep, &context);
-    defer socket.deinit();
-
-    try socket.bind("tcp://*:5555");
+    var server = try zmq_server.ZmqServer.init(allocator);
+    defer server.deinit();
 
     while (true) {
-        // Wait for next request from client
         {
-            var frame = try socket.receive(.{});
+            var frame = server.recv() catch |err| {
+                std.log.err("{}", .{err});
+                continue;
+            };
             defer frame.deinit();
-
-            const data = try frame.data();
-
-            std.log.info("Received: {s}", .{data});
+            var msg = frame.data() catch |err| {
+                std.log.err("{}", .{err});
+                continue;
+            };
+            std.log.info("{s}", .{msg});
         }
-
-        // Do some 'work'
         std.time.sleep(std.time.ns_per_s);
-
-        // Send reply back to client
-        {
-            var msg = try zzmq.ZMessage.initUnmanaged("World", null);
-            defer msg.deinit();
-
-            try socket.send(&msg, .{});
-        }
+        server.send("World") catch |err| {
+            std.log.err("{}", .{err});
+            continue;
+        };
     }
 }
