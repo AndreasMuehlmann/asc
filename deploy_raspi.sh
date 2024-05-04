@@ -2,10 +2,11 @@
 
 IP="raspberrypi.fritz.box"
 USER="andi"
-FILE_TO_COPY="build/asc"
+OUT_DIR="out"
+EXE="asc"
 REMOTE_DIRECTORY="asc"
 
-scp $FILE_TO_COPY $USER@$IP:$REMOTE_DIRECTORY
+scp $OUT_DIR/* $USER@$IP:$REMOTE_DIRECTORY
 if [ $? -eq 0 ]; then
-    alacritty -e ssh -t $USER@$IP "cd $REMOTE_DIRECTORY && sudo ./$(basename ${FILE_TO_COPY}); bash -l" &
+    alacritty -e ssh -t $USER@$IP "cd $REMOTE_DIRECTORY && sudo ./$EXE; bash -l" &
 fi
