@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/asc.dir/src/main.cpp.o -o asc  -lzmq -lpigpio

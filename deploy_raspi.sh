@@ -2,7 +2,7 @@
 
 IP="raspberrypi.fritz.box"
 USER="andi"
-FILE_TO_COPY="zig-out/bin/asc"
+FILE_TO_COPY="build/asc"
 REMOTE_DIRECTORY="asc"
 
 scp $FILE_TO_COPY $USER@$IP:$REMOTE_DIRECTORY

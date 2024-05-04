@@ -1,0 +1,3 @@
+/home/andi/programming/asc/build/CMakeFiles/asc.dir
+/home/andi/programming/asc/build/CMakeFiles/edit_cache.dir
+/home/andi/programming/asc/build/CMakeFiles/rebuild_cache.dir
