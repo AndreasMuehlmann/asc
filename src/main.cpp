@@ -4,10 +4,12 @@
 // #include <zmq.h>
 #include <pigpio.h>
 
+/*
 extern "C"
 void button_callback(int gpio_pin, int level, unsigned int ticks) {
     std::cout << "ButtonCallback" << std::endl;    
 }
+*/
 
 int main() {
     std::cout << "Hello World!" << std::endl;    
@@ -21,7 +23,7 @@ int main() {
     sleep(1);
     gpioWrite(3, 0);
 
-    gpioSetMode(2, PI_INPUT);
-    gpioSetISRFunc(2, FALLING_EDGE, 0, button_callback);
+    // gpioSetMode(2, PI_INPUT);
+    // gpioSetISRFunc(2, FALLING_EDGE, 0, button_callback);
     gpioTerminate();
 }

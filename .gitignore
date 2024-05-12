@@ -1,2 +1,5 @@
+sysroot
 build
 pyvenv
+toolchain_config_ct_ng/*
+!toolchain_config_ct_ng/.config

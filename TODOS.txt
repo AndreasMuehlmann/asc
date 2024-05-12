@@ -6,8 +6,7 @@ TODOS:
 - document deployment
 - write README.md
 
-- Send Data with WLAN
+- Send Data with WLAN => Client in C++
 - Connecting BNO055 (either with library, probably has to be cross-compiled, or from scratch, or transpile to zig)
 
 - maybe look at GSL - GNU Scientific Library - and see if it is necessary
-
