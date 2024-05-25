@@ -2,7 +2,7 @@
 
 IP="raspberrypi.fritz.box"
 USER="andi"
-OUT_DIR="build"
+OUT_DIR="$(dirname "$0")/build"
 EXE="asc"
 REMOTE_DIRECTORY="asc"
 

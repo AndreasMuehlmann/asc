@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.25.1)
 
+add_subdirectory(client)
+
 project(asc VERSION 0.0.1
     DESCRIPTION "Autonomous Slot Car"
     LANGUAGES CXX)

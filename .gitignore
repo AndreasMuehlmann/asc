@@ -1,5 +1,5 @@
 sysroot
 build
 pyvenv
-toolchain_config_ct_ng/*
-!toolchain_config_ct_ng/.config
+toolchain_config_raspi/*
+!toolchain_config_raspi/.config
