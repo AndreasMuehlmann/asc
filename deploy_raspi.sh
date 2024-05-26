@@ -2,8 +2,8 @@
 
 IP="raspberrypi.fritz.box"
 USER="andi"
-OUT_DIR="$(dirname "$0")/build"
-EXE="asc"
+OUT_DIR="$(dirname "$0")/build/controller"
+EXE="controller"
 REMOTE_DIRECTORY="asc"
 
 scp $OUT_DIR/$EXE $USER@$IP:$REMOTE_DIRECTORY
