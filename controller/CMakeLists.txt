@@ -2,7 +2,11 @@ project(controller VERSION 0.0.1
     DESCRIPTION "Autonomous Slot Car"
     LANGUAGES CXX)
 
-add_executable(controller main.cpp)
+add_executable(controller 
+    main.cpp
+    commands.pb.cc
+
+)
 
 set(TOOLCHAIN_PATH "/home/andi/x-tools/arm-unknown-linux-gnueabihf/bin/")
 
@@ -23,5 +27,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 target_link_libraries(controller pigpio)
 target_link_libraries(controller zmq)
+target_link_libraries(controller protobuf)
 
 target_include_directories(controller PUBLIC "${CMAKE_SOURCE_DIR}/include")

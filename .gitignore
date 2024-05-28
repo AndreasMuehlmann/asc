@@ -1,6 +1,9 @@
 .cache
 sysroot
 build
-pyvenv
+helper_programs
 toolchain_config_raspi/*
 !toolchain_config_raspi/.config
+venv
+__pycache__
+

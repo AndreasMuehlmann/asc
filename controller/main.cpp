@@ -1,23 +1,30 @@
 #include <iostream>
+#include <numeric>
 #include <thread>
 
 #include "zmq.hpp"
+#include "commands.pb.h"
 
 using namespace std::chrono_literals;
 
 int main () {
-    zmq::context_t context (2);
-    zmq::socket_t socket (context, zmq::socket_type::rep);
-    socket.bind ("tcp://*:5555");
+     
+    proto::Command *command = new proto::Command();
+    command->set_msg("Hello World!!!");
+    std::string actual_message;
+    command->SerializeToString(&actual_message);
 
+    zmq::context_t context(2);
+    zmq::socket_t socket(context, zmq::socket_type::rep);
+    socket.bind("tcp://*:5555");
+    
     while (true) {
         zmq::message_t request;
         socket.recv(request, zmq::recv_flags::none);
-        std::cout << "Received Hello" << std::endl;
+        std::string string_request = request.to_string();
+        std::cout << "Received " << string_request <<std::endl;
         std::this_thread::sleep_for(1s);
-        zmq::message_t reply (5);
-        memcpy (reply.data (), "World", 5);
-        socket.send (reply, zmq::send_flags::none);
+        socket.send(zmq::buffer(actual_message), zmq::send_flags::none);
     }
     return 0;
 }

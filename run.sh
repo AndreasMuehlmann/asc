@@ -1,3 +1,4 @@
-cmake --build build
+$(dirname "$0")/build.sh
 $(dirname "$0")/deploy_raspi.sh
-$(dirname "$0")/build/client/client 
+source client/venv/bin/activate
+python $(dirname "$0")/client/main.py
