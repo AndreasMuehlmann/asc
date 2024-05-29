@@ -4,6 +4,8 @@ project(asc VERSION 0.0.1
     DESCRIPTION "Autonomous Slot Car"
     LANGUAGES CXX)
 
+set(TOOLCHAIN_PATH "/home/andi/x-tools/arm-unknown-linux-gnueabihf/bin/")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(controller)

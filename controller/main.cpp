@@ -1,5 +1,4 @@
 #include <iostream>
-#include <numeric>
 #include <thread>
 
 #include "zmq.hpp"
@@ -9,10 +8,10 @@ using namespace std::chrono_literals;
 
 int main () {
      
-    proto::Command *command = new proto::Command();
-    command->set_msg("Hello World!!!");
+    proto::Command command;
+    command.set_msg("Hello World!!!");
     std::string actual_message;
-    command->SerializeToString(&actual_message);
+    command.SerializeToString(&actual_message);
 
     zmq::context_t context(2);
     zmq::socket_t socket(context, zmq::socket_type::rep);
