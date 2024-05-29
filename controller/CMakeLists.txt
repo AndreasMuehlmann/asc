@@ -8,8 +8,6 @@ add_executable(controller
 
 )
 
-set(TOOLCHAIN_PATH "/home/andi/x-tools/arm-unknown-linux-gnueabihf/bin/")
-
 set(CMAKE_C_COMPILER "${TOOLCHAIN_PATH}/arm-unknown-linux-gnueabihf-gcc")
 set(CMAKE_CXX_COMPILER "${TOOLCHAIN_PATH}/arm-unknown-linux-gnueabihf-g++")
 
