@@ -1,11 +1,11 @@
 project(controller VERSION 0.0.1
     DESCRIPTION "Autonomous Slot Car"
-    LANGUAGES CXX)
+    LANGUAGES C CXX)
 
 add_executable(controller 
     main.cpp
     commands.pb.cc
-
+    bno055.c
 )
 
 set(CMAKE_C_COMPILER "${TOOLCHAIN_PATH}/arm-unknown-linux-gnueabihf-gcc")
