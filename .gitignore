@@ -1,4 +1,4 @@
 .zig-cache
 .zig-out
 .cache
-libs
+lib

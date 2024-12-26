@@ -10,13 +10,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const zigpio = b.addModule(
-        "zigpio",
-        .{
-            .root_source_file = b.path("src/zigpio/zigpio.zig"),
+    exe.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
+    exe.addCSourceFile(.{
+        .file = b.path("lib/BNO055_SensorAPI/bno055.c"),
+        .flags = &[_][]const u8{
+            "-fno-sanitize=undefined",
+            "-fno-sanitize=shift",
         },
-    );
-    exe.root_module.addImport("zigpio", zigpio);
+    });
+
+    exe.addIncludePath(b.path("lib/pigpio/"));
+    exe.addLibraryPath(b.path("lib/pigpio/"));
+    exe.linkSystemLibrary2("pigpio", .{ .preferred_link_mode = .dynamic });
     exe.linkLibC();
 
     b.installArtifact(exe);
