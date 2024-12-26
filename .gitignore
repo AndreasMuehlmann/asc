@@ -1,9 +1,4 @@
+.zig-cache
+.zig-out
 .cache
-sysroot
-build
-helper_programs
-toolchain_config_raspi/*
-!toolchain_config_raspi/.config
-venv
-__pycache__
-
+libs

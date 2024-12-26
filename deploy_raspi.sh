@@ -1,9 +1,11 @@
 #!/bin/bash
 
+set -e
+
 IP="raspberrypi.fritz.box"
-USER="andi"
-OUT_DIR="$(dirname "$0")/build/controller"
-EXE="controller"
+USER="asc"
+OUT_DIR="$(dirname "$0")/zig-out/bin"
+EXE="asc"
 REMOTE_DIRECTORY="asc"
 
 scp $OUT_DIR/$EXE $USER@$IP:$REMOTE_DIRECTORY
