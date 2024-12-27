@@ -2,7 +2,8 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
-    const target = std.Target.Query.parse(.{ .arch_os_abi = "aarch64-linux-gnu" }) catch unreachable;
+    const target = std.Target.Query{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu, .glibc_version = .{ .major = 2, .minor = 36, .patch = 0 } };
+    //const target = std.Target.Query.parse(.{ .arch_os_abi = "aarch64-linux-gnu" }) catch unreachable;
     const exe = b.addExecutable(.{
         .name = "asc",
         .root_source_file = b.path("src/main.zig"),

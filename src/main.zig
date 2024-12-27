@@ -1,4 +1,6 @@
 const std = @import("std");
+const os = std.os;
+
 const pigpio = @cImport(@cInclude("pigpio.h"));
 const bnoApi = @cImport(@cInclude("bno055.h"));
 
@@ -45,11 +47,31 @@ pub fn delay(ms: c_uint) callconv(.C) void {
     _ = pigpio.gpioDelay(ms * 1000);
 }
 
+pub fn signalForcingExitHandler(sig: c_int) callconv(.C) void {
+    _ = sig;
+
+    std.log.warn("Received signal to exit.\n", .{});
+    pigpio.gpioTerminate();
+    std.process.exit(1);
+}
+
 pub fn main() !void {
     if (pigpio.gpioInitialise() < 0) {
         std.log.err("Failure in gpioInitialise.\n", .{});
         return PigpioError.InitializationError;
     }
+    defer pigpio.gpioTerminate();
+
+    const act = os.linux.Sigaction{
+        .handler = .{ .handler = signalForcingExitHandler },
+        .mask = os.linux.empty_sigset,
+        .flags = 0,
+    };
+
+    if (os.linux.sigaction(os.linux.SIG.INT, &act, null) != 0) {
+        return error.SignalHandlerError;
+    }
+
     var bno: bnoApi.bno055_t = bnoApi.bno055_t{
         .bus_read = BNO055_I2C_bus_read,
         .bus_write = BNO055_I2C_bus_write,
@@ -64,7 +86,7 @@ pub fn main() !void {
     }
 
     if (bnoApi.bno055_set_operation_mode(bnoApi.BNO055_OPERATION_MODE_NDOF) != 0) {
-        std.log.err("Failure in bno055_init.\n", .{});
+        std.log.err("Failure in bno055_set_operation_mode.\n", .{});
         return PigpioError.DeviceCommunicationError;
     }
 
@@ -73,9 +95,15 @@ pub fn main() !void {
         .r = 0,
         .p = 0,
     };
+
+    var accel_calib_status: u8 = 0;
+    var gyro_calib_status: u8 = 0;
+    var mag_calib_status: u8 = 0;
+    var sys_calib_status: u8 = 0;
+
     const ptrEuler: [*c]bnoApi.bno055_euler_float_t = @ptrCast(&euler);
 
-    for (0..10000) |_| {
+    for (0..100) |_| {
         if (bnoApi.bno055_convert_float_euler_hpr_deg(ptrEuler) != 0) {
             std.log.warn("Failed to read euler angles.\n", .{});
             pigpio.gpioTerminate();
@@ -83,7 +111,14 @@ pub fn main() !void {
         }
 
         std.debug.print("Euler angles: heading: {d:.2}, roll: {d:.2}, pitch: {d:.2}\n", .{ ptrEuler.*.h, ptrEuler.*.r, ptrEuler.*.p });
-    }
 
-    pigpio.gpioTerminate();
+        _ = bnoApi.bno055_get_gyro_calib_stat(&gyro_calib_status);
+        _ = bnoApi.bno055_get_accel_calib_stat(&accel_calib_status);
+        _ = bnoApi.bno055_get_mag_calib_stat(&mag_calib_status);
+        _ = bnoApi.bno055_get_sys_calib_stat(&sys_calib_status);
+
+        std.debug.print("Calibration status: gyro {}, accel {d}, mag {d}, sys {d}\n", .{ gyro_calib_status, accel_calib_status, mag_calib_status, sys_calib_status });
+
+        std.time.sleep(100_000_000);
+    }
 }
