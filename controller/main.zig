@@ -1,5 +1,6 @@
 const std = @import("std");
 const os = std.os;
+const net = std.net;
 
 const pigpio = @cImport(@cInclude("pigpio.h"));
 const bnoApi = @cImport(@cInclude("bno055.h"));
@@ -56,6 +57,7 @@ pub fn signalForcingExitHandler(sig: c_int) callconv(.C) void {
 }
 
 pub fn main() !void {
+    const allocator = std.heap.page_allocator;
     if (pigpio.gpioInitialise() < 0) {
         std.log.err("Failure in gpioInitialise.\n", .{});
         return PigpioError.InitializationError;
@@ -96,29 +98,44 @@ pub fn main() !void {
         .p = 0,
     };
 
-    var accel_calib_status: u8 = 0;
-    var gyro_calib_status: u8 = 0;
-    var mag_calib_status: u8 = 0;
-    var sys_calib_status: u8 = 0;
+    //   var accel_calib_status: u8 = 0;
+    //   var gyro_calib_status: u8 = 0;
+    //   var mag_calib_status: u8 = 0;
+    //   var sys_calib_status: u8 = 0;
 
     const ptrEuler: [*c]bnoApi.bno055_euler_float_t = @ptrCast(&euler);
 
-    for (0..100) |_| {
-        if (bnoApi.bno055_convert_float_euler_hpr_deg(ptrEuler) != 0) {
-            std.log.warn("Failed to read euler angles.\n", .{});
-            pigpio.gpioTerminate();
-            return PigpioError.DeviceCommunicationError;
+    const address = std.net.Address.initIp4(.{ 0, 0, 0, 0 }, 8080);
+    var server = try address.listen(.{});
+    defer server.deinit();
+
+    const start = std.time.milliTimestamp();
+    while (true) {
+        const connection = try server.accept();
+        while (true) {
+            if (bnoApi.bno055_convert_float_euler_hpr_deg(ptrEuler) != 0) {
+                std.log.warn("Failed to read euler angles.\n", .{});
+                pigpio.gpioTerminate();
+                return PigpioError.DeviceCommunicationError;
+            }
+
+            const buffer = try std.fmt.allocPrint(allocator, "{d},{d:.2},{d:.2},{d:.2}\n", .{ start - std.time.milliTimestamp(), ptrEuler.*.h, ptrEuler.*.r, ptrEuler.*.p });
+            try connection.stream.writeAll(buffer);
+            allocator.free(buffer);
         }
-
-        std.debug.print("Euler angles: heading: {d:.2}, roll: {d:.2}, pitch: {d:.2}\n", .{ ptrEuler.*.h, ptrEuler.*.r, ptrEuler.*.p });
-
-        _ = bnoApi.bno055_get_gyro_calib_stat(&gyro_calib_status);
-        _ = bnoApi.bno055_get_accel_calib_stat(&accel_calib_status);
-        _ = bnoApi.bno055_get_mag_calib_stat(&mag_calib_status);
-        _ = bnoApi.bno055_get_sys_calib_stat(&sys_calib_status);
-
-        std.debug.print("Calibration status: gyro {}, accel {d}, mag {d}, sys {d}\n", .{ gyro_calib_status, accel_calib_status, mag_calib_status, sys_calib_status });
-
-        std.time.sleep(100_000_000);
+        std.time.sleep(200_000_000);
     }
+
+    //   for (0..100) |_| {
+    //       std.debug.print("Euler angles: heading: {d:.2}, roll: {d:.2}, pitch: {d:.2}\n", .{ ptrEuler.*.h, ptrEuler.*.r, ptrEuler.*.p });
+    //
+    //       _ = bnoApi.bno055_get_gyro_calib_stat(&gyro_calib_status);
+    //       _ = bnoApi.bno055_get_accel_calib_stat(&accel_calib_status);
+    //       _ = bnoApi.bno055_get_mag_calib_stat(&mag_calib_status);
+    //       _ = bnoApi.bno055_get_sys_calib_stat(&sys_calib_status);
+    //
+    //       std.debug.print("Calibration status: gyro {d}, accel {d}, mag {d}, sys {d}\n", .{ gyro_calib_status, accel_calib_status, mag_calib_status, sys_calib_status });
+    //
+    //       std.time.sleep(100_000_000);
+    //   }
 }

@@ -2,3 +2,4 @@
 zig-out
 .cache
 lib
+measurements.csv
