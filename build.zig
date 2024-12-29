@@ -4,12 +4,22 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = std.Target.Query{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu, .glibc_version = .{ .major = 2, .minor = 36, .patch = 0 } };
 
+    const messageFormatModule = b.addModule("messageFormat", .{ .root_source_file = b.path("shared/messageFormat/messageFormat.zig") });
+
+    const unitTestsMessageFormat = b.addTest(.{
+        .root_source_file = b.path("shared/messageFormat/messageFormat.zig"),
+        .target = b.resolveTargetQuery(.{}),
+    });
+    const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
+
     const controllerExe = b.addExecutable(.{
         .name = "asc",
         .root_source_file = b.path("controller/main.zig"),
         .target = b.resolveTargetQuery(target),
         .optimize = optimize,
     });
+
+    controllerExe.root_module.addImport("messageFormat", messageFormatModule);
 
     controllerExe.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
     controllerExe.addCSourceFile(.{
@@ -27,19 +37,19 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(controllerExe);
 
-    const scp_cmd = b.addSystemCommand(&[_][]const u8{"scp"});
-    scp_cmd.addArtifactArg(controllerExe);
-    scp_cmd.addArg("asc@raspberrypi.fritz.box:/home/asc/asc");
+    const scpCmd = b.addSystemCommand(&[_][]const u8{"scp"});
+    scpCmd.addArtifactArg(controllerExe);
+    scpCmd.addArg("asc@raspberrypi.fritz.box:/home/asc/asc");
 
-    const custom_install_step = b.step("deploy", "Copying the controller executable onto the raspberry pi with scp.");
-    custom_install_step.dependOn(b.getInstallStep());
-    custom_install_step.dependOn(&scp_cmd.step);
+    const customInstallStep = b.step("deploy", "Copying the controller executable onto the raspberry pi with scp.");
+    customInstallStep.dependOn(b.getInstallStep());
+    customInstallStep.dependOn(&scpCmd.step);
 
-    const unit_tests_controller = b.addTest(.{
+    const unitTestsController = b.addTest(.{
         .root_source_file = b.path("controller/main.zig"),
         .target = b.resolveTargetQuery(.{}),
     });
-    const run_unit_tests_controller = b.addRunArtifact(unit_tests_controller);
+    const runUnitTestsController = b.addRunArtifact(unitTestsController);
 
     const clientExe = b.addExecutable(.{
         .name = "client",
@@ -48,28 +58,31 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    clientExe.root_module.addImport("messageFormat", messageFormatModule);
+
     b.installArtifact(clientExe);
 
-    const run_client_cmd = b.addRunArtifact(clientExe);
-    run_client_cmd.step.dependOn(b.getInstallStep());
+    const runClientCmd = b.addRunArtifact(clientExe);
+    runClientCmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
-        run_client_cmd.addArgs(args);
+        runClientCmd.addArgs(args);
     }
 
-    const run_client_step = b.step("runClient", "Run the client");
-    run_client_step.dependOn(&run_client_cmd.step);
+    const runClientStep = b.step("runClient", "Run the client");
+    runClientStep.dependOn(&runClientCmd.step);
 
-    const unit_tests_client = b.addTest(.{
+    const unitTestsClient = b.addTest(.{
         .root_source_file = b.path("client/main.zig"),
         .target = b.resolveTargetQuery(.{}),
     });
-    const run_unit_tests_client = b.addRunArtifact(unit_tests_client);
+    const runUnitTestsClient = b.addRunArtifact(unitTestsClient);
 
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_unit_tests_controller.step);
-    test_step.dependOn(&run_unit_tests_client.step);
+    const testStep = b.step("test", "Run unit tests");
+    testStep.dependOn(&runUnitTestsController.step);
+    testStep.dependOn(&runUnitTestsClient.step);
+    testStep.dependOn(&runUnitTestsMessageFormat.step);
 
-    const deploy_run_client_step = b.step("deployRunClient", "Run the client and deploy the controller");
-    deploy_run_client_step.dependOn(&run_client_cmd.step);
-    deploy_run_client_step.dependOn(&scp_cmd.step);
+    const deployRunClientStep = b.step("deployRunClient", "Run the client and deploy the controller");
+    deployRunClientStep.dependOn(&runClientCmd.step);
+    deployRunClientStep.dependOn(&scpCmd.step);
 }
