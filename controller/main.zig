@@ -53,4 +53,5 @@ pub fn main() !void {
         }
         std.time.sleep(200_000_000);
     }
+    bno.deinit();
 }

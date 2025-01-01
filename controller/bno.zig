@@ -13,14 +13,18 @@ const BnoError = error{
 
 var handle: c_uint = undefined;
 var allocator: std.mem.Allocator = undefined;
+var bno = bnoApi.bno055_t{
+    .bus_read = bnoUartRead,
+    .bus_write = bnoUartWrite,
+    .delay_msec = delay,
+    .dev_addr = bnoApi.BNO055_I2C_ADDR1,
+};
 
 fn delay(milliSeconds: u32) callconv(.C) void {
     _ = pigpio.gpioDelay(milliSeconds * 1000);
 }
 
-fn bnoUartRead(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C) i8 {
-    delay(50);
-
+fn bnoUartRead(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C) i8 {
     var message = [_]u8{ 0xAA, 0x01, registerAddress, length };
     const writeResult: c_int = pigpio.serWrite(handle, @ptrCast(&message), message.len);
     if (writeResult < 0) {
@@ -28,20 +32,15 @@ fn bnoUartRead(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C
         return 1;
     }
 
-    delay(50);
+    delay(10);
 
     const responseHeaderResult: c_int = pigpio.serReadByte(handle);
-
-    delay(50);
-
     if (responseHeaderResult <= 0) {
         std.log.err("Pigpio error code {d} in read while reading result of request.\n", .{responseHeaderResult});
         return 1;
     }
     if (responseHeaderResult == 0xEE) {
         const statusByteResult: c_int = pigpio.serReadByte(handle);
-
-        delay(50);
 
         if (statusByteResult <= 0) {
             std.log.err("Pigpio error code {d} in read while reading result of request.\n", .{statusByteResult});
@@ -66,7 +65,8 @@ fn bnoUartRead(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C
             },
             0x07 => {
                 std.log.info("Response after write attempt to bno055: BUS_OVER_RUN_ERROR.\n", .{});
-                return 1;
+                delay(10);
+                return bnoUartRead(deviceAddress, registerAddress, data, length);
             },
             0x08 => {
                 std.log.err("Response after write attempt to bno055: MAX_LENGTH_ERROR.\n", .{});
@@ -103,8 +103,6 @@ fn bnoUartRead(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C
         return 1;
     }
 
-    delay(50);
-
     for (0..length) |index| {
         data[index] = response[index + 1];
     }
@@ -113,8 +111,7 @@ fn bnoUartRead(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C
     return 0;
 }
 
-fn bnoUartWrite(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C) i8 {
-    std.log.info("write\n", .{});
+fn bnoUartWrite(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C) i8 {
     const message = allocator.alloc(u8, length + 4) catch {
         std.log.err("Allocation error while trying to write to uart bus.\n", .{});
         return 1;
@@ -129,8 +126,6 @@ fn bnoUartWrite(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.
     for (0..length) |index| {
         message[index + 4] = data[index];
     }
-
-    delay(50);
 
     const writeResult: c_int = pigpio.serWrite(handle, message.ptr, length + 4);
     if (writeResult < 0) {
@@ -177,8 +172,10 @@ fn bnoUartWrite(_: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.
             return 1;
         },
         0x07 => {
-            std.log.err("Response after write attempt: BUS_OVER_RUN_ERROR.\n", .{});
-            return 1;
+            std.log.info("Response after write attempt: BUS_OVER_RUN_ERROR.\n", .{});
+            //return 1;
+            delay(100);
+            return bnoUartWrite(deviceAddress, registerAddress, data, length);
         },
         0x08 => {
             std.log.err("Response after write attempt: MAX_LENGTH_ERROR.\n", .{});
@@ -206,16 +203,13 @@ pub const Euler = struct {
     roll: f32,
     pitch: f32,
 
-    pub fn fromCType(eulerCType: [*c]bnoApi.bno055_euler_float_t) Euler {
-        return .{ .heading = eulerCType.*.h, .roll = eulerCType.*.r, .pitch = eulerCType.*.p };
+    pub fn fromCType(eulerCType: bnoApi.bno055_euler_float_t) Euler {
+        return .{ .heading = eulerCType.h, .roll = eulerCType.r, .pitch = eulerCType.p };
     }
 };
 
 pub const Bno = struct {
     const Self = @This();
-
-    bno: [*c]bnoApi.bno055_t,
-    euler: [*c]bnoApi.bno055_euler_float_t,
 
     pub fn init(allocatorArg: std.mem.Allocator) !Self {
         allocator = allocatorArg;
@@ -226,17 +220,11 @@ pub const Bno = struct {
             std.log.err("Pigpio error code {d} in creating uart bus.\n", .{openResult});
             return BnoError.OpenBusError;
         }
+        errdefer _ = pigpio.serClose(handle);
         handle = @intCast(openResult);
-        delay(1000);
+        delay(50);
 
-        var bno = bnoApi.bno055_t{
-            .bus_read = bnoUartRead,
-            .bus_write = bnoUartWrite,
-            .delay_msec = delay,
-            .dev_addr = bnoApi.BNO055_I2C_ADDR1,
-        };
         const bnoPtr: [*c]bnoApi.bno055_t = @ptrCast(&bno);
-
         if (bnoApi.bno055_init(bnoPtr) != 0) {
             return BnoError.InitializationError;
         }
@@ -245,29 +233,31 @@ pub const Bno = struct {
             return BnoError.SetModeError;
         }
 
-        const eulerStruct = bnoApi.bno055_euler_float_t{
-            .h = 0,
-            .r = 0,
-            .p = 0,
-        };
-        const eulerPtr: [*c]bnoApi.bno055_euler_float_t = @ptrCast(@constCast(&eulerStruct));
+        var euler: bnoApi.bno055_euler_float_t = .{ .h = 0, .r = 0, .p = 0 };
+        const eulerPtr: [*c]bnoApi.bno055_euler_float_t = @ptrCast(&euler);
 
-        return .{ .bno = bnoPtr, .euler = eulerPtr };
-    }
-
-    pub fn getEuler(self: Self) !Euler {
-        if (bnoApi.bno055_convert_float_euler_hpr_deg(self.euler) != 0) {
+        if (bnoApi.bno055_convert_float_euler_hpr_deg(eulerPtr) != 0) {
             return BnoError.GetEulerError;
         }
-        return Euler.fromCType(self.euler);
+        _ = Euler.fromCType(euler);
+
+        return .{};
+    }
+
+    pub fn getEuler(_: Self) !Euler {
+        var euler: bnoApi.bno055_euler_float_t = .{ .h = 0, .r = 0, .p = 0 };
+        const eulerPtr: [*c]bnoApi.bno055_euler_float_t = @ptrCast(@constCast(&euler));
+        if (bnoApi.bno055_convert_float_euler_hpr_deg(eulerPtr) != 0) {
+            return BnoError.GetEulerError;
+        }
+        return Euler.fromCType(euler);
     }
 
     pub fn deinit(_: Self) !void {
         const closingResult: c_int = pigpio.serClose(handle);
         if (closingResult < 0) {
             std.log.err("Pigpio error code {d} in closing uart bus.\n", .{closingResult});
-            return BnoError.CloseBus;
+            return BnoError.CloseBusError;
         }
-        handle = null;
     }
 };
