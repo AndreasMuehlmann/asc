@@ -33,7 +33,7 @@ const primitiveTypes = enum {
     }
 };
 
-fn encodePrimitiveType(comptime T: type, value: T, buffer: *const []u8, index: *usize) !void {
+fn encodePrimitiveType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
     const messageTypeOption = primitiveTypes.fromType(T);
     if (messageTypeOption == null) {
         return error.UnknownPrimitiveType;
@@ -52,24 +52,14 @@ fn encodePrimitiveType(comptime T: type, value: T, buffer: *const []u8, index: *
         index.* += 1;
         @memcpy(buffer.*[index.* .. index.* + value.len], value);
         index.* += value.len;
+    } else if (T == u8) {
+        buffer.*[index.*] = value;
+        index.* += 1;
     } else {
         const byteSize = @sizeOf(T);
-        const sameSizedUnsignedType = switch (T) {
-            u8 => u8,
-            u64 => u64,
-            u32 => u32,
-            i64 => u64,
-            i32 => u32,
-            f64 => u64,
-            f32 => u32,
-            else => unreachable,
-        };
-        for (0..byteSize) |count| {
-            const unsigned: sameSizedUnsignedType = @bitCast(value);
-            const byte: u8 = @truncate(std.math.shr(sameSizedUnsignedType, unsigned, ((byteSize - count - 1) * 8)));
-            buffer.*[index.*] = byte;
-            index.* += 1;
-        }
+        const bytes: *[byteSize]u8 = @ptrCast(@constCast(&value));
+        @memcpy(buffer.*[index.* .. index.* + byteSize], bytes);
+        index.* += byteSize;
     }
 }
 
@@ -86,16 +76,17 @@ test "TestPrimitiveTypeFromType" {
 
 test "TestEncodePrimitiveType" {
     var buffer: [256]u8 = undefined;
+    var slice: []u8 = &buffer;
     var index: usize = 0;
     var stringArray: [3]u8 = undefined;
     var string: []u8 = stringArray[0..];
 
     @memcpy(string[0..], "abc");
-    try encodePrimitiveType(u8, 0xAA, &buffer[0..], &index);
-    try encodePrimitiveType(u32, 0xAA, &buffer[0..], &index);
-    try encodePrimitiveType(i32, -0xFF, &buffer[0..], &index);
-    try encodePrimitiveType(f32, 1.5, &buffer[0..], &index);
-    try encodePrimitiveType([]u8, string, &buffer[0..], &index);
+    try encodePrimitiveType(u8, 0xAA, &slice, &index);
+    try encodePrimitiveType(u32, 0xAA, &slice, &index);
+    try encodePrimitiveType(i32, -0xFF, &slice, &index);
+    try encodePrimitiveType(f32, 1.5, &slice, &index);
+    try encodePrimitiveType([]u8, string, &slice, &index);
 
     const ordinalU8: u8 = @intFromEnum(primitiveTypes.U8);
     try std.testing.expect(buffer[0] == ordinalU8);
@@ -103,15 +94,15 @@ test "TestEncodePrimitiveType" {
 
     const ordinalU32: u8 = @intFromEnum(primitiveTypes.U32);
     try std.testing.expect(buffer[2] == ordinalU32);
-    try std.testing.expect(buffer[3] == 0);
+    try std.testing.expect(buffer[3] == 0xAA);
     try std.testing.expect(buffer[4] == 0);
     try std.testing.expect(buffer[5] == 0);
-    try std.testing.expect(buffer[6] == 0xAA);
+    try std.testing.expect(buffer[6] == 0);
 
     const ordinalI32: u8 = @intFromEnum(primitiveTypes.I32);
     try std.testing.expect(buffer[7] == ordinalI32);
-    try std.testing.expect(buffer[8] == 0b11111111);
-    try std.testing.expect(buffer[11] == 1);
+    try std.testing.expect(buffer[8] == 1);
+    try std.testing.expect(buffer[11] == 0b11111111);
 
     const ordinalF32: u8 = @intFromEnum(primitiveTypes.F32);
     try std.testing.expect(buffer[12] == ordinalF32);
