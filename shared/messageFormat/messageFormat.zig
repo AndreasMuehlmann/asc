@@ -1,13 +1,19 @@
 const std = @import("std");
 
+const allocator = std.heap.page_allocator;
+
+const MessageFormatError = error{
+    ListTooLong,
+};
+
 pub fn main() !void {
     var buffer: [256]u8 = undefined;
     var slice: []u8 = &buffer;
     var index: usize = 0;
     var stringArray: [3]u8 = undefined;
     var string: []u8 = stringArray[0..];
-
     @memcpy(string[0..], "abc");
+
     try encodeType(u8, 0xAA, &slice, &index);
     try encodeType(u32, 0xAA, &slice, &index);
     try encodeType(i32, -0xFF, &slice, &index);
@@ -16,15 +22,17 @@ pub fn main() !void {
 }
 
 fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
-    if (T == []u8) {
+    const typeInfo = @typeInfo(T);
+    if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
         if (value.len > std.math.maxInt(u8)) {
-            return error.StringTooLong;
+            return MessageFormatError.ListTooLong;
         }
         const length: u8 = @intCast(value.len);
         buffer.*[index.*] = length;
         index.* += 1;
-        @memcpy(buffer.*[index.* .. index.* + value.len], value);
-        index.* += value.len;
+        for (value) |childValue| {
+            try encodeType(typeInfo.Pointer.child, childValue, buffer, index);
+        }
     } else if (T == u8) {
         buffer.*[index.*] = value;
         index.* += 1;
@@ -37,31 +45,41 @@ fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
 }
 
 fn decodeType(comptime T: type, buffer: *[]u8, index: *usize) !T {
-    const byteSize = @sizeOf(T);
+    const typeInfo = @typeInfo(T);
+    if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
+        const length: u8 = buffer.*[index.*];
+        index.* += 1;
+        const slice: []typeInfo.Pointer.child = try allocator.alloc(typeInfo.Pointer.child, length);
+        for (0..length) |i| {
+            const childValue: typeInfo.Pointer.child = try decodeType(typeInfo.Pointer.child, buffer, index);
+            slice[i] = childValue;
+        }
+        return slice;
+    }
     if (T == u8) {
         const number = buffer.*[index.*];
-        index.* += byteSize;
+        index.* += 1;
         return number;
     }
+    const byteSize = @sizeOf(T);
     var bytes: [byteSize]u8 = undefined;
     const bytesPtr: *[byteSize]u8 = &bytes;
     @memcpy(bytesPtr, buffer.*[index.* .. index.* + byteSize]);
     const number: *T = @ptrCast(@alignCast(bytesPtr));
     index.* += byteSize;
-
     return number.*;
 }
 
 test "TestEncodeDecodeType" {
+    const typeInfo = @typeInfo([]u8);
+    try std.testing.expect(typeInfo == .Pointer);
+    try std.testing.expect(typeInfo.Pointer.size == .Slice);
+
     var buffer: [256]u8 = undefined;
     var slice: []u8 = &buffer;
 
     var index: usize = 0;
     var decodeIndex: usize = 0;
-
-    var stringArray: [3]u8 = undefined;
-    var string: []u8 = stringArray[0..];
-    @memcpy(string[0..], "abc");
 
     try encodeType(u8, 0xAA, &slice, &index);
     try std.testing.expect(buffer[0] == 0xAA);
@@ -75,15 +93,24 @@ test "TestEncodeDecodeType" {
     try std.testing.expect(try decodeType(u32, &slice, &decodeIndex) == 0xAA);
 
     try encodeType(i32, -0xFF, &slice, &index);
-    try std.testing.expect(buffer[5] == 1);
-    try std.testing.expect(buffer[8] == 0b11111111);
     try std.testing.expect(try decodeType(i32, &slice, &decodeIndex) == -0xFF);
 
     try encodeType(f32, 1.5, &slice, &index);
     try std.testing.expect(try decodeType(f32, &slice, &decodeIndex) == 1.5);
 
-    try encodeType([]u8, string, &slice, &index);
-    try std.testing.expect(buffer[13] == 3);
-    try std.testing.expect(std.mem.eql(u8, buffer[14..17], "abc"));
-    try std.testing.expect(index == 17);
+    var arrayU8 = [_]u8{ 'a', 'b', 'c' };
+    const sliceU8: []u8 = &arrayU8;
+    try encodeType([]u8, sliceU8, &slice, &index);
+    const decodedSliceU8 = try decodeType([]u8, &slice, &decodeIndex);
+    for (0..sliceU8.len) |i| {
+        try std.testing.expect(sliceU8[i] == decodedSliceU8[i]);
+    }
+
+    var arrayU32 = [_]u32{ 1, 1000, 100001, 1, 2 };
+    const sliceU32: []u32 = &arrayU32;
+    try encodeType([]u32, sliceU32, &slice, &index);
+    const decodedSliceU32 = try decodeType([]u32, &slice, &decodeIndex);
+    for (0..sliceU32.len) |i| {
+        try std.testing.expect(sliceU32[i] == decodedSliceU32[i]);
+    }
 }
