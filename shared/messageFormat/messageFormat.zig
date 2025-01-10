@@ -1,30 +1,41 @@
 const std = @import("std");
 
+const message = @import("message.zig");
+
 const allocator = std.heap.page_allocator;
 
 const MessageFormatError = error{
+    MessageToLong,
     ListTooLong,
 };
 
-pub fn main() !void {
-    var buffer: [256]u8 = undefined;
-    var slice: []u8 = &buffer;
-    var index: usize = 0;
-    var stringArray: [3]u8 = undefined;
-    var string: []u8 = stringArray[0..];
-    @memcpy(string[0..], "abc");
+fn orientationHandler(orientation: message.Orientation) !void {
+    std.debug.print("{d}, {d}, {d}\n", .{ orientation.heading, orientation.roll, orientation.pitch });
+}
 
-    var decodeIndex: usize = 0;
-    const testStruct = .{ .num = 1, .float = 1.5 };
-    try encodeType(TestStruct, testStruct, &slice, &index);
-    const decodedTestStruct = try decodeType(TestStruct, &slice, &decodeIndex);
-    std.debug.print("{d}\n", .{decodedTestStruct.num});
+pub fn encode(comptime T: type, value: T, buffer: *[]u8) !void {
+    var index: usize = 2;
+    const typeInfoMessage = @typeInfo(message.Message);
+    inline for (typeInfoMessage.Union.fields) |field| {
+        if (T == field.type) {
+            try encodeType(message.Message, @unionInit(message.Message, field.name, value), buffer, &index);
+            break;
+        }
+    }
+    if (index - 2 > std.math.maxInt(u16)) {
+        return MessageFormatError.MessageToLong;
+    }
+    const messageLength: u16 = @intCast(index - 2);
+    var lengthEncodingIndex: usize = 0;
+    try encodeType(u16, messageLength, buffer, &lengthEncodingIndex);
+}
 
-    try encodeType(u8, 0xAA, &slice, &index);
-    try encodeType(u32, 0xAA, &slice, &index);
-    try encodeType(i32, -0xFF, &slice, &index);
-    try encodeType(f32, 1.5, &slice, &index);
-    try encodeType([]u8, string, &slice, &index);
+pub fn decode(buffer: *[]u8, index: *usize) !void {
+    const decoded = try decodeType(message.Message, buffer, index);
+    switch (decoded) {
+        .testMessage => |*value| try testMessageHandler(value.*),
+        .orientation => |*value| try orientationHandler(value.*),
+    }
 }
 
 fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
@@ -43,6 +54,16 @@ fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
         index.* += 1;
         for (value) |childValue| {
             try encodeType(typeInfo.Pointer.child, childValue, buffer, index);
+        }
+    } else if (typeInfo == .Union and typeInfo.Union.tag_type != null) {
+        const tag = @intFromEnum(@as(typeInfo.Union.tag_type.?, value));
+        buffer.*[index.*] = tag;
+        index.* += 1;
+
+        inline for (typeInfo.Union.fields, 0..) |field, i| {
+            if (i == tag) {
+                try encodeType(field.type, @field(value, field.name), buffer, index);
+            }
         }
     } else if (T == u8) {
         buffer.*[index.*] = value;
@@ -74,6 +95,19 @@ fn decodeType(comptime T: type, buffer: *[]u8, index: *usize) !T {
         }
         return slice;
     }
+    if (typeInfo == .Union and typeInfo.Union.tag_type != null) {
+        const tag = buffer.*[index.*];
+        index.* += 1;
+
+        var decodeUnion: T = undefined;
+        inline for (typeInfo.Union.fields, 0..) |field, i| {
+            if (i == tag) {
+                decodeUnion = @unionInit(T, field.name, try decodeType(field.type, buffer, index));
+                break;
+            }
+        }
+        return decodeUnion;
+    }
     if (T == u8) {
         const number = buffer.*[index.*];
         index.* += 1;
@@ -88,9 +122,23 @@ fn decodeType(comptime T: type, buffer: *[]u8, index: *usize) !T {
     return number.*;
 }
 
+fn testMessageHandler(testMessage: message.TestMessage) !void {
+    try std.testing.expect(testMessage.x == 1.5);
+}
+
 const TestStruct = struct {
     num: u32,
     float: f64,
+};
+
+const TestTag = enum(u8) {
+    numU8,
+    numU32,
+};
+
+const TestUnion = union(TestTag) {
+    numU8: u8,
+    numU32: u32,
 };
 
 test "TestEncodeDecodeType" {
@@ -142,4 +190,23 @@ test "TestEncodeDecodeType" {
     const decodedTestStruct = try decodeType(TestStruct, &slice, &decodeIndex);
     try std.testing.expect(testStruct.num == decodedTestStruct.num);
     try std.testing.expect(testStruct.float == decodedTestStruct.float);
+
+    const testUnion: TestUnion = .{ .numU8 = 2 };
+    try encodeType(TestUnion, testUnion, &slice, &index);
+    const decodedTestUnion = try decodeType(TestUnion, &slice, &decodeIndex);
+    try std.testing.expect(@intFromEnum(@as(TestTag, testUnion)) == @intFromEnum(@as(TestTag, decodedTestUnion)));
+    try std.testing.expect(testUnion.numU8 == decodedTestUnion.numU8);
+}
+
+test "TestEncodeDecode" {
+    var array: [100]u8 = undefined;
+    var buffer: []u8 = &array;
+    try encode(message.TestMessage, message.TestMessage{ .x = 1.5, .y = -2, .z = 300 }, &buffer);
+
+    var index: usize = 2;
+    try decode(&buffer, &index);
+
+    var decodeLengthIndex: usize = 0;
+    const length: u16 = try decodeType(u16, &buffer, &decodeLengthIndex);
+    try std.testing.expect(length == 17);
 }
