@@ -14,6 +14,12 @@ pub fn main() !void {
     var string: []u8 = stringArray[0..];
     @memcpy(string[0..], "abc");
 
+    var decodeIndex: usize = 0;
+    const testStruct = .{ .num = 1, .float = 1.5 };
+    try encodeType(TestStruct, testStruct, &slice, &index);
+    const decodedTestStruct = try decodeType(TestStruct, &slice, &decodeIndex);
+    std.debug.print("{d}\n", .{decodedTestStruct.num});
+
     try encodeType(u8, 0xAA, &slice, &index);
     try encodeType(u32, 0xAA, &slice, &index);
     try encodeType(i32, -0xFF, &slice, &index);
@@ -23,7 +29,12 @@ pub fn main() !void {
 
 fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
     const typeInfo = @typeInfo(T);
-    if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
+    if (typeInfo == .Struct) {
+        inline for (typeInfo.Struct.fields) |field| {
+            const fieldValue = @field(value, field.name);
+            try encodeType(field.type, fieldValue, buffer, index);
+        }
+    } else if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
         if (value.len > std.math.maxInt(u8)) {
             return MessageFormatError.ListTooLong;
         }
@@ -46,6 +57,13 @@ fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
 
 fn decodeType(comptime T: type, buffer: *[]u8, index: *usize) !T {
     const typeInfo = @typeInfo(T);
+    if (typeInfo == .Struct) {
+        var decodeStruct: T = undefined;
+        inline for (typeInfo.Struct.fields) |field| {
+            @field(decodeStruct, field.name) = try decodeType(field.type, buffer, index);
+        }
+        return decodeStruct;
+    }
     if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
         const length: u8 = buffer.*[index.*];
         index.* += 1;
@@ -69,6 +87,11 @@ fn decodeType(comptime T: type, buffer: *[]u8, index: *usize) !T {
     index.* += byteSize;
     return number.*;
 }
+
+const TestStruct = struct {
+    num: u32,
+    float: f64,
+};
 
 test "TestEncodeDecodeType" {
     const typeInfo = @typeInfo([]u8);
@@ -113,4 +136,10 @@ test "TestEncodeDecodeType" {
     for (0..sliceU32.len) |i| {
         try std.testing.expect(sliceU32[i] == decodedSliceU32[i]);
     }
+
+    const testStruct = .{ .num = 1, .float = 1.5 };
+    try encodeType(TestStruct, testStruct, &slice, &index);
+    const decodedTestStruct = try decodeType(TestStruct, &slice, &decodeIndex);
+    try std.testing.expect(testStruct.num == decodedTestStruct.num);
+    try std.testing.expect(testStruct.float == decodedTestStruct.float);
 }
