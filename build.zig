@@ -4,10 +4,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = std.Target.Query{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu, .glibc_version = .{ .major = 2, .minor = 36, .patch = 0 } };
 
-    const messageFormatModule = b.addModule("messageFormat", .{ .root_source_file = b.path("shared/messageFormat/messageFormat.zig") });
+    const encodeModule = b.addModule("encode", .{ .root_source_file = b.path("shared/messageFormat/encode.zig") });
+    const decodeModule = b.addModule("decode", .{ .root_source_file = b.path("shared/messageFormat/decode.zig") });
 
     const unitTestsMessageFormat = b.addTest(.{
-        .root_source_file = b.path("shared/messageFormat/messageFormat.zig"),
+        .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
         .target = b.resolveTargetQuery(.{}),
     });
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
@@ -19,7 +20,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    controllerExe.root_module.addImport("messageFormat", messageFormatModule);
+    controllerExe.root_module.addImport("encode", encodeModule);
+    controllerExe.root_module.addImport("decode", decodeModule);
 
     controllerExe.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
     controllerExe.addCSourceFile(.{
@@ -58,7 +60,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    clientExe.root_module.addImport("messageFormat", messageFormatModule);
+    clientExe.root_module.addImport("encode", encodeModule);
+    clientExe.root_module.addImport("decode", decodeModule);
 
     b.installArtifact(clientExe);
 
