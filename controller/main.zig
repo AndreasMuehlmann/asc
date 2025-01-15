@@ -4,6 +4,9 @@ const net = std.net;
 
 const pigpio = @cImport(@cInclude("pigpio.h"));
 
+const encode = @import("encode");
+const clientContract = @import("clientContract");
+
 const PigpioError = error{
     InitializationError,
 };
@@ -42,14 +45,16 @@ pub fn main() !void {
     var server = try address.listen(.{});
     defer server.deinit();
 
+    const encoder = encode.Encoder.init(clientContract.ClientContractEnum, clientContract.ClientContract);
+
     const start = std.time.milliTimestamp();
     while (true) {
         const connection = try server.accept();
         while (true) {
             const euler = try bno.getEuler();
-            const buffer = try std.fmt.allocPrint(allocator, "{d},{d:.2},{d:.2},{d:.2}\n", .{ std.time.milliTimestamp() - start, euler.heading, euler.roll, euler.pitch });
+            const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
+            const buffer = try encoder.encode(clientContract.Orientation, orientation);
             try connection.stream.writeAll(buffer);
-            allocator.free(buffer);
         }
         std.time.sleep(200_000_000);
     }

@@ -1,7 +1,6 @@
 const std = @import("std");
 const encode = @import("encode.zig");
 const decode = @import("decode.zig");
-const testContract = @import("testContract.zig");
 
 const TestStruct = struct {
     num: u32,
@@ -18,15 +17,39 @@ const TestUnion = union(TestTag) {
     numU32: u32,
 };
 
+pub const TestMessage = struct {
+    x: f32,
+    y: i32,
+    z: u64,
+};
+
+pub const TestContractEnum = enum(u8) {
+    testMessage,
+};
+
+pub const TestContract = union(TestContractEnum) {
+    testMessage: TestMessage,
+};
+
+const TestHandler = struct {
+    expectedX: f32,
+    expectedY: i32,
+    expectedZ: u64,
+
+    pub fn handleTestMessage(self: *TestHandler, testMessage: TestMessage) !void {
+        try std.testing.expect(self.expectedX == testMessage.x);
+        try std.testing.expect(self.expectedY == testMessage.y);
+        try std.testing.expect(self.expectedZ == testMessage.z);
+    }
+};
+
 test "TestEncodeDecodeType" {
-    const decoder = decode.Decoder.init(testContract.TestContractEnum, testContract.TestContract, std.testing.allocator);
-    const typeInfo = @typeInfo([]u8);
+    const allocator = std.testing.allocator;
+    const handler: TestHandler = .{ .expectedX = 0, .expectedY = 0, .expectedZ = 0 };
+    const decoder = decode.Decoder(TestContractEnum, TestContract, TestHandler).init(allocator, handler);
 
     var array: [256]u8 = undefined;
     var slice: []u8 = &array;
-
-    try std.testing.expect(typeInfo == .Pointer);
-    try std.testing.expect(typeInfo.Pointer.size == .Slice);
 
     var index: usize = 0;
     var decodeIndex: usize = 0;
@@ -80,15 +103,36 @@ test "TestEncodeDecodeType" {
 }
 
 test "TestEncoderDecoder" {
-    const encoder = encode.Encoder.init(testContract.TestContractEnum, testContract.TestContract);
-    const decoder = decode.Decoder.init(testContract.TestContractEnum, testContract.TestContract, std.testing.allocator);
-    const message = testContract.TestMessage{ .x = 1.5, .y = -2, .z = 300 };
-    var encodedBuffer: []u8 = try encoder.encode(testContract.TestMessage, message);
-    var encodedBufferWithoutLength: []u8 = encodedBuffer[2..];
-    var index: usize = 0;
-    const decoded = try decoder.decodeType(testContract.TestContract, &encodedBufferWithoutLength, &index);
+    const allocator = std.testing.allocator;
 
-    try std.testing.expect(decoded.testMessage.x == message.x);
-    try std.testing.expect(decoded.testMessage.y == message.y);
-    try std.testing.expect(decoded.testMessage.z == message.z);
+    const encoder = encode.Encoder.init(TestContractEnum, TestContract);
+
+    const handler: TestHandler = .{ .expectedX = 1.5, .expectedY = -2, .expectedZ = 300 };
+    const message: TestMessage = .{ .x = 1.5, .y = -2, .z = 300 };
+
+    var decoder = decode.Decoder(TestContractEnum, TestContract, TestHandler).init(allocator, handler);
+
+    const encoded = try encoder.encode(TestMessage, message);
+
+    var encodedMessages = std.ArrayList(u8).init(allocator);
+    try encodedMessages.appendSlice(encoded);
+    try encodedMessages.appendSlice(encoded);
+    try encodedMessages.appendSlice(encoded);
+    try encodedMessages.appendSlice(encoded);
+    try encodedMessages.appendSlice(encoded);
+    try encodedMessages.appendSlice(encoded);
+
+    try decoder.decode(encodedMessages.items[0..0]);
+    try decoder.decode(encodedMessages.items[0..1]);
+    try decoder.decode(encodedMessages.items[1..2]);
+    try decoder.decode(encodedMessages.items[2 .. encoded.len - 5]);
+    try decoder.decode(encodedMessages.items[encoded.len - 5 .. encoded.len - 2]);
+    try decoder.decode(encodedMessages.items[encoded.len - 2 .. encoded.len + 5]);
+    try decoder.decode(encodedMessages.items[encoded.len + 5 .. 2 * encoded.len]);
+    try decoder.decode(encodedMessages.items[2 * encoded.len .. 3 * encoded.len]);
+    try decoder.decode(encodedMessages.items[3 * encoded.len .. 5 * encoded.len]);
+    try decoder.decode(encodedMessages.items[5 * encoded.len .. 5 * encoded.len + 1]);
+    try decoder.decode(encodedMessages.items[5 * encoded.len + 1 .. 6 * encoded.len]);
+
+    encodedMessages.deinit();
 }

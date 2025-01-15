@@ -1,6 +1,7 @@
 const std = @import("std");
 const shared = @import("shared.zig");
 
+// rewrite with generic function
 pub const Encoder = struct {
     contractEnum: type,
     contract: type,

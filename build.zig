@@ -6,6 +6,8 @@ pub fn build(b: *std.Build) void {
 
     const encodeModule = b.addModule("encode", .{ .root_source_file = b.path("shared/messageFormat/encode.zig") });
     const decodeModule = b.addModule("decode", .{ .root_source_file = b.path("shared/messageFormat/decode.zig") });
+    const serverContractModule = b.addModule("encode", .{ .root_source_file = b.path("shared/serverContract.zig") });
+    const clientContractModule = b.addModule("decode", .{ .root_source_file = b.path("shared/clientContract.zig") });
 
     const unitTestsMessageFormat = b.addTest(.{
         .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
@@ -22,6 +24,8 @@ pub fn build(b: *std.Build) void {
 
     controllerExe.root_module.addImport("encode", encodeModule);
     controllerExe.root_module.addImport("decode", decodeModule);
+    controllerExe.root_module.addImport("serverContract", serverContractModule);
+    controllerExe.root_module.addImport("clientContract", clientContractModule);
 
     controllerExe.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
     controllerExe.addCSourceFile(.{
@@ -62,6 +66,8 @@ pub fn build(b: *std.Build) void {
 
     clientExe.root_module.addImport("encode", encodeModule);
     clientExe.root_module.addImport("decode", decodeModule);
+    clientExe.root_module.addImport("serverContract", serverContractModule);
+    clientExe.root_module.addImport("clientContract", clientContractModule);
 
     b.installArtifact(clientExe);
 
