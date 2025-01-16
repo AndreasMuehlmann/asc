@@ -45,7 +45,7 @@ pub fn main() !void {
     var server = try address.listen(.{});
     defer server.deinit();
 
-    const encoder = encode.Encoder.init(clientContract.ClientContractEnum, clientContract.ClientContract);
+    const Encoder = encode.Encoder(clientContract.ClientContract);
 
     const start = std.time.milliTimestamp();
     while (true) {
@@ -53,7 +53,7 @@ pub fn main() !void {
         while (true) {
             const euler = try bno.getEuler();
             const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
-            const buffer = try encoder.encode(clientContract.Orientation, orientation);
+            const buffer = try Encoder.encode(clientContract.Orientation, orientation);
             try connection.stream.writeAll(buffer);
         }
         std.time.sleep(200_000_000);

@@ -6,7 +6,7 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
     const typeInfoEnum = @typeInfo(contractEnumT);
 
     if (typeInfoEnum != .Enum) {
-        @compileError("contractEnumT has to an enum!");
+        @compileError("contractEnumT has to be an enum!");
     }
     comptime var handlerFunctionNames: [typeInfoEnum.Enum.fields.len][]const u8 = undefined;
 
@@ -43,16 +43,14 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     return;
                 } else if (self.byteCount == 1) {
                     internalBuffer[self.byteCount] = bytes[0];
-                    var index: usize = 0;
-                    self.messageLength = try self.decodeType(u16, &internalBuffer, &index);
+                    try self.decodeMessageLength(&internalBuffer);
                     self.byteCount = 0;
                     if (bytes.len == 1) {
                         return;
                     }
                     bytes = bytes[1..];
                 } else if (bytes.len >= 2) {
-                    var index: usize = 0;
-                    self.messageLength = try self.decodeType(u16, &bytes, &index);
+                    try self.decodeMessageLength(&bytes);
                     if (bytes.len == 2) {
                         return;
                     }
@@ -69,18 +67,10 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     self.byteCount += bytes.len;
                 } else if (bytes.len == bytesNeeded) {
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytesNeeded], bytes);
-                    var index: usize = 0;
-                    const decoded = try self.decodeType(contractT, &internalBuffer, &index);
-                    self.byteCount = 0;
-                    self.messageLength = null;
-                    try self.callHandler(decoded);
+                    try self.decodeMessage(&internalBuffer);
                 } else {
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytesNeeded], bytes[0..bytesNeeded]);
-                    var index: usize = 0;
-                    const decoded = try self.decodeType(contractT, &internalBuffer, &index);
-                    self.byteCount = 0;
-                    self.messageLength = null;
-                    try self.callHandler(decoded);
+                    try self.decodeMessage(&internalBuffer);
                     try self.decode(bytes[bytesNeeded..]);
                 }
             } else {
@@ -88,16 +78,10 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     @memcpy(internalBuffer[0..bytes.len], bytes);
                     self.byteCount = bytes.len;
                 } else if (bytes.len == self.messageLength.?) {
-                    var index: usize = 0;
-                    const decoded = try self.decodeType(contractT, &bytes, &index);
-                    self.messageLength = null;
-                    try self.callHandler(decoded);
+                    try self.decodeMessage(&bytes);
                 } else {
-                    var index: usize = 0;
-                    const decoded = try self.decodeType(contractT, &bytes, &index);
                     const toDecodeBytes = bytes[self.messageLength.?..];
-                    self.messageLength = null;
-                    try self.callHandler(decoded);
+                    try self.decodeMessage(&bytes);
                     try self.decode(toDecodeBytes);
                 }
             }
@@ -111,6 +95,25 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     try function(&self.handler, @field(decoded, typeInfoEnum.Enum.fields[i].name));
                 }
             }
+        }
+
+        fn decodeMessageLength(self: *Self, buffer: *[]const u8) !void {
+            var index: usize = 0;
+            self.messageLength = try self.decodeType(u16, buffer, &index);
+            if (self.messageLength.? > shared.MAX_MESSAGE_LENGTH - 2) {
+                return shared.MessageFormatError.MessageToLong;
+            }
+        }
+
+        fn decodeMessage(self: *Self, buffer: *[]const u8) !void {
+            var index: usize = 0;
+            const decoded = try self.decodeType(contractT, buffer, &index);
+            if (buffer.*[index] != 0xAA) {
+                return shared.MessageFormatError.WrongTerminationByte;
+            }
+            self.byteCount = 0;
+            self.messageLength = null;
+            try self.callHandler(decoded);
         }
 
         pub fn decodeType(self: Self, comptime T: type, buffer: *[]const u8, index: *usize) !T {
@@ -150,13 +153,16 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 index.* += 1;
                 return number;
             }
-            const byteSize = @sizeOf(T);
-            var bytes: [byteSize]u8 = undefined;
-            const bytesPtr: *[byteSize]u8 = &bytes;
-            @memcpy(bytesPtr, buffer.*[index.* .. index.* + byteSize]);
-            const number: *T = @ptrCast(@alignCast(bytesPtr));
-            index.* += byteSize;
-            return number.*;
+            if (typeInfo == .Float or typeInfo == .Int) {
+                const byteSize = @sizeOf(T);
+                var bytes: [byteSize]u8 = undefined;
+                const bytesPtr: *[byteSize]u8 = &bytes;
+                @memcpy(bytesPtr, buffer.*[index.* .. index.* + byteSize]);
+                const number: *T = @ptrCast(@alignCast(bytesPtr));
+                index.* += byteSize;
+                return number.*;
+            }
+            unreachable;
         }
     };
 }
