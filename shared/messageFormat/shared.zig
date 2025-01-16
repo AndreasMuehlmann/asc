@@ -6,10 +6,3 @@ pub const MessageFormatError = error{
     ListTooLong,
     WrongTerminationByte,
 };
-
-fn calculateParityByte(buffer: []u8) u8 {
-    var parity: u8 = 0;
-    for (buffer) |element| {
-        parity = (parity + (element % 2)) % 256;
-    }
-}
