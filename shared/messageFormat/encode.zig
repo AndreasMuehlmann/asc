@@ -1,11 +1,21 @@
 const std = @import("std");
-const shared = @import("shared.zig");
+
+//TODO: compile error wenn type nicht in contract
+
+pub const MAX_MESSAGE_LENGTH = 1000;
+pub const TERMINATION_BYTE = 0xAA;
+
+pub const MessageFormatError = error{
+    MessageToLong,
+    ListTooLong,
+    WrongTerminationByte,
+};
 
 pub fn Encoder(contractT: type) type {
     return struct {
         const Self = @This();
 
-        var array: [shared.MAX_MESSAGE_LENGTH]u8 = undefined;
+        var array: [MAX_MESSAGE_LENGTH]u8 = undefined;
         var internalBuffer: []u8 = &array;
 
         pub fn encode(comptime T: type, value: T) ![]u8 {
@@ -17,10 +27,10 @@ pub fn Encoder(contractT: type) type {
                     break;
                 }
             }
-            internalBuffer[index] = shared.TERMINATION_BYTE;
+            internalBuffer[index] = TERMINATION_BYTE;
             index += 1;
-            if (index > shared.MAX_MESSAGE_LENGTH) {
-                return shared.MessageFormatError.MessageToLong;
+            if (index > MAX_MESSAGE_LENGTH) {
+                return MessageFormatError.MessageToLong;
             }
             const messageLength: u16 = @intCast(index - 2);
             var lengthEncodingIndex: usize = 0;
@@ -37,7 +47,7 @@ pub fn Encoder(contractT: type) type {
                 }
             } else if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
                 if (value.len > std.math.maxInt(u8)) {
-                    return shared.MessageFormatError.ListTooLong;
+                    return MessageFormatError.ListTooLong;
                 }
                 const length: u8 = @intCast(value.len);
                 buffer.*[index.*] = length;

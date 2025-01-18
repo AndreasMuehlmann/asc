@@ -1,41 +1,47 @@
 const std = @import("std");
-const net = std.net;
+const os = std.os;
 
-const decode = @import("decode");
+const Client = @import("client.zig").Client;
+const NetClient = @import("netClient.zig").NetClient;
 const clientContract = @import("clientContract");
 
-const allocator = std.heap.page_allocator;
+var client: Client = undefined;
+var isClientCreated: bool = false;
 
-const Handler = struct {
-    file: std.fs.File,
+pub fn sigIntHandler(sig: c_int) callconv(.C) void {
+    _ = sig;
 
-    const Self = @This();
+    std.log.warn("Received signal to exit.\n", .{});
 
-    pub fn handleOrientation(self: *Self, orientation: clientContract.Orientation) !void {
-        const message = try std.fmt.allocPrint(allocator, "{d},{d},{d},{d}\n", .{ orientation.time, orientation.heading, orientation.roll, orientation.pitch });
-        try self.file.writeAll(message);
-        allocator.free(message);
+    if (isClientCreated) {
+        client.deinit();
     }
-};
+
+    std.process.exit(1);
+}
 
 pub fn main() !void {
-    const stream = try net.tcpConnectToHost(allocator, "raspberrypi.fritz.box", 8080);
-    defer stream.close();
-    var reader = stream.reader();
+    const allocator = std.heap.page_allocator;
 
-    const file = try std.fs.cwd().createFile("measurements.csv", .{ .truncate = true });
-    defer file.close();
+    const act = os.linux.Sigaction{
+        .handler = .{ .handler = sigIntHandler },
+        .mask = os.linux.empty_sigset,
+        .flags = 0,
+    };
 
-    try file.writeAll("time,heading,roll,pitch\n");
-
-    var decoder = decode.Decoder(clientContract.ClientContractEnum, clientContract.ClientContract, Handler).init(allocator, .{ .file = file });
-    var buffer: [256]u8 = undefined;
-    while (true) {
-        const bytesRead = try reader.read(&buffer);
-        if (bytesRead == 0) {
-            std.log.warn("connection closed", .{});
-            return;
-        }
-        try decoder.decode(buffer[0..bytesRead]);
+    if (os.linux.sigaction(os.linux.SIG.INT, &act, null) != 0) {
+        return error.SignalHandlerCreation;
     }
+
+    const netClient = try NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Client).init(
+        allocator,
+        "raspberrypi.fritz.box",
+        8080,
+        &client,
+    );
+    client = try Client.init(allocator, netClient);
+    isClientCreated = true;
+    defer client.deinit();
+
+    try client.run();
 }

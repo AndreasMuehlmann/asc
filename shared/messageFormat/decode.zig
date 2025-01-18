@@ -1,6 +1,16 @@
 const std = @import("std");
-const shared = @import("shared.zig");
-const encode = @import("encode.zig");
+
+//TODO: Compile Errors bei falschen typen
+//TODO: CallHandler ohne for loop und compile error wenn index nicht existiert
+
+pub const MAX_MESSAGE_LENGTH = 1000;
+pub const TERMINATION_BYTE = 0xAA;
+
+pub const MessageFormatError = error{
+    MessageToLong,
+    ListTooLong,
+    WrongTerminationByte,
+};
 
 pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime handlerT: type) type {
     const typeInfoEnum = @typeInfo(contractEnumT);
@@ -16,17 +26,17 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
 
     return struct {
         allocator: std.mem.Allocator,
-        handler: handlerT,
+        handler: *handlerT,
 
         messageLength: ?usize,
         byteCount: usize,
 
-        var array: [shared.MAX_MESSAGE_LENGTH]u8 = undefined;
+        var array: [MAX_MESSAGE_LENGTH]u8 = undefined;
         var internalBuffer: []u8 = &array;
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator, handler: handlerT) Self {
+        pub fn init(allocator: std.mem.Allocator, handler: *handlerT) Self {
             return .{ .allocator = allocator, .handler = handler, .messageLength = null, .byteCount = 0 };
         }
 
@@ -92,7 +102,7 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
             inline for (handlerFunctionNames, 0..) |handlerFunctionName, i| {
                 if (i == index) {
                     const function = @field(handlerT, handlerFunctionName);
-                    try function(&self.handler, @field(decoded, typeInfoEnum.Enum.fields[i].name));
+                    try function(self.handler, @field(decoded, typeInfoEnum.Enum.fields[i].name));
                 }
             }
         }
@@ -100,16 +110,16 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
         fn decodeMessageLength(self: *Self, buffer: *[]const u8) !void {
             var index: usize = 0;
             self.messageLength = try self.decodeType(u16, buffer, &index);
-            if (self.messageLength.? > shared.MAX_MESSAGE_LENGTH - 2) {
-                return shared.MessageFormatError.MessageToLong;
+            if (self.messageLength.? > MAX_MESSAGE_LENGTH - 2) {
+                return MessageFormatError.MessageToLong;
             }
         }
 
         fn decodeMessage(self: *Self, buffer: *[]const u8) !void {
             var index: usize = 0;
             const decoded = try self.decodeType(contractT, buffer, &index);
-            if (buffer.*[index] != 0xAA) {
-                return shared.MessageFormatError.WrongTerminationByte;
+            if (buffer.*[index] != TERMINATION_BYTE) {
+                return MessageFormatError.WrongTerminationByte;
             }
             self.byteCount = 0;
             self.messageLength = null;
