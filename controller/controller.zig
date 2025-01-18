@@ -25,7 +25,6 @@ pub const Controller = struct {
             const euler = try self.bno.getEuler();
             const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
             try self.netServer.send(clientContract.Orientation, orientation);
-            std.time.sleep(200_000_000);
         }
     }
 

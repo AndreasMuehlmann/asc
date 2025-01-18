@@ -149,8 +149,6 @@ fn bnoUartWrite(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8
         return 1;
     }
 
-    delay(50);
-
     if (response[0] != 0xEE) {
         std.log.err("Response after write attempt: Expected 0xEE in write reponse as first byte got: {d}.\n", .{response[0]});
         return 1;
@@ -177,7 +175,7 @@ fn bnoUartWrite(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8
         0x07 => {
             std.log.info("Response after write attempt: BUS_OVER_RUN_ERROR.\n", .{});
             //return 1;
-            delay(100);
+            delay(10);
             return bnoUartWrite(deviceAddress, registerAddress, data, length);
         },
         0x08 => {
