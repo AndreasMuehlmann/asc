@@ -4,20 +4,20 @@ const net = std.net;
 const decode = @import("decode");
 const encode = @import("encode");
 
-pub fn NetClient(comptime contractEnumT: type, comptime contractT: type, comptime handlerT: type) type {
+pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: type, comptime handlerT: type, comptime serverContract: type) type {
     return struct {
         allocator: std.mem.Allocator,
         stream: std.net.Stream,
-        decoder: decode.Decoder(contractEnumT, contractT, handlerT),
+        decoder: decode.Decoder(clientContractEnumT, clientContractT, handlerT),
 
-        const encoder = encode.Encoder(contractT);
+        const Encoder = encode.Encoder(serverContract);
 
         const Self = @This();
         var buffer: [256]u8 = undefined;
 
         pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16, handler: *handlerT) !Self {
             const stream = try net.tcpConnectToHost(allocator, host, port);
-            const decoder = decode.Decoder(contractEnumT, contractT, handlerT).init(allocator, handler);
+            const decoder = decode.Decoder(clientContractEnumT, clientContractT, handlerT).init(allocator, handler);
             return .{ .allocator = allocator, .stream = stream, .decoder = decoder };
         }
 
@@ -30,7 +30,7 @@ pub fn NetClient(comptime contractEnumT: type, comptime contractT: type, comptim
         }
 
         pub fn send(self: Self, comptime T: type, message: T) !void {
-            const bytes = try self.Encoder.encode(T, message);
+            const bytes = try Encoder.encode(T, message);
             self.stream.writeAll(bytes);
         }
 

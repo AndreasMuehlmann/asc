@@ -4,6 +4,7 @@ const os = std.os;
 const Client = @import("client.zig").Client;
 const NetClient = @import("netClient.zig").NetClient;
 const clientContract = @import("clientContract");
+const serverContract = @import("serverContract");
 
 var client: Client = undefined;
 var isClientCreated: bool = false;
@@ -33,7 +34,7 @@ pub fn main() !void {
         return error.SignalHandlerCreation;
     }
 
-    const netClient = try NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Client).init(
+    const netClient = try NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Client, serverContract.ServerContract).init(
         allocator,
         "raspberrypi.fritz.box",
         8080,

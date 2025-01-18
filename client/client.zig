@@ -3,15 +3,17 @@ const net = std.net;
 
 const NetClient = @import("netClient.zig").NetClient;
 const clientContract = @import("clientContract");
+const serverContract = @import("serverContract");
 
 pub const Client = struct {
     allocator: std.mem.Allocator,
     file: std.fs.File,
-    netClient: NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self),
+    netClient: NetClientT,
 
     const Self = @This();
+    const NetClientT = NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self, serverContract.ServerContract);
 
-    pub fn init(allocator: std.mem.Allocator, netClient: NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self)) !Self {
+    pub fn init(allocator: std.mem.Allocator, netClient: NetClientT) !Self {
         const file = try std.fs.cwd().createFile("measurements.csv", .{ .truncate = true });
         try file.writeAll("time,heading,roll,pitch\n");
 

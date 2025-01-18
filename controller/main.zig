@@ -3,16 +3,21 @@ const os = std.os;
 
 const pigpio = @cImport(@cInclude("pigpio.h"));
 const Controller = @import("controller.zig").Controller;
+const NetServer = @import("netServer.zig").NetServer;
 
-var controller: ?Controller = null;
+const clientContract = @import("clientContract");
+const serverContract = @import("serverContract");
+
+var controller: Controller = undefined;
+var isControllerCreated: bool = false;
 
 pub fn sigIntHandler(sig: c_int) callconv(.C) void {
     _ = sig;
 
     std.log.warn("Received signal to exit.\n", .{});
 
-    if (controller != null) {
-        controller.?.deinit();
+    if (isControllerCreated) {
+        controller.deinit();
     }
     pigpio.gpioTerminate();
 
@@ -37,8 +42,15 @@ pub fn main() !void {
         return error.SignalHandlerCreation;
     }
 
-    controller = try Controller.init(allocator);
-    defer controller.?.deinit();
+    const netServer = try NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
+        allocator,
+        8080,
+        &controller,
+    );
 
-    try controller.?.run();
+    controller = try Controller.init(allocator, netServer);
+    isControllerCreated = true;
+    defer controller.deinit();
+
+    try controller.run();
 }
