@@ -2,7 +2,8 @@ const std = @import("std");
 const net = std.net;
 
 const NetClient = @import("netClient.zig").NetClient;
-const Gui = @import("gui.zig").Gui;
+const guiApi = @import("gui.zig");
+const Gui = guiApi.Gui;
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 
@@ -19,20 +20,20 @@ pub const Client = struct {
         const file = try std.fs.cwd().createFile("measurements.csv", .{ .truncate = true });
         try file.writeAll("time,heading,roll,pitch\n");
 
-        const gui = try Gui.init();
+        const gui = try Gui.init(allocator);
 
         return .{ .allocator = allocator, .file = file, .netClient = netClient, .gui = gui };
     }
 
     pub fn run(self: *Self) !void {
         while (true) {
+            try self.netClient.recv();
             self.gui.update() catch |err| {
                 if (err == Gui.GuiError.Quit) {
                     return;
                 }
                 return err;
             };
-            try self.netClient.recv();
         }
     }
 
@@ -47,5 +48,7 @@ pub const Client = struct {
         const message = try std.fmt.allocPrint(self.allocator, "{d},{d},{d},{d}\n", .{ orientation.time, orientation.heading, orientation.roll, orientation.pitch });
         try self.file.writeAll(message);
         self.allocator.free(message);
+        var array = [_]guiApi.Vec2D{.{ .x = @floatFromInt(orientation.time), .y = @as(f64, orientation.heading) }};
+        try self.gui.addPoints("Orientation", "Heading", &array);
     }
 };
