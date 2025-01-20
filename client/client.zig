@@ -2,6 +2,7 @@ const std = @import("std");
 const net = std.net;
 
 const NetClient = @import("netClient.zig").NetClient;
+const Gui = @import("gui.zig").Gui;
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 
@@ -9,6 +10,7 @@ pub const Client = struct {
     allocator: std.mem.Allocator,
     file: std.fs.File,
     netClient: NetClientT,
+    gui: Gui,
 
     const Self = @This();
     const NetClientT = NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self, serverContract.ServerContract);
@@ -17,11 +19,19 @@ pub const Client = struct {
         const file = try std.fs.cwd().createFile("measurements.csv", .{ .truncate = true });
         try file.writeAll("time,heading,roll,pitch\n");
 
-        return .{ .allocator = allocator, .file = file, .netClient = netClient };
+        const gui = try Gui.init();
+
+        return .{ .allocator = allocator, .file = file, .netClient = netClient, .gui = gui };
     }
 
     pub fn run(self: *Self) !void {
         while (true) {
+            self.gui.update() catch |err| {
+                if (err == Gui.GuiError.Quit) {
+                    return;
+                }
+                return err;
+            };
             try self.netClient.recv();
         }
     }
@@ -29,6 +39,7 @@ pub const Client = struct {
     pub fn deinit(self: Self) void {
         self.netClient.deinit();
         self.file.close();
+        self.gui.deinit();
     }
 
     pub fn handleOrientation(self: *Self, orientation: clientContract.Orientation) !void {

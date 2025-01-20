@@ -69,6 +69,10 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("serverContract", serverContractModule);
     clientExe.root_module.addImport("clientContract", clientContractModule);
 
+    clientExe.linkSystemLibrary2("SDL2", .{ .preferred_link_mode = .dynamic });
+    clientExe.linkSystemLibrary2("SDL2_gfx", .{ .preferred_link_mode = .dynamic });
+    clientExe.linkLibC();
+
     b.installArtifact(clientExe);
 
     const runClientCmd = b.addRunArtifact(clientExe);
