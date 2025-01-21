@@ -9,6 +9,8 @@ pub fn build(b: *std.Build) void {
     const serverContractModule = b.addModule("encode", .{ .root_source_file = b.path("shared/serverContract.zig") });
     const clientContractModule = b.addModule("decode", .{ .root_source_file = b.path("shared/clientContract.zig") });
 
+    const clap = b.dependency("clap", .{});
+
     const unitTestsMessageFormat = b.addTest(.{
         .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
         .target = b.resolveTargetQuery(.{}),
@@ -26,6 +28,7 @@ pub fn build(b: *std.Build) void {
     controllerExe.root_module.addImport("decode", decodeModule);
     controllerExe.root_module.addImport("serverContract", serverContractModule);
     controllerExe.root_module.addImport("clientContract", clientContractModule);
+    controllerExe.root_module.addImport("clap", clap.module("clap"));
 
     controllerExe.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
     controllerExe.addCSourceFile(.{
@@ -68,6 +71,7 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("decode", decodeModule);
     clientExe.root_module.addImport("serverContract", serverContractModule);
     clientExe.root_module.addImport("clientContract", clientContractModule);
+    clientExe.root_module.addImport("clap", clap.module("clap"));
 
     clientExe.linkSystemLibrary2("SDL2", .{ .preferred_link_mode = .dynamic });
     clientExe.linkSystemLibrary2("SDL2_gfx", .{ .preferred_link_mode = .dynamic });

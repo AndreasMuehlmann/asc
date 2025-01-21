@@ -79,7 +79,8 @@ const Plot = struct {
 
     pub fn draw(self: Self) void {
         for (self.dataSets) |dataSet| {
-            self.drawPoints(dataSet);
+            //self.drawPoints(dataSet);
+            self.drawLines(dataSet);
         }
         _ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y + self.size.y), @intFromFloat(self.topLeft.x + self.size.x), @intFromFloat(self.topLeft.y + self.size.y), lineThickness, self.color.r, self.color.g, self.color.b, self.color.a);
         _ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y + self.size.y), @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y), lineThickness, self.color.r, self.color.g, self.color.b, self.color.a);
