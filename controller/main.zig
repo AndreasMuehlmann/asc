@@ -31,7 +31,7 @@ pub fn main() !void {
 
     const params = comptime clap.parseParamsComptime(
         \\-h, --help            Display this help and exit.
-        \\-p, --port <u16>      An option parameter, which takes a value.
+        \\-p, --port <u16>      Port for the server.
     );
 
     var diag = clap.Diagnostic{};
@@ -47,7 +47,6 @@ pub fn main() !void {
     if (res.args.help != 0)
         return clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
 
-    const allocator = std.heap.page_allocator;
     if (pigpio.gpioInitialise() < 0) {
         std.log.err("Failure in gpioInitialise.\n", .{});
         return error.PigpioInitialization;
@@ -69,12 +68,12 @@ pub fn main() !void {
         port = argPort;
     }
     const netServer = try NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
-        allocator,
+        gpa.allocator(),
         port,
         &controller,
     );
 
-    controller = try Controller.init(allocator, netServer);
+    controller = try Controller.init(gpa.allocator(), netServer);
     isControllerCreated = true;
     defer controller.deinit();
 
