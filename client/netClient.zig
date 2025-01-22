@@ -1,5 +1,6 @@
 const std = @import("std");
 const net = std.net;
+const posix = std.posix;
 
 const decode = @import("decode");
 const encode = @import("encode");
@@ -7,24 +8,59 @@ const encode = @import("encode");
 pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: type, comptime handlerT: type, comptime serverContract: type) type {
     return struct {
         allocator: std.mem.Allocator,
+        socket: posix.socket_t,
         stream: std.net.Stream,
         decoder: decode.Decoder(clientContractEnumT, clientContractT, handlerT),
 
         const Encoder = encode.Encoder(serverContract);
 
         const Self = @This();
-        var buffer: [256]u8 = undefined;
+        var buffer: [128]u8 = undefined;
 
-        pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16, handler: *handlerT) !Self {
-            const stream = try net.tcpConnectToHost(allocator, host, port);
+        pub fn init(allocator: std.mem.Allocator, _: []const u8, port: u16, handler: *handlerT) !Self {
+            const address = std.net.Address.initIp4(.{ 192, 168, 178, 29 }, port);
+
+            const tpe: u32 = posix.SOCK.STREAM | posix.SOCK.NONBLOCK;
+            const protocol = posix.IPPROTO.TCP;
+            const socket = try posix.socket(address.any.family, tpe, protocol);
+
+            try posix.setsockopt(socket, posix.SOL.SOCKET, posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
+            posix.connect(socket, &address.any, address.getOsSockLen()) catch |err| {
+                if (err == error.WouldBlock) {
+                    const pfd = posix.pollfd{
+                        .fd = socket,
+                        .events = posix.POLL.OUT,
+                        .revents = 0,
+                    };
+                    var pfdArray = [1]posix.pollfd{pfd};
+                    const pfdSlice: []posix.pollfd = &pfdArray;
+                    const pollResult = try posix.poll(pfdSlice, -1);
+                    if (pollResult <= 0) {
+                        return error.PollFailed;
+                    }
+                    if (pfdSlice[0].revents & posix.POLL.OUT == 0) {
+                        return error.ConnectionFailed;
+                    }
+                } else {
+                    return err;
+                }
+            };
+
+            const stream = std.net.Stream{ .handle = socket };
+
             const decoder = decode.Decoder(clientContractEnumT, clientContractT, handlerT).init(allocator, handler);
-            return .{ .allocator = allocator, .stream = stream, .decoder = decoder };
+            return .{ .allocator = allocator, .socket = socket, .stream = stream, .decoder = decoder };
         }
 
         pub fn recv(self: *Self) !void {
-            const bytesRead = try self.stream.reader().read(&buffer);
+            const bytesRead = self.stream.read(&buffer) catch |err| {
+                if (err == error.WouldBlock) {
+                    return;
+                }
+                return err;
+            };
             if (bytesRead == 0) {
-                return error.ConnectionClosed;
+                return;
             }
             try self.decoder.decode(buffer[0..bytesRead]);
         }
@@ -35,6 +71,7 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
         }
 
         pub fn deinit(self: Self) void {
+            posix.close(self.socket);
             self.stream.close();
         }
     };
