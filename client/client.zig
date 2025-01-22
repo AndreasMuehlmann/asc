@@ -9,7 +9,6 @@ const serverContract = @import("serverContract");
 
 pub const Client = struct {
     allocator: std.mem.Allocator,
-    file: std.fs.File,
     netClient: NetClientT,
     gui: Gui,
 
@@ -17,12 +16,9 @@ pub const Client = struct {
     const NetClientT = NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self, serverContract.ServerContract);
 
     pub fn init(allocator: std.mem.Allocator, netClient: NetClientT) !Self {
-        const file = try std.fs.cwd().createFile("measurements.csv", .{ .truncate = true });
-        try file.writeAll("time,heading,roll,pitch\n");
-
         const gui = try Gui.init(allocator);
 
-        return .{ .allocator = allocator, .file = file, .netClient = netClient, .gui = gui };
+        return .{ .allocator = allocator, .netClient = netClient, .gui = gui };
     }
 
     pub fn run(self: *Self) !void {
@@ -39,15 +35,10 @@ pub const Client = struct {
 
     pub fn deinit(self: Self) void {
         self.netClient.deinit();
-        self.file.close();
         self.gui.deinit();
     }
 
     pub fn handleOrientation(self: *Self, orientation: clientContract.Orientation) !void {
-        std.debug.print("{d},{d},{d},{d}\n", .{ orientation.time, orientation.heading, orientation.roll, orientation.pitch });
-        const message = try std.fmt.allocPrint(self.allocator, "{d},{d},{d},{d}\n", .{ orientation.time, orientation.heading, orientation.roll, orientation.pitch });
-        try self.file.writeAll(message);
-        self.allocator.free(message);
         var array = [_]guiApi.Vec2D{.{ .x = @floatFromInt(orientation.time), .y = @as(f64, orientation.heading) }};
         try self.gui.addPoints("Orientation", "Heading", &array);
     }

@@ -24,3 +24,13 @@ Then set the `REMOTE_DIRECTORY` to an existing directory in the users home (rela
 ### Run the program
 
 `zig build run`
+
+## TODO
+
+- Nicer Drawing off datasets
+- Nicer Drawing off coordinate system
+- Coordinates not all mapped correctly
+- Moving xmin and xmax
+
+- Closing connection properly?
+- Endianness and test for windows

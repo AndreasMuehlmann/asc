@@ -34,7 +34,7 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
                     };
                     var pfdArray = [1]posix.pollfd{pfd};
                     const pfdSlice: []posix.pollfd = &pfdArray;
-                    const pollResult = try posix.poll(pfdSlice, -1);
+                    const pollResult = try posix.poll(pfdSlice, 5000);
                     if (pollResult <= 0) {
                         return error.PollFailed;
                     }
@@ -60,7 +60,7 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
                 return err;
             };
             if (bytesRead == 0) {
-                return;
+                return error.ConnectionClosed;
             }
             try self.decoder.decode(buffer[0..bytesRead]);
         }
@@ -71,7 +71,6 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
         }
 
         pub fn deinit(self: Self) void {
-            posix.close(self.socket);
             self.stream.close();
         }
     };

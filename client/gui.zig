@@ -118,6 +118,7 @@ const Plot = struct {
         for (self.dataSets) |dataSet| {
             dataSet.points.deinit();
         }
+        self.allocator.free(self.dataSets);
     }
 };
 
@@ -203,6 +204,9 @@ pub const Gui = struct {
     }
 
     pub fn deinit(self: Self) void {
+        for (self.plots) |plot| {
+            plot.deinit();
+        }
         self.allocator.free(self.plots);
         sdl2.SDL_DestroyRenderer(self.renderer);
         sdl2.SDL_DestroyWindow(self.window);

@@ -10,7 +10,6 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
         allocator: std.mem.Allocator,
 
         listener: posix.socket_t,
-        socket: posix.socket_t,
         stream: net.Stream,
 
         decoder: decode.Decoder(serverContractEnumT, serverContractT, handlerT),
@@ -51,7 +50,7 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
 
             const decoder = decode.Decoder(serverContractEnumT, serverContractT, handlerT).init(allocator, handler);
 
-            return .{ .allocator = allocator, .listener = listener, .socket = socket, .stream = stream, .decoder = decoder };
+            return .{ .allocator = allocator, .listener = listener, .stream = stream, .decoder = decoder };
         }
 
         pub fn recv(self: *Self) !void {
@@ -74,7 +73,6 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
 
         pub fn deinit(self: Self) void {
             self.stream.close();
-            posix.close(self.socket);
             posix.close(self.listener);
         }
     };
