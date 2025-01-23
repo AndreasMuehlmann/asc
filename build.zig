@@ -73,8 +73,11 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("clientContract", clientContractModule);
     clientExe.root_module.addImport("clap", clap.module("clap"));
 
+    if (b.resolveTargetQuery(.{}).result.os.tag == .windows) {
+        clientExe.addIncludePath(b.path("lib/SDL2"));
+        clientExe.addLibraryPath(b.path("lib/SDL2"));
+    }
     clientExe.linkSystemLibrary2("SDL2", .{ .preferred_link_mode = .dynamic });
-    clientExe.linkSystemLibrary2("SDL2_gfx", .{ .preferred_link_mode = .dynamic });
     clientExe.linkLibC();
 
     b.installArtifact(clientExe);

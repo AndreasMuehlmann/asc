@@ -4,7 +4,7 @@ const sdl2 = @cImport({
     @cInclude("SDL2/SDL.h");
     @cInclude("SDL2/SDL_render.h");
     @cInclude("SDL2/SDL_video.h");
-    @cInclude("SDL2/SDL2_gfxPrimitives.h");
+    //@cInclude("SDL2/SDL2_gfxPrimitives.h");
 });
 
 pub const Vec2D = struct {
@@ -82,16 +82,17 @@ const Plot = struct {
             //self.drawPoints(dataSet);
             self.drawLines(dataSet);
         }
-        _ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y + self.size.y), @intFromFloat(self.topLeft.x + self.size.x), @intFromFloat(self.topLeft.y + self.size.y), lineThickness, self.color.r, self.color.g, self.color.b, self.color.a);
-        _ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y + self.size.y), @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y), lineThickness, self.color.r, self.color.g, self.color.b, self.color.a);
+
+        //_ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y + self.size.y), @intFromFloat(self.topLeft.x + self.size.x), @intFromFloat(self.topLeft.y + self.size.y), lineThickness, self.color.r, self.color.g, self.color.b, self.color.a);
+        //_ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y + self.size.y), @intFromFloat(self.topLeft.x), @intFromFloat(self.topLeft.y), lineThickness, self.color.r, self.color.g, self.color.b, self.color.a);
     }
 
-    fn drawPoints(self: Self, dataSet: DataSet) void {
-        for (dataSet.points.items) |point| {
-            const globalPoint = self.toGlobal(point);
-            _ = sdl2.filledCircleRGBA(self.renderer, @intFromFloat(globalPoint.x), @intFromFloat(globalPoint.y), 2, dataSet.color.r, dataSet.color.g, dataSet.color.b, dataSet.color.a);
-        }
-    }
+    //fn drawPoints(self: Self, dataSet: DataSet) void {
+    //    for (dataSet.points.items) |point| {
+    //        const globalPoint = self.toGlobal(point);
+    //        _ = sdl2.filledCircleRGBA(self.renderer, @intFromFloat(globalPoint.x), @intFromFloat(globalPoint.y), 2, dataSet.color.r, dataSet.color.g, dataSet.color.b, dataSet.color.a);
+    //    }
+    //}
 
     fn drawLines(self: Self, dataSet: DataSet) void {
         if (dataSet.points.items.len == 0) {
@@ -100,7 +101,9 @@ const Plot = struct {
         var prevPoint = self.toGlobal(dataSet.points.items[0]);
         for (1..dataSet.points.items.len) |i| {
             const nextPoint = self.toGlobal(dataSet.points.items[i]);
-            _ = sdl2.thickLineRGBA(self.renderer, @intFromFloat(prevPoint.x), @intFromFloat(prevPoint.y), @intFromFloat(nextPoint.x), @intFromFloat(nextPoint.y), dataSet.lineWidth, dataSet.color.r, dataSet.color.g, dataSet.color.b, dataSet.color.a);
+
+            _ = sdl2.SDL_SetRenderDrawColor(self.renderer, self.color.r, self.color.g, self.color.b, self.color.a);
+            _ = sdl2.SDL_RenderDrawLine(self.renderer, @intFromFloat(prevPoint.x), @intFromFloat(prevPoint.y), @intFromFloat(nextPoint.x), @intFromFloat(nextPoint.y));
             prevPoint = nextPoint;
         }
     }
