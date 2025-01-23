@@ -27,10 +27,20 @@ Then set the `REMOTE_DIRECTORY` to an existing directory in the users home (rela
 
 ## TODO
 
+- don't use poll windows since it is not supported
+- Closing connection properly
+- submodule für bno
+
 - Nicer Drawing off datasets
 - Nicer Drawing off coordinate system
 - Coordinates not all mapped correctly
 - Moving xmin and xmax
 
-- Closing connection properly?
-- Endianness and test for windows
+Later:
+- IMU that works well in high acceleration environment
+
+Maybe:
+- Endianness?
+- Compile error bei falschen typen (decode)
+- Compile error wenn typ nicht in contract (encode)
+- CallHandler ohne for loop und compile error wenn index nicht existiert

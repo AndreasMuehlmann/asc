@@ -3,9 +3,6 @@ const std = @import("std");
 const pigpio = @cImport(@cInclude("pigpio.h"));
 const bnoApi = @cImport(@cInclude("bno055.h"));
 
-// TODO: remove delays
-// TODO: don't print bus over run
-
 const BnoError = error{
     OpenBusError,
     CloseBusError,

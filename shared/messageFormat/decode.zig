@@ -1,8 +1,5 @@
 const std = @import("std");
 
-//TODO: Compile Errors bei falschen typen
-//TODO: CallHandler ohne for loop und compile error wenn index nicht existiert
-
 pub const MAX_MESSAGE_LENGTH = 1000;
 pub const TERMINATION_BYTE = 0xAA;
 

@@ -1,7 +1,5 @@
 const std = @import("std");
 
-//TODO: compile error wenn type nicht in contract
-
 pub const MAX_MESSAGE_LENGTH = 1000;
 pub const TERMINATION_BYTE = 0xAA;
 
