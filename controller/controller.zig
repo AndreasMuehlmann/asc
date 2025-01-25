@@ -11,12 +11,13 @@ pub const Controller = struct {
     const Self = @This();
     const NetServerT = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract);
 
+    allocator: std.mem.Allocator,
     bno: Bno,
     netServer: NetServerT,
 
     pub fn init(allocator: std.mem.Allocator, netServer: NetServerT) !Self {
         const bno = try Bno.init(allocator);
-        return .{ .bno = bno, .netServer = netServer };
+        return .{ .allocator = allocator, .bno = bno, .netServer = netServer };
     }
 
     pub fn run(self: *Self) !void {
@@ -32,8 +33,9 @@ pub const Controller = struct {
         }
     }
 
-    pub fn handleCommand(_: *Self, command: []u8) !void {
+    pub fn handleCommand(self: *Self, command: []const u8) !void {
         std.debug.print("{s}\n", .{command});
+        self.allocator.free(command);
     }
 
     pub fn deinit(self: Self) void {

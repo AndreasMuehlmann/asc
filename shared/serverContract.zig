@@ -3,5 +3,5 @@ pub const ServerContractEnum = enum(u8) {
 };
 
 pub const ServerContract = union(ServerContractEnum) {
-    command: []u8,
+    command: []const u8,
 };

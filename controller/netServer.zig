@@ -67,7 +67,13 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
 
         pub fn send(self: Self, comptime T: type, message: T) !void {
             const bytes = try Encoder.encode(T, message);
-            try self.stream.writeAll(bytes);
+            var index: usize = 0;
+            while (index < bytes.len) {
+                index += self.stream.write(bytes[index..]) catch |err| switch (err) {
+                    error.WouldBlock => continue,
+                    else => return err,
+                };
+            }
         }
 
         pub fn deinit(self: Self) void {

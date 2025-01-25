@@ -27,6 +27,7 @@ pub const Client = struct {
                 error.ConnectionClosed => return,
                 else => return err,
             };
+
             self.gui.update() catch |err| switch (err) {
                 Gui.GuiError.Quit => return,
                 else => return err,
