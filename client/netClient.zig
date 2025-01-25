@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const net = std.net;
 const posix = std.posix;
 
@@ -32,19 +33,38 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
 
                 posix.connect(socket, &address.any, address.getOsSockLen()) catch |err| switch (err) {
                     error.WouldBlock => {
-                        const pfd = posix.pollfd{
-                            .fd = socket,
-                            .events = posix.POLL.OUT,
-                            .revents = 0,
-                        };
-                        var pfdArray = [1]posix.pollfd{pfd};
-                        const pfdSlice: []posix.pollfd = &pfdArray;
-                        const pollResult = try posix.poll(pfdSlice, 5000);
-                        if (pollResult <= 0) {
-                            return error.PollFailed;
-                        }
-                        if (pfdSlice[0].revents & posix.POLL.OUT == 0) {
-                            return error.ConnectionFailed;
+                        if (builtin.os.tag == .windows) {
+                            const pfd = std.os.windows.ws2_32.pollfd{
+                                .fd = socket,
+                                .events = posix.POLL.OUT,
+                                .revents = 0,
+                            };
+                            var pfdArray = [1]posix.pollfd{pfd};
+
+                            const manyPtr: [*]std.os.windows.ws2_32.pollfd = &pfdArray;
+                            const pollResult = std.os.windows.poll(manyPtr, 1, 5000);
+                            if (pollResult <= 0) {
+                                return error.PollFailed;
+                            }
+
+                            if (pfdArray[0].revents & posix.POLL.OUT == 0) {
+                                return error.ConnectionFailed;
+                            }
+                        } else {
+                            const pfd = posix.pollfd{
+                                .fd = socket,
+                                .events = posix.POLL.OUT,
+                                .revents = 0,
+                            };
+                            var pfdArray = [1]posix.pollfd{pfd};
+                            const pfdSlice: []posix.pollfd = &pfdArray;
+                            const pollResult = try posix.poll(pfdSlice, 5000);
+                            if (pollResult <= 0) {
+                                return error.PollFailed;
+                            }
+                            if (pfdSlice[0].revents & posix.POLL.OUT == 0) {
+                                return error.ConnectionFailed;
+                            }
                         }
                     },
                     error.ConnectionRefused => {
