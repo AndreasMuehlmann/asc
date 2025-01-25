@@ -22,7 +22,6 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
         pub fn init(allocator: std.mem.Allocator, port: u16, handler: *handlerT) !Self {
             const address = std.net.Address.initIp4(.{ 0, 0, 0, 0 }, port);
 
-            // Create a non-blocking socket
             const sock = try posix.socket(address.any.family, posix.SOCK.STREAM | posix.SOCK.NONBLOCK, posix.IPPROTO.TCP);
             defer posix.close(sock);
 
@@ -54,14 +53,14 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
         }
 
         pub fn recv(self: *Self) !void {
-            const bytesRead = try self.stream.read(&buffer) catch |err| {
+            const bytesRead = self.stream.read(&buffer) catch |err| {
                 if (err == error.WouldBlock) {
                     return;
                 }
                 return err;
             };
             if (bytesRead == 0) {
-                return;
+                return error.ConnectionClosed;
             }
             try self.decoder.decode(buffer[0..bytesRead]);
         }

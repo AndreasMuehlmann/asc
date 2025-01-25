@@ -28,7 +28,6 @@ Then set the `REMOTE_DIRECTORY` to an existing directory in the users home (rela
 ## TODO
 
 - don't use poll windows since it is not supported
-- Closing connection properly
 - submodule für bno
 
 - Nicer Drawing off datasets

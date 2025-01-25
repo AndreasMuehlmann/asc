@@ -19,13 +19,23 @@ pub const Controller = struct {
         return .{ .bno = bno, .netServer = netServer };
     }
 
-    pub fn run(self: Self) !void {
+    pub fn run(self: *Self) !void {
         const start = std.time.milliTimestamp();
         while (true) {
             const euler = try self.bno.getEuler();
+            self.netServer.recv() catch |err| {
+                if (err == error.ConnectionClosed) {
+                    return;
+                }
+                return err;
+            };
             const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
             try self.netServer.send(clientContract.Orientation, orientation);
         }
+    }
+
+    pub fn handleCommand(_: *Self, command: []u8) !void {
+        std.debug.print("{s}\n", .{command});
     }
 
     pub fn deinit(self: Self) void {

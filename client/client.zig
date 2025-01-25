@@ -23,7 +23,12 @@ pub const Client = struct {
 
     pub fn run(self: *Self) !void {
         while (true) {
-            try self.netClient.recv();
+            self.netClient.recv() catch |err| {
+                if (err == error.ConnectionClosed) {
+                    return;
+                }
+                return err;
+            };
             self.gui.update() catch |err| {
                 if (err == Gui.GuiError.Quit) {
                     return;

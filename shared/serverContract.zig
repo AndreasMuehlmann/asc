@@ -1,3 +1,7 @@
-pub const ServerContractEnum = enum(u8) {};
+pub const ServerContractEnum = enum(u8) {
+    command,
+};
 
-pub const ServerContract = union(ServerContractEnum) {};
+pub const ServerContract = union(ServerContractEnum) {
+    command: []u8,
+};
