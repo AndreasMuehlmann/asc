@@ -17,34 +17,43 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
         const Self = @This();
         var buffer: [128]u8 = undefined;
 
-        pub fn init(allocator: std.mem.Allocator, _: []const u8, port: u16, handler: *handlerT) !Self {
-            const address = std.net.Address.initIp4(.{ 192, 168, 178, 29 }, port);
+        pub fn init(allocator: std.mem.Allocator, hostname: []const u8, port: u16, handler: *handlerT) !Self {
+            const addressList = try net.getAddressList(allocator, hostname, port);
+            defer addressList.deinit();
 
+            if (addressList.addrs.len == 0) return error.UnknownHostName;
+
+            var socket: posix.socket_t = undefined;
             const tpe: u32 = posix.SOCK.STREAM | posix.SOCK.NONBLOCK;
             const protocol = posix.IPPROTO.TCP;
-            const socket = try posix.socket(address.any.family, tpe, protocol);
+            for (addressList.addrs) |address| {
+                socket = try posix.socket(address.any.family, tpe, protocol);
+                try posix.setsockopt(socket, posix.SOL.SOCKET, posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
 
-            try posix.setsockopt(socket, posix.SOL.SOCKET, posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
-            posix.connect(socket, &address.any, address.getOsSockLen()) catch |err| {
-                if (err == error.WouldBlock) {
-                    const pfd = posix.pollfd{
-                        .fd = socket,
-                        .events = posix.POLL.OUT,
-                        .revents = 0,
-                    };
-                    var pfdArray = [1]posix.pollfd{pfd};
-                    const pfdSlice: []posix.pollfd = &pfdArray;
-                    const pollResult = try posix.poll(pfdSlice, 5000);
-                    if (pollResult <= 0) {
-                        return error.PollFailed;
-                    }
-                    if (pfdSlice[0].revents & posix.POLL.OUT == 0) {
-                        return error.ConnectionFailed;
-                    }
-                } else {
-                    return err;
-                }
-            };
+                posix.connect(socket, &address.any, address.getOsSockLen()) catch |err| switch (err) {
+                    error.WouldBlock => {
+                        const pfd = posix.pollfd{
+                            .fd = socket,
+                            .events = posix.POLL.OUT,
+                            .revents = 0,
+                        };
+                        var pfdArray = [1]posix.pollfd{pfd};
+                        const pfdSlice: []posix.pollfd = &pfdArray;
+                        const pollResult = try posix.poll(pfdSlice, 5000);
+                        if (pollResult <= 0) {
+                            return error.PollFailed;
+                        }
+                        if (pfdSlice[0].revents & posix.POLL.OUT == 0) {
+                            return error.ConnectionFailed;
+                        }
+                    },
+                    error.ConnectionRefused => {
+                        posix.close(socket);
+                        continue;
+                    },
+                    else => return err,
+                };
+            }
 
             const stream = std.net.Stream{ .handle = socket };
 
@@ -53,11 +62,9 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
         }
 
         pub fn recv(self: *Self) !void {
-            const bytesRead = self.stream.read(&buffer) catch |err| {
-                if (err == error.WouldBlock) {
-                    return;
-                }
-                return err;
+            const bytesRead = self.stream.read(&buffer) catch |err| switch (err) {
+                error.WouldBlock => return,
+                else => return err,
             };
             if (bytesRead == 0) {
                 return error.ConnectionClosed;

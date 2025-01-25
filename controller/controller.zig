@@ -23,11 +23,9 @@ pub const Controller = struct {
         const start = std.time.milliTimestamp();
         while (true) {
             const euler = try self.bno.getEuler();
-            self.netServer.recv() catch |err| {
-                if (err == error.ConnectionClosed) {
-                    return;
-                }
-                return err;
+            self.netServer.recv() catch |err| switch (err) {
+                error.ConnectionClosed => return,
+                else => return err,
             };
             const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
             try self.netServer.send(clientContract.Orientation, orientation);

@@ -28,12 +28,7 @@ Then set the `REMOTE_DIRECTORY` to an existing directory in the users home (rela
 ## TODO
 
 - don't use poll windows since it is not supported
-- submodule für bno
-
-- Nicer Drawing off datasets
-- Nicer Drawing off coordinate system
-- Coordinates not all mapped correctly
-- Moving xmin and xmax
+- use raylib for plotting and ui
 
 Later:
 - IMU that works well in high acceleration environment
