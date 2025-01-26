@@ -27,6 +27,8 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
             var socket: posix.socket_t = undefined;
             const tpe: u32 = posix.SOCK.STREAM | posix.SOCK.NONBLOCK;
             const protocol = posix.IPPROTO.TCP;
+
+            var validSocket: bool = false;
             for (addressList.addrs) |address| {
                 socket = try posix.socket(address.any.family, tpe, protocol);
                 try posix.setsockopt(socket, posix.SOL.SOCKET, posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
@@ -50,6 +52,9 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
                             if (pfdArray[0].revents & posix.POLL.OUT == 0) {
                                 return error.ConnectionFailed;
                             }
+
+                            std.posix.getsockoptError(socket) catch continue;
+                            validSocket = true;
                         } else {
                             const pfd = posix.pollfd{
                                 .fd = socket,
@@ -65,7 +70,14 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
                             if (pfdSlice[0].revents & posix.POLL.OUT == 0) {
                                 return error.ConnectionFailed;
                             }
+
+                            std.posix.getsockoptError(socket) catch |sockOptErr| switch (sockOptErr) {
+                                error.ConnectionRefused => continue,
+                                else => return sockOptErr,
+                            };
+                            validSocket = true;
                         }
+                        break;
                     },
                     error.ConnectionRefused => {
                         posix.close(socket);
@@ -73,6 +85,11 @@ pub fn NetClient(comptime clientContractEnumT: type, comptime clientContractT: t
                     },
                     else => return err,
                 };
+            }
+
+            if (!validSocket) {
+                std.log.err("All hosts refused connection.\n", .{});
+                return error.ConnectionRefused;
             }
 
             const stream = std.net.Stream{ .handle = socket };
