@@ -7,6 +7,10 @@ const NetServer = @import("netServer.zig").NetServer;
 
 const encode = @import("encode");
 
+fn timestampMicros() f64 {
+    return @floatFromInt(std.time.microTimestamp());
+}
+
 pub const Controller = struct {
     const Self = @This();
     const NetServerT = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract);
@@ -22,7 +26,21 @@ pub const Controller = struct {
 
     pub fn run(self: *Self) !void {
         const start = std.time.milliTimestamp();
-        while (true) {
+
+        const ticksPerSecond: f64 = 20.0;
+        const microsPerTick: f64 = 1_000_000.0 / ticksPerSecond;
+        var accumulator: f64 = 0.0;
+        var lastUpdate = timestampMicros();
+        while (true) : (accumulator -= microsPerTick) {
+            while (accumulator + timestampMicros() - lastUpdate < 0) {
+                std.time.sleep((microsPerTick / 100.0) * 1_000);
+            }
+            accumulator += timestampMicros() - lastUpdate;
+            if (accumulator > 1_000_000.0) {
+                accumulator = 1_000_000.0;
+            }
+            lastUpdate = timestampMicros();
+
             const euler = try self.bno.getEuler();
             self.netServer.recv() catch |err| switch (err) {
                 error.ConnectionClosed => return,
@@ -30,6 +48,8 @@ pub const Controller = struct {
             };
             const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
             try self.netServer.send(clientContract.Orientation, orientation);
+
+            std.time.sleep((microsPerTick / 10.0) * 1_000);
         }
     }
 

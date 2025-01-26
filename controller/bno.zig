@@ -170,8 +170,7 @@ fn bnoUartWrite(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8
             return 1;
         },
         0x07 => {
-            std.log.info("Response after write attempt: BUS_OVER_RUN_ERROR.\n", .{});
-            //return 1;
+            //std.log.info("Response after write attempt: BUS_OVER_RUN_ERROR.\n", .{});
             delay(10);
             return bnoUartWrite(deviceAddress, registerAddress, data, length);
         },

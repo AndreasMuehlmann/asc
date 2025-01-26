@@ -27,11 +27,12 @@ Then set the `REMOTE_DIRECTORY` to an existing directory in the users home (rela
 
 ## TODO
 
-- don't use poll windows since it is not supported
 - use raylib for plotting and ui
+- battery for raspberry pi
+- build setup into car
 
 Later:
-- IMU that works well in high acceleration environment
+- IMU that works well in high acceleration environment and also uses I2C
 
 Maybe:
 - Endianness?
