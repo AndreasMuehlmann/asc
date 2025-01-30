@@ -31,7 +31,6 @@ const Plot = struct {
     size: rl.Vector2,
 
     scaling: rl.Vector2,
-    origin: rl.Vector2,
 
     dataSets: []DataSet,
 
@@ -55,7 +54,6 @@ const Plot = struct {
             .size = rl.Vector2.zero(),
 
             .scaling = rl.Vector2.zero(),
-            .origin = rl.Vector2.zero(),
 
             .dataSets = dataSets,
         };
@@ -65,31 +63,40 @@ const Plot = struct {
 
     pub fn resize(self: *Self, windowWidth: f32, windowHeight: f32) void {
         self.topLeft = rl.Vector2.init(windowWidth, windowHeight).multiply(self.relativeTopLeft).addValue(self.margin);
-        self.size = rl.Vector2.init(windowWidth, windowHeight).multiply(self.relativeSize).addValue(-self.margin);
+        self.size = rl.Vector2.init(windowWidth, windowHeight).multiply(self.relativeSize).addValue(-2 * self.margin);
 
         self.scaling = .{ .x = self.size.x / (self.maxCoord.x - self.minCoord.x), .y = self.size.y / (self.maxCoord.y - self.minCoord.y) };
-        self.origin = .{ .x = self.topLeft.x + self.size.x * @abs(self.minCoord.x) / (self.maxCoord.x - self.minCoord.x), .y = self.topLeft.y + self.size.y * @abs(self.maxCoord.y) / (self.maxCoord.y - self.minCoord.y) };
     }
 
     fn toGlobal(self: Self, point: rl.Vector2) rl.Vector2 {
         return .{
-            .x = self.origin.x + point.x * self.scaling.x,
-            .y = self.origin.y - point.y * self.scaling.y,
+            .x = self.topLeft.x + (point.x - self.minCoord.x) * self.scaling.x,
+            .y = self.topLeft.y + self.size.y - (point.y - self.minCoord.y) * self.scaling.y,
         };
     }
 
     pub fn draw(self: Self) void {
         for (self.dataSets) |dataSet| {
-            self.drawLines(dataSet);
+            self.drawDataSet(dataSet);
         }
     }
 
-    fn drawLines(self: Self, dataSet: DataSet) void {
+    fn drawDataSet(self: Self, dataSet: DataSet) void {
         if (dataSet.points.items.len == 0) {
             return;
         }
-        var prevPoint = self.toGlobal(dataSet.points.items[0]);
-        for (1..dataSet.points.items.len) |i| {
+        var indexFirstPoint: usize = 0;
+        for (dataSet.points.items) |point| {
+            if (point.x >= self.minCoord.x) {
+                break;
+            }
+            indexFirstPoint += 1;
+        }
+        var prevPoint = self.toGlobal(dataSet.points.items[indexFirstPoint]);
+        for (indexFirstPoint + 1..dataSet.points.items.len) |i| {
+            if (dataSet.points.items[i].x > self.maxCoord.x) {
+                break;
+            }
             const nextPoint = self.toGlobal(dataSet.points.items[i]);
             rl.drawLineEx(prevPoint, nextPoint, dataSet.lineWidth, dataSet.color);
 
@@ -98,6 +105,34 @@ const Plot = struct {
     }
 
     pub fn addPoints(self: *Self, dataSetName: []const u8, points: []const rl.Vector2) !void {
+        if (points[points.len - 1].x > self.maxCoord.x) {
+            self.minCoord.x += points[points.len - 1].x - self.maxCoord.x;
+            self.maxCoord.x = points[points.len - 1].x;
+        }
+
+        var maxPointCount: usize = 0;
+        for (self.dataSets) |dataSet| {
+            maxPointCount = @max(maxPointCount, dataSet.points.items.len);
+        }
+        if (maxPointCount > 2000) {
+            const restoredPoints: usize = 500;
+            var buffer: [restoredPoints]rl.Vector2 = undefined;
+            for (0..self.dataSets.len) |i| {
+                @memcpy(&buffer, self.dataSets[i].points.items[self.dataSets[i].points.items.len - restoredPoints ..]);
+                self.dataSets[i].points.clearAndFree();
+                try self.dataSets[i].points.ensureTotalCapacity(restoredPoints);
+                try self.dataSets[i].points.appendSlice(&buffer);
+            }
+        }
+
+        for (points) |point| {
+            if (point.y > self.maxCoord.y) {
+                self.maxCoord.y = point.y;
+            } else if (point.y < self.minCoord.y) {
+                self.minCoord.y = point.y;
+            }
+        }
+
         for (0..self.dataSets.len) |i| {
             if (std.mem.eql(u8, dataSetName, self.dataSets[i].name)) {
                 try self.dataSets[i].points.appendSlice(points);
@@ -127,7 +162,8 @@ pub const Gui = struct {
         const windowWidthF: f32 = @floatFromInt(windowWidth);
         const windowHeightF: f32 = @floatFromInt(windowHeight);
 
-        rl.setConfigFlags(rl.ConfigFlags{
+        rl.setTraceLogLevel(.warning);
+        rl.setConfigFlags(.{
             .window_resizable = true,
             .msaa_4x_hint = true,
         });
@@ -138,7 +174,7 @@ pub const Gui = struct {
         dataSets[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
         var plots = try allocator.alloc(Plot, 1);
-        plots[0] = Plot.init(allocator, "Yaw", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0), rl.Vector2.init(10_000.0, 360.0), 30, windowWidthF, windowHeightF, dataSets);
+        plots[0] = Plot.init(allocator, "Yaw", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(10_000.0, 360.0), 30, windowWidthF, windowHeightF, dataSets);
         return .{ .allocator = allocator, .plots = plots };
     }
 
