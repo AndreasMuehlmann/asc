@@ -3,13 +3,7 @@ const std = @import("std");
 const pigpio = @cImport(@cInclude("pigpio.h"));
 const bnoApi = @cImport(@cInclude("bno055.h"));
 
-const BnoError = error{
-    OpenBusError,
-    CloseBusError,
-    InitializationError,
-    SetModeError,
-    GetEulerError,
-};
+const BnoError = error{ BnoOpenBusError, BnoCloseBusError, BnoInitialization, BnoSetMode, BnoGetEuler, BnoGetAcceleration };
 
 var handle: c_uint = undefined;
 var allocator: std.mem.Allocator = undefined;
@@ -205,6 +199,16 @@ pub const Euler = struct {
     }
 };
 
+pub const Acceleration = struct {
+    x: f32,
+    y: f32,
+    z: f32,
+
+    pub fn fromCType(accelerationCType: bnoApi.bno055_linear_accel_float_t) Acceleration {
+        return .{ .x = accelerationCType.x, .y = accelerationCType.y, .z = accelerationCType.z };
+    }
+};
+
 pub const Bno = struct {
     const Self = @This();
 
@@ -215,7 +219,7 @@ pub const Bno = struct {
         const openResult: c_int = pigpio.serOpen(@ptrCast(@constCast(device)), 115200, 0);
         if (openResult < 0) {
             std.log.err("Pigpio error code {d} in creating uart bus.\n", .{openResult});
-            return BnoError.OpenBusError;
+            return BnoError.BnoOpenBusError;
         }
         errdefer _ = pigpio.serClose(handle);
         handle = @intCast(openResult);
@@ -223,20 +227,12 @@ pub const Bno = struct {
 
         const bnoPtr: [*c]bnoApi.bno055_t = @ptrCast(&bno);
         if (bnoApi.bno055_init(bnoPtr) != 0) {
-            return BnoError.InitializationError;
+            return BnoError.BnoInitialization;
         }
 
         if (bnoApi.bno055_set_operation_mode(bnoApi.BNO055_OPERATION_MODE_NDOF) != 0) {
-            return BnoError.SetModeError;
+            return BnoError.BnoSetMode;
         }
-
-        var euler: bnoApi.bno055_euler_float_t = .{ .h = 0, .r = 0, .p = 0 };
-        const eulerPtr: [*c]bnoApi.bno055_euler_float_t = @ptrCast(&euler);
-
-        if (bnoApi.bno055_convert_float_euler_hpr_deg(eulerPtr) != 0) {
-            return BnoError.GetEulerError;
-        }
-        _ = Euler.fromCType(euler);
 
         return .{};
     }
@@ -245,16 +241,26 @@ pub const Bno = struct {
         var euler: bnoApi.bno055_euler_float_t = .{ .h = 0, .r = 0, .p = 0 };
         const eulerPtr: [*c]bnoApi.bno055_euler_float_t = @ptrCast(@constCast(&euler));
         if (bnoApi.bno055_convert_float_euler_hpr_deg(eulerPtr) != 0) {
-            return BnoError.GetEulerError;
+            return BnoError.BnoGetEuler;
         }
         return Euler.fromCType(euler);
+    }
+
+    pub fn getAcceleration(_: Self) !Acceleration {
+        var acceleration: bnoApi.bno055_linear_accel_float_t = .{ .x = 0, .y = 0, .z = 0 };
+        const accelerationPtr: [*c]bnoApi.bno055_linear_accel_float_t = @ptrCast(@constCast(&acceleration));
+        if (bnoApi.bno055_convert_float_linear_accel_xyz_msq(accelerationPtr) != 0) {
+            return BnoError.BnoGetAcceleration;
+        }
+
+        return Acceleration.fromCType(acceleration);
     }
 
     pub fn deinit(_: Self) !void {
         const closingResult: c_int = pigpio.serClose(handle);
         if (closingResult < 0) {
             std.log.err("Pigpio error code {d} in closing uart bus.\n", .{closingResult});
-            return BnoError.CloseBusError;
+            return BnoError.BnoCloseBusError;
         }
     }
 };

@@ -1,14 +1,15 @@
-pub const Orientation = struct {
+pub const Measurement = struct {
     time: i64,
     heading: f32,
-    roll: f32,
-    pitch: f32,
+    accelerationX: f32,
+    accelerationY: f32,
+    accelerationZ: f32,
 };
 
 pub const ClientContractEnum = enum(u8) {
-    orientation,
+    measurement,
 };
 
 pub const ClientContract = union(ClientContractEnum) {
-    orientation: Orientation,
+    measurement: Measurement,
 };

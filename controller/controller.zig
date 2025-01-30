@@ -42,12 +42,13 @@ pub const Controller = struct {
             lastUpdate = timestampMicros();
 
             const euler = try self.bno.getEuler();
+            const acceleration = try self.bno.getAcceleration();
             self.netServer.recv() catch |err| switch (err) {
                 error.ConnectionClosed => return,
                 else => return err,
             };
-            const orientation: clientContract.Orientation = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .roll = euler.roll, .pitch = euler.pitch };
-            try self.netServer.send(clientContract.Orientation, orientation);
+            const measurement: clientContract.Measurement = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .accelerationX = acceleration.x, .accelerationY = acceleration.y, .accelerationZ = acceleration.z };
+            try self.netServer.send(clientContract.Measurement, measurement);
         }
     }
 

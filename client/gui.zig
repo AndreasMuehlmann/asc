@@ -167,14 +167,20 @@ pub const Gui = struct {
             .window_resizable = true,
             .msaa_4x_hint = true,
         });
-        rl.initWindow(windowWidth, windowHeight, "raylib-zig [core] example - basic window");
+        rl.initWindow(windowWidth, windowHeight, "asc");
         rl.setTargetFPS(60);
 
-        var dataSets = try allocator.alloc(DataSet, 1);
-        dataSets[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        var dataSetsYaw = try allocator.alloc(DataSet, 1);
+        dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
-        var plots = try allocator.alloc(Plot, 1);
-        plots[0] = Plot.init(allocator, "Yaw", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(10_000.0, 360.0), 30, windowWidthF, windowHeightF, dataSets);
+        var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
+        dataSetsAcceleration[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
+        dataSetsAcceleration[1] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
+        dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
+
+        var plots = try allocator.alloc(Plot, 2);
+        plots[0] = Plot.init(allocator, "Yaw", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(10_000.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        plots[1] = Plot.init(allocator, "Acceleration", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(10_000.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
         return .{ .allocator = allocator, .plots = plots };
     }
 
