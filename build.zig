@@ -3,6 +3,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = std.Target.Query{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu, .glibc_version = .{ .major = 2, .minor = 36, .patch = 0 } };
+    const clientTarget = b.standardTargetOptions(.{});
 
     const encodeModule = b.addModule("encode", .{ .root_source_file = b.path("shared/messageFormat/encode.zig") });
     const decodeModule = b.addModule("decode", .{ .root_source_file = b.path("shared/messageFormat/decode.zig") });
@@ -13,7 +14,7 @@ pub fn build(b: *std.Build) void {
 
     const unitTestsMessageFormat = b.addTest(.{
         .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
-        .target = b.resolveTargetQuery(.{}),
+        .target = clientTarget,
     });
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
 
@@ -56,16 +57,28 @@ pub fn build(b: *std.Build) void {
 
     const unitTestsController = b.addTest(.{
         .root_source_file = b.path("controller/main.zig"),
-        .target = b.resolveTargetQuery(.{}),
+        .target = clientTarget,
     });
     const runUnitTestsController = b.addRunArtifact(unitTestsController);
 
     const clientExe = b.addExecutable(.{
         .name = "client",
         .root_source_file = b.path("client/main.zig"),
-        .target = b.resolveTargetQuery(.{}),
+        .target = clientTarget,
         .optimize = optimize,
     });
+
+    const raylib_dep = b.dependency("raylib-zig", .{
+        .target = clientTarget,
+        .optimize = optimize,
+    });
+
+    const raylib = raylib_dep.module("raylib");
+    const raygui = raylib_dep.module("raygui");
+    const raylib_artifact = raylib_dep.artifact("raylib");
+    clientExe.linkLibrary(raylib_artifact);
+    clientExe.root_module.addImport("raylib", raylib);
+    clientExe.root_module.addImport("raygui", raygui);
 
     clientExe.root_module.addImport("encode", encodeModule);
     clientExe.root_module.addImport("decode", decodeModule);
@@ -93,7 +106,7 @@ pub fn build(b: *std.Build) void {
 
     const unitTestsClient = b.addTest(.{
         .root_source_file = b.path("client/main.zig"),
-        .target = b.resolveTargetQuery(.{}),
+        .target = clientTarget,
     });
     const runUnitTestsClient = b.addRunArtifact(unitTestsClient);
 

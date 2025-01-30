@@ -6,6 +6,7 @@ const guiApi = @import("gui.zig");
 const Gui = guiApi.Gui;
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
+const rl = @import("raylib");
 
 pub const Client = struct {
     allocator: std.mem.Allocator,
@@ -29,7 +30,7 @@ pub const Client = struct {
             };
 
             self.gui.update() catch |err| switch (err) {
-                Gui.GuiError.Quit => return,
+                guiApi.GuiError.Quit => return,
                 else => return err,
             };
         }
@@ -41,7 +42,7 @@ pub const Client = struct {
     }
 
     pub fn handleOrientation(self: *Self, orientation: clientContract.Orientation) !void {
-        var array = [_]guiApi.Vec2D{.{ .x = @floatFromInt(orientation.time), .y = @as(f64, orientation.heading) }};
-        try self.gui.addPoints("Orientation", "Heading", &array);
+        var array = [_]rl.Vector2{rl.Vector2.init(@floatFromInt(orientation.time), orientation.heading)};
+        try self.gui.addPoints("Yaw", "Heading", &array);
     }
 };
