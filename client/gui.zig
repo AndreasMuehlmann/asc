@@ -105,17 +105,14 @@ const Plot = struct {
 
         rl.drawRectangleV(coordSysOrigin, horizontalLineSize, self.color);
 
-        var maxCoordXTextPos = coordSysOrigin.add(horizontalLineSize);
-        maxCoordXTextPos.y += marginLineCoords;
-
         const countCoordinatesToShowX: usize = @intFromFloat(horizontalLineSize.x / marginBetweenCoords);
+        const countCoordinatesToShowXF: f32 = @floatFromInt(countCoordinatesToShowX);
         for (0..countCoordinatesToShowX + 1) |i| {
             const iF: f32 = @floatFromInt(i);
-            const countCoordinatesToShowF: f32 = @floatFromInt(countCoordinatesToShowX);
-            const coordTextPosX: f32 = coordSysOrigin.x + horizontalLineSize.x * iF / countCoordinatesToShowF;
-            const buffer = std.fmt.bufPrintZ(&array, "{d:.1}", .{self.minCoord.x + self.maxCoord.x * iF / countCoordinatesToShowF}) catch unreachable;
+            const coordTextPosX: f32 = coordSysOrigin.x + horizontalLineSize.x * iF / countCoordinatesToShowXF;
+            const buffer = std.fmt.bufPrintZ(&array, "{d:.1}", .{self.minCoord.x + (self.maxCoord.x - self.minCoord.x) * iF / countCoordinatesToShowXF}) catch unreachable;
             const coordWidth: f32 = @floatFromInt(rl.measureText(buffer, fontSizeCoords));
-            rl.drawText(buffer, @intFromFloat(coordTextPosX - coordWidth / 2.0), @intFromFloat(maxCoordXTextPos.y), fontSizeCoords, self.color);
+            rl.drawText(buffer, @intFromFloat(coordTextPosX - coordWidth / 2.0), @intFromFloat(coordSysOrigin.y + lineThickness + marginLineCoords), fontSizeCoords, self.color);
         }
         const nameXAxisWidth: f32 = @floatFromInt(rl.measureText(self.nameXAxis, fontSizeNameXAxis));
         rl.drawText(self.nameXAxis, @intFromFloat(self.topLeftPlot.x + self.sizePlot.x / 2.0 - nameXAxisWidth / 2.0), @intFromFloat(self.topLeft.y + self.size.y - marginNameXAxis), fontSizeNameXAxis, self.color);
@@ -123,7 +120,16 @@ const Plot = struct {
         const verticalLineSize = rl.Vector2.init(lineThickness, self.sizePlot.y + lineThickness);
         rl.drawRectangleV(self.topLeftPlot, verticalLineSize, self.color);
 
-        //const countCoordinatesToShowY: usize = @intFromFloat(verticalLineSize.y / marginBetweenCoords);
+        const countCoordinatesToShowY: usize = @intFromFloat(verticalLineSize.y / marginBetweenCoords);
+        const countCoordinatesToShowYF: f32 = @floatFromInt(countCoordinatesToShowY);
+        for (0..countCoordinatesToShowY + 1) |i| {
+            const iF: f32 = @floatFromInt(i);
+            const coordTextPosY: f32 = coordSysOrigin.y - verticalLineSize.y * iF / countCoordinatesToShowYF;
+            const buffer = std.fmt.bufPrintZ(&array, "{d:.1}", .{self.minCoord.y + (self.maxCoord.y - self.minCoord.y) * iF / countCoordinatesToShowYF}) catch unreachable;
+
+            const coordWidth: f32 = @floatFromInt(rl.measureText(buffer, fontSizeCoords));
+            rl.drawText(buffer, @intFromFloat(coordSysOrigin.x - lineThickness - coordWidth), @intFromFloat(coordTextPosY - 10.0), fontSizeCoords, self.color);
+        }
 
         const titlePosX: i32 = @intFromFloat(self.topLeftPlot.x + self.sizePlot.x / 2.0);
         const titlePosY: i32 = @intFromFloat(self.topLeft.y);
