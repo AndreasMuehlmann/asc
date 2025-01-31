@@ -45,7 +45,7 @@ const Plot = struct {
     const marginTitle = 30.0;
     const marginBetweenCoords = 100.0;
     const fontSizeTitle: i32 = 18;
-    const fontSizeNameXAxis: i32 = 15;
+    const fontSizeNameAxis: i32 = 15;
     const fontSizeCoords: i32 = 12;
     const marginLineCoords: f32 = 5.0;
     var array: [20]u8 = undefined;
@@ -96,10 +96,6 @@ const Plot = struct {
     }
 
     pub fn draw(self: Self) !void {
-        for (self.dataSets) |dataSet| {
-            self.drawDataSet(dataSet);
-        }
-
         const coordSysOrigin = rl.Vector2.init(self.topLeftPlot.x, self.topLeftPlot.y + self.sizePlot.y);
         const horizontalLineSize = rl.Vector2.init(self.sizePlot.x + lineThickness, lineThickness);
 
@@ -114,8 +110,8 @@ const Plot = struct {
             const coordWidth: f32 = @floatFromInt(rl.measureText(buffer, fontSizeCoords));
             rl.drawText(buffer, @intFromFloat(coordTextPosX - coordWidth / 2.0), @intFromFloat(coordSysOrigin.y + lineThickness + marginLineCoords), fontSizeCoords, self.color);
         }
-        const nameXAxisWidth: f32 = @floatFromInt(rl.measureText(self.nameXAxis, fontSizeNameXAxis));
-        rl.drawText(self.nameXAxis, @intFromFloat(self.topLeftPlot.x + self.sizePlot.x / 2.0 - nameXAxisWidth / 2.0), @intFromFloat(self.topLeft.y + self.size.y - marginNameXAxis), fontSizeNameXAxis, self.color);
+        const nameXAxisWidth: f32 = @floatFromInt(rl.measureText(self.nameXAxis, fontSizeNameAxis));
+        rl.drawText(self.nameXAxis, @intFromFloat(self.topLeftPlot.x + self.sizePlot.x / 2.0 - nameXAxisWidth / 2.0), @intFromFloat(self.topLeft.y + self.size.y - marginNameXAxis), fontSizeNameAxis, self.color);
 
         const verticalLineSize = rl.Vector2.init(lineThickness, self.sizePlot.y + lineThickness);
         rl.drawRectangleV(self.topLeftPlot, verticalLineSize, self.color);
@@ -135,6 +131,13 @@ const Plot = struct {
         const titlePosY: i32 = @intFromFloat(self.topLeft.y);
         const titleWidth = rl.measureText(self.name, fontSizeTitle);
         rl.drawText(self.name, titlePosX - @divTrunc(titleWidth, 2), titlePosY, fontSizeTitle, self.color);
+
+        for (0..self.dataSets.len, self.dataSets) |i, dataSet| {
+            self.drawDataSet(dataSet);
+            const iF: f32 = @floatFromInt(i);
+
+            rl.drawText(dataSet.name, @intFromFloat(self.topLeftPlot.x + 10.0), @intFromFloat(self.topLeftPlot.y + iF * 15.0), fontSizeNameAxis, dataSet.color);
+        }
     }
 
     fn drawDataSet(self: Self, dataSet: DataSet) void {
