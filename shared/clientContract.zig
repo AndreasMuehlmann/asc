@@ -1,5 +1,5 @@
 pub const Measurement = struct {
-    time: i64,
+    time: f32,
     heading: f32,
     accelerationX: f32,
     accelerationY: f32,

@@ -47,7 +47,8 @@ pub const Controller = struct {
                 error.ConnectionClosed => return,
                 else => return err,
             };
-            const measurement: clientContract.Measurement = .{ .time = std.time.milliTimestamp() - start, .heading = euler.heading, .accelerationX = acceleration.x, .accelerationY = acceleration.y, .accelerationZ = acceleration.z };
+            const time: f32 = @floatFromInt(std.time.milliTimestamp() - start);
+            const measurement: clientContract.Measurement = .{ .time = time / 1_000.0, .heading = euler.heading, .accelerationX = acceleration.x, .accelerationY = acceleration.y, .accelerationZ = acceleration.z };
             try self.netServer.send(clientContract.Measurement, measurement);
         }
     }

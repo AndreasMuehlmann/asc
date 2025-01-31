@@ -11,13 +11,13 @@ pub const GuiError = error{
 const DataSet = struct {
     points: std.ArrayList(rl.Vector2),
     color: rl.Color,
-    name: []const u8,
+    name: [:0]const u8,
     lineWidth: f32,
 };
 
 const Plot = struct {
     allocator: std.mem.Allocator,
-    name: []const u8,
+    name: [:0]const u8,
     color: rl.Color,
 
     relativeTopLeft: rl.Vector2,
@@ -27,6 +27,8 @@ const Plot = struct {
     minCoord: rl.Vector2,
     maxCoord: rl.Vector2,
 
+    topLeftPlot: rl.Vector2,
+    sizePlot: rl.Vector2,
     topLeft: rl.Vector2,
     size: rl.Vector2,
 
@@ -35,9 +37,16 @@ const Plot = struct {
     dataSets: []DataSet,
 
     const Self = @This();
-    const lineThickness: u8 = 3;
 
-    pub fn init(allocator: std.mem.Allocator, name: []const u8, color: rl.Color, relativeTopLeft: rl.Vector2, relativeSize: rl.Vector2, minCoord: rl.Vector2, maxCoord: rl.Vector2, margin: f32, windowWidth: f32, windowHeight: f32, dataSets: []DataSet) Self {
+    const lineThickness: f32 = 3.0;
+    const marginCoordSys = rl.Vector2.init(100.0, 30.0);
+    const marginBetweenCoords = 100.0;
+    const fontSizeTitle: i32 = 18;
+    const fontSizeCoords: i32 = 12;
+    const marginLineCoords: f32 = 5.0;
+    var array: [20]u8 = undefined;
+
+    pub fn init(allocator: std.mem.Allocator, name: [:0]const u8, color: rl.Color, relativeTopLeft: rl.Vector2, relativeSize: rl.Vector2, minCoord: rl.Vector2, maxCoord: rl.Vector2, margin: f32, windowWidth: f32, windowHeight: f32, dataSets: []DataSet) Self {
         var self: Self = .{
             .allocator = allocator,
             .name = name,
@@ -53,6 +62,9 @@ const Plot = struct {
             .topLeft = rl.Vector2.zero(),
             .size = rl.Vector2.zero(),
 
+            .topLeftPlot = rl.Vector2.zero(),
+            .sizePlot = rl.Vector2.zero(),
+
             .scaling = rl.Vector2.zero(),
 
             .dataSets = dataSets,
@@ -63,22 +75,50 @@ const Plot = struct {
 
     pub fn resize(self: *Self, windowWidth: f32, windowHeight: f32) void {
         self.topLeft = rl.Vector2.init(windowWidth, windowHeight).multiply(self.relativeTopLeft).addValue(self.margin);
-        self.size = rl.Vector2.init(windowWidth, windowHeight).multiply(self.relativeSize).addValue(-2 * self.margin);
+        self.topLeftPlot = rl.Vector2.init(self.topLeft.x + marginCoordSys.x, self.topLeft.y + marginCoordSys.y);
 
-        self.scaling = .{ .x = self.size.x / (self.maxCoord.x - self.minCoord.x), .y = self.size.y / (self.maxCoord.y - self.minCoord.y) };
+        self.size = rl.Vector2.init(windowWidth, windowHeight).multiply(self.relativeSize).addValue(-2 * self.margin);
+        self.sizePlot = rl.Vector2.init(self.size.x - marginCoordSys.x, self.size.y - 2 * marginCoordSys.y);
+
+        self.scaling = .{ .x = self.sizePlot.x / (self.maxCoord.x - self.minCoord.x), .y = self.sizePlot.y / (self.maxCoord.y - self.minCoord.y) };
     }
 
     fn toGlobal(self: Self, point: rl.Vector2) rl.Vector2 {
         return .{
-            .x = self.topLeft.x + (point.x - self.minCoord.x) * self.scaling.x,
-            .y = self.topLeft.y + self.size.y - (point.y - self.minCoord.y) * self.scaling.y,
+            .x = self.topLeftPlot.x + (point.x - self.minCoord.x) * self.scaling.x,
+            .y = self.topLeftPlot.y + self.sizePlot.y - (point.y - self.minCoord.y) * self.scaling.y,
         };
     }
 
-    pub fn draw(self: Self) void {
+    pub fn draw(self: Self) !void {
         for (self.dataSets) |dataSet| {
             self.drawDataSet(dataSet);
         }
+
+        const coordSysOrigin = rl.Vector2.init(self.topLeftPlot.x, self.topLeftPlot.y + self.sizePlot.y);
+        const horizontalLineSize = rl.Vector2.init(self.sizePlot.x + lineThickness, lineThickness);
+
+        rl.drawRectangleV(coordSysOrigin, horizontalLineSize, self.color);
+
+        var maxCoordXTextPos = coordSysOrigin.add(horizontalLineSize);
+        maxCoordXTextPos.y += marginLineCoords;
+
+        const countCoordinatesToShow: usize = @intFromFloat(horizontalLineSize.x / marginBetweenCoords);
+        for (0..countCoordinatesToShow + 1) |i| {
+            const iF: f32 = @floatFromInt(i);
+            const countCoordinatesToShowF: f32 = @floatFromInt(countCoordinatesToShow);
+            const coordTextPosX: f32 = coordSysOrigin.x + horizontalLineSize.x * iF / countCoordinatesToShowF;
+            const buffer = std.fmt.bufPrintZ(&array, "{d:.1}", .{self.minCoord.x + self.maxCoord.x * iF / countCoordinatesToShowF}) catch unreachable;
+            const coordWidth: f32 = @floatFromInt(rl.measureText(buffer, fontSizeCoords));
+            rl.drawText(buffer, @intFromFloat(coordTextPosX - coordWidth / 2.0), @intFromFloat(maxCoordXTextPos.y), fontSizeCoords, self.color);
+        }
+
+        rl.drawRectangleV(self.topLeftPlot, rl.Vector2.init(lineThickness, self.sizePlot.y + lineThickness), self.color);
+
+        const titlePosX: i32 = @intFromFloat(self.topLeft.x + self.size.x / 2.0);
+        const titlePosY: i32 = @intFromFloat(self.topLeft.y);
+        const titleWidth = rl.measureText(self.name, fontSizeTitle);
+        rl.drawText(self.name, titlePosX - @divTrunc(titleWidth, 2), titlePosY, fontSizeTitle, self.color);
     }
 
     fn drawDataSet(self: Self, dataSet: DataSet) void {
@@ -179,8 +219,8 @@ pub const Gui = struct {
         dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
 
         var plots = try allocator.alloc(Plot, 2);
-        plots[0] = Plot.init(allocator, "Yaw", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(10_000.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
-        plots[1] = Plot.init(allocator, "Acceleration", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(10_000.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+        plots[0] = Plot.init(allocator, "Yaw", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        plots[1] = Plot.init(allocator, "Acceleration", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
         return .{ .allocator = allocator, .plots = plots };
     }
 
@@ -197,7 +237,7 @@ pub const Gui = struct {
 
         for (0..self.plots.len) |i| {
             self.plots[i].resize(windowWidth, windowHeight);
-            self.plots[i].draw();
+            try self.plots[i].draw();
         }
     }
 

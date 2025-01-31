@@ -42,16 +42,16 @@ pub const Client = struct {
     }
 
     pub fn handleMeasurement(self: *Self, measurement: clientContract.Measurement) !void {
-        var array = [_]rl.Vector2{rl.Vector2.init(@floatFromInt(measurement.time), measurement.heading)};
+        var array = [_]rl.Vector2{rl.Vector2.init(measurement.time, measurement.heading)};
         try self.gui.addPoints("Yaw", "Heading", &array);
 
-        array[0] = rl.Vector2.init(@floatFromInt(measurement.time), measurement.accelerationX);
+        array[0] = rl.Vector2.init(measurement.time, measurement.accelerationX);
         try self.gui.addPoints("Acceleration", "Acceleration x", &array);
 
-        array[0] = rl.Vector2.init(@floatFromInt(measurement.time), measurement.accelerationY);
+        array[0] = rl.Vector2.init(measurement.time, measurement.accelerationY);
         try self.gui.addPoints("Acceleration", "Acceleration y", &array);
 
-        array[0] = rl.Vector2.init(@floatFromInt(measurement.time), measurement.accelerationZ);
+        array[0] = rl.Vector2.init(measurement.time, measurement.accelerationZ);
         try self.gui.addPoints("Acceleration", "Acceleration z", &array);
     }
 };
