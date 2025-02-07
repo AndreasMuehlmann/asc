@@ -36,11 +36,14 @@ pub fn main() !void {
 
     var icm = try icmApi.Icm.init(gpa.allocator(), icmApi.ADDR_L);
     while (true) {
-        const angularVelocity = try icm.readGyro();
-        std.debug.print("gyro: {d:.2}, {d:.2}, {d:.2}\n", .{ angularVelocity[0], angularVelocity[1], angularVelocity[2] });
+        const radiansPerSecond = try icm.readGyro();
+        std.debug.print("gyro: {d:.2}, {d:.2}, {d:.2}\n", .{ radiansPerSecond[0], radiansPerSecond[1], radiansPerSecond[2] });
 
-        const acceleration = try icm.readAccel();
-        std.debug.print("accl: {d:.2}, {d:.2}, {d:.2}\n", .{ acceleration[0], acceleration[1], acceleration[2] });
+        const meterPerSecondSquared = try icm.readAccel();
+        std.debug.print("accl: {d:.2}, {d:.2}, {d:.2}\n", .{ meterPerSecondSquared[0], meterPerSecondSquared[1], meterPerSecondSquared[2] });
+
+        const magneticFluxDensityMicro = try icm.readMag();
+        std.debug.print("mag: {d:.2}, {d:.2}, {d:.2}\n", .{ magneticFluxDensityMicro[0], magneticFluxDensityMicro[1], magneticFluxDensityMicro[2] });
 
         std.time.sleep(10_000_000);
     }
