@@ -1,0 +1,223 @@
+Command: /home/andi/.espressif/python_env/idf5.5_py3.13_env/bin/python /home/andi/esp/esp-idf/tools/idf_monitor.py -p /dev/ttyUSB0 -b 115200 --toolchain-prefix riscv32-esp-elf- --target esp32c3 --revision 3 --decode-panic backtrace /home/andi/programming/asc/build/idfProject.elf /home/andi/programming/asc/build/bootloader/bootloader.elf -m '/home/andi/.espressif/python_env/idf5.5_py3.13_env/bin/python' '/home/andi/esp/esp-idf/tools/idf.py'
+[0;33m--- esp-idf-monitor 1.5.0 on /dev/ttyUSB0 115200[0m
+[0;33m--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H[0m
+[0;33m--- 0x403cc710: esp_bootloader_get_description at /home/andi/esp/esp-idf/components/esp_bootloader_format/esp_bootloader_desc.c:39 (discriminator 1)
+[0m
+[0;33m--- 0x403ce710: esp_flash_encryption_enabled at /home/andi/esp/esp-idf/components/bootloader_support/src/flash_encrypt.c:89
+[0m
+[0;33m--- 0x403cc71a: call_start_cpu0 at /home/andi/esp/esp-idf/components/bootloader/subproject/main/bootloader_start.c:25
+[0m
+[0;33m--- Stack dump detected[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x4200a25e: esp_time_impl_get_boot_time at /home/andi/esp/esp-idf/components/newlib/src/port/esp_time_impl.c:89
+0x4200a254: esp_time_impl_get_boot_time at /home/andi/esp/esp-idf/components/newlib/src/port/esp_time_impl.c:85
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40387bb8: systimer_ll_get_counter_value_high at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/systimer_ll.h:111
+ (inlined by) systimer_hal_get_counter_value at /home/andi/esp/esp-idf/components/hal/systimer_hal.c:60
+0x40381882: esp_timer_impl_get_time at /home/andi/esp/esp-idf/components/esp_timer/src/esp_timer_impl_systimer.c:72 (discriminator 1)
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x403835c4: systimer_ticks_to_us at /home/andi/esp/esp-idf/components/esp_hw_support/port/esp32c3/systimer.c:16
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40056324: __fixunsdfsi in ROM
+0x420002b2: controller.Controller.run at /home/andi/programming/asc/controller/controller.zig:49
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40053b1c: __udivdi3 in ROM
+0x4038179c: _gettimeofday_r at /home/andi/esp/esp-idf/components/newlib/src/time.c:174
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x4200043a: controller.timestampMicros at /home/andi/programming/asc/controller/controller.zig:24
+0x42000422: controller.timestampMicros at /home/andi/programming/asc/controller/controller.zig:24
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40381508: lock_release_generic at /home/andi/esp/esp-idf/components/newlib/src/locks.c:190 (discriminator 1)
+0x40381500: lock_release_generic at /home/andi/esp/esp-idf/components/newlib/src/locks.c:186 (discriminator 1)
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x4038414e: xQueueGenericSend at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/queue.c:937 (discriminator 1)
+0x4038156e: lock_release_generic at /home/andi/esp/esp-idf/components/newlib/src/locks.c:205
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40055fd0: __subdf3 in ROM
+0x42000290: controller.Controller.run at /home/andi/programming/asc/controller/controller.zig:49
+[0m
+[0;33m--- 0x40000000: _start in ROM
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x4200a07c: get_adjusted_boot_time at /home/andi/esp/esp-idf/components/newlib/src/time.c:92
+0x40381078: esp_intr_disable at /home/andi/esp/esp-idf/components/esp_hw_support/intr_alloc.c:924 (discriminator 1)
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40053b70: __udivdi3 in ROM
+0x4038179c: _gettimeofday_r at /home/andi/esp/esp-idf/components/newlib/src/time.c:174
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40055a24: __subdf3 in ROM
+0x42000290: controller.Controller.run at /home/andi/programming/asc/controller/controller.zig:49
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40052f88: __clzsi2 in ROM
+0x40056410: __floatunsidf in ROM
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40382742: esp_crosscore_int_send_yield at /home/andi/esp/esp-idf/components/esp_system/crosscore_int.c:122
+0x40384ade: vPortYield at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:645 (discriminator 3)
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x403844fa: xQueueSemaphoreTake at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/queue.c:1713 (discriminator 1)
+0x403814d4: lock_acquire_generic at /home/andi/esp/esp-idf/components/newlib/src/locks.c:154
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40052f70: __clzsi2 in ROM
+0x40055ff4: __subdf3 in ROM
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x4200a262: esp_time_impl_get_boot_time at /home/andi/esp/esp-idf/components/newlib/src/port/esp_time_impl.c:89
+0x4200a254: esp_time_impl_get_boot_time at /home/andi/esp/esp-idf/components/newlib/src/port/esp_time_impl.c:85
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40385d5e: xTaskGetCurrentTaskHandle at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/tasks.c:4974
+0x40386424: __getreent at /home/andi/esp/esp-idf/components/freertos/esp_additions/freertos_tasks_c_additions.h:856
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40384a1a: vPortClearInterruptMaskFromISR at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:511
+0x40384aaa: vPortExitCritical at /home/andi/esp/esp-idf/components/freertos/FreeRTOS-Kernel/portable/riscv/port.c:623
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x4200a23c: esp_time_impl_get_boot_time at /home/andi/esp/esp-idf/components/newlib/src/port/esp_time_impl.c:81
+0x42009f02: adjust_boot_time at /home/andi/esp/esp-idf/components/newlib/src/time.c:53
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0;33m--- 0x40387b96: systimer_ll_is_counter_value_valid at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/systimer_ll.h:95
+ (inlined by) systimer_hal_get_counter_value at /home/andi/esp/esp-idf/components/hal/systimer_hal.c:51
+0x40381882: esp_timer_impl_get_time at /home/andi/esp/esp-idf/components/esp_timer/src/esp_timer_impl_systimer.c:72 (discriminator 1)
+[0m
+[0;33m--- 0x40381920: spimem_flash_ll_get_common_command_register_info at /home/andi/esp/esp-idf/components/hal/esp32c3/include/hal/spimem_flash_ll.h:713
+ (inlined by) bootloader_flash_execute_command_common at /home/andi/esp/esp-idf/components/bootloader_support/bootloader_flash/src/bootloader_flash.c:768
+[0m
+[0;33m--- 0x403835c4: systimer_ticks_to_us at /home/andi/esp/esp-idf/components/esp_hw_support/port/esp32c3/systimer.c:16
+[0m
+[0;33m--- 0x40000000: _start in ROM
+[0m
+[0;33m--- 0x40380001: _vector_table at /home/andi/esp/esp-idf/components/riscv/vectors_intc.S:54
+[0m
+[0m

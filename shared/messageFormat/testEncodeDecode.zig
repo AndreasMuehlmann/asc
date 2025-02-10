@@ -45,8 +45,8 @@ const TestHandler = struct {
 
 test "TestEncodeDecodeType" {
     const allocator = std.testing.allocator;
-    const handler: TestHandler = .{ .expectedX = 0, .expectedY = 0, .expectedZ = 0 };
-    const decoder = decode.Decoder(TestContractEnum, TestContract, TestHandler).init(allocator, handler);
+    var handler: TestHandler = .{ .expectedX = 0, .expectedY = 0, .expectedZ = 0 };
+    const decoder = decode.Decoder(TestContractEnum, TestContract, TestHandler).init(allocator, &handler);
     const Encoder = encode.Encoder(TestContract);
 
     var array: [256]u8 = undefined;
@@ -108,10 +108,10 @@ test "TestEncoderDecoder" {
 
     const Encoder = encode.Encoder(TestContract);
 
-    const handler: TestHandler = .{ .expectedX = 1.5, .expectedY = -2, .expectedZ = 300 };
+    var handler: TestHandler = .{ .expectedX = 1.5, .expectedY = -2, .expectedZ = 300 };
     const message: TestMessage = .{ .x = 1.5, .y = -2, .z = 300 };
 
-    var decoder = decode.Decoder(TestContractEnum, TestContract, TestHandler).init(allocator, handler);
+    var decoder = decode.Decoder(TestContractEnum, TestContract, TestHandler).init(allocator, &handler);
 
     const encoded = try Encoder.encode(TestMessage, message);
 

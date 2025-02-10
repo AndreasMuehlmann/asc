@@ -1,0 +1,2 @@
+source /home/andi/programming/asc/build/bootloader/gdbinit/symbols
+source /home/andi/programming/asc/build/bootloader/gdbinit/connect

@@ -2,7 +2,14 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
-    const target = std.Target.Query{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu, .glibc_version = .{ .major = 2, .minor = 36, .patch = 0 } };
+    const target = std.Target.Query{
+        .cpu_arch = .riscv32,
+        .os_tag = .freestanding,
+        .abi = .none,
+        .cpu_model = .{ .explicit = &std.Target.riscv.cpu.generic_rv32 },
+        .cpu_features_add = std.Target.riscv.featureSet(&.{ .m, .c, .zifencei, .zicsr, .i }),
+    };
+
     const clientTarget = b.standardTargetOptions(.{});
 
     const encodeModule = b.addModule("encode", .{ .root_source_file = b.path("shared/messageFormat/encode.zig") });
@@ -18,21 +25,20 @@ pub fn build(b: *std.Build) void {
     });
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
 
-    const controllerExe = b.addExecutable(.{
+    const controllerLib = b.addStaticLibrary(.{
         .name = "asc",
         .root_source_file = b.path("controller/main.zig"),
         .target = b.resolveTargetQuery(target),
         .optimize = optimize,
     });
 
-    controllerExe.root_module.addImport("encode", encodeModule);
-    controllerExe.root_module.addImport("decode", decodeModule);
-    controllerExe.root_module.addImport("serverContract", serverContractModule);
-    controllerExe.root_module.addImport("clientContract", clientContractModule);
-    controllerExe.root_module.addImport("clap", clap.module("clap"));
+    controllerLib.root_module.addImport("encode", encodeModule);
+    controllerLib.root_module.addImport("decode", decodeModule);
+    controllerLib.root_module.addImport("serverContract", serverContractModule);
+    controllerLib.root_module.addImport("clientContract", clientContractModule);
 
-    controllerExe.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
-    controllerExe.addCSourceFile(.{
+    controllerLib.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
+    controllerLib.addCSourceFile(.{
         .file = b.path("lib/BNO055_SensorAPI/bno055.c"),
         .flags = &[_][]const u8{
             "-fno-sanitize=undefined",
@@ -40,26 +46,36 @@ pub fn build(b: *std.Build) void {
         },
     });
 
-    controllerExe.addIncludePath(b.path("lib/pigpio/"));
-    controllerExe.addLibraryPath(b.path("lib/pigpio/"));
-    controllerExe.linkSystemLibrary2("pigpio", .{ .preferred_link_mode = .dynamic });
-    controllerExe.linkLibC();
+    controllerLib.linkLibC();
 
-    b.installArtifact(controllerExe);
+    std.fs.cwd().access("main/includeDirs.txt", .{}) catch |err| {
+        if (err != error.FileNotFound) {
+            std.log.err("Unexpected error while trying to check if \"main/includeDirs.txt\" exists: {}.", .{err});
+            @panic("Unexpected error while trying to check if \"main/includeDirs.txt\" exists.");
+        }
+        std.log.info("Running \"idf.py build\" to export \"includeDirs.txt.\"", .{});
+        var child = std.process.Child.init(&[_][]const u8{ "idf.py", "build" }, b.allocator);
+        child.stdout_behavior = .Inherit;
+        child.spawn() catch @panic("Failed to run \"idf.py build\". Maybe you didn't export environment variables with: \". <pathToEspIdf>/export.sh\"");
+        const exitCode = child.wait() catch |errChild| {
+            std.log.err("Error while waiting for \"idf.py build\": {}.", .{errChild});
+            @panic("Failed to wait for \"idf.py build\". Maybe you didn't export environment variables with: \". <pathToEspIdf>/export.sh\"");
+        };
 
-    const scpCmd = b.addSystemCommand(&[_][]const u8{"scp"});
-    scpCmd.addArtifactArg(controllerExe);
-    scpCmd.addArg("asc@raspberrypi.fritz.box:/home/asc/asc");
+        if (exitCode.Exited != 0) {
+            @panic("\"idf.py build\" failed with non zero exit code.");
+        }
+        std.log.info("Succesfully ran \"idf.py build\" to export \"includeDirs.txt.\"", .{});
+    };
 
-    const customInstallStep = b.step("deploy", "Copying the controller executable onto the raspberry pi with scp.");
-    customInstallStep.dependOn(b.getInstallStep());
-    customInstallStep.dependOn(&scpCmd.step);
+    const file = std.fs.cwd().openFile("main/includeDirs.txt", .{}) catch @panic("main/includeDirs.txt was not found.");
+    const file_contents = file.readToEndAlloc(b.allocator, 100000) catch unreachable;
+    var it = std.mem.tokenize(u8, file_contents, ";");
+    while (it.next()) |dir| {
+        controllerLib.addIncludePath(.{ .cwd_relative = dir });
+    }
 
-    const unitTestsController = b.addTest(.{
-        .root_source_file = b.path("controller/main.zig"),
-        .target = clientTarget,
-    });
-    const runUnitTestsController = b.addRunArtifact(unitTestsController);
+    b.installArtifact(controllerLib);
 
     const clientExe = b.addExecutable(.{
         .name = "client",
@@ -86,13 +102,6 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("clientContract", clientContractModule);
     clientExe.root_module.addImport("clap", clap.module("clap"));
 
-    if (b.resolveTargetQuery(.{}).result.os.tag == .windows) {
-        clientExe.addIncludePath(b.path("lib/SDL2"));
-        clientExe.addLibraryPath(b.path("lib/SDL2"));
-    }
-    clientExe.linkSystemLibrary2("SDL2", .{ .preferred_link_mode = .dynamic });
-    clientExe.linkLibC();
-
     b.installArtifact(clientExe);
 
     const runClientCmd = b.addRunArtifact(clientExe);
@@ -111,11 +120,21 @@ pub fn build(b: *std.Build) void {
     const runUnitTestsClient = b.addRunArtifact(unitTestsClient);
 
     const testStep = b.step("test", "Run unit tests");
-    testStep.dependOn(&runUnitTestsController.step);
     testStep.dependOn(&runUnitTestsClient.step);
     testStep.dependOn(&runUnitTestsMessageFormat.step);
 
-    const deployRunClientStep = b.step("deployRunClient", "Run the client and deploy the controller");
-    deployRunClientStep.dependOn(&runClientCmd.step);
-    deployRunClientStep.dependOn(&scpCmd.step);
+    const idfBuildCmd = b.addSystemCommand(&[_][]const u8{"idf.py"});
+    idfBuildCmd.addArg("build");
+
+    const buildIdfStep = b.step("buildIdf", "Build the zig library and the final image.");
+    buildIdfStep.dependOn(b.getInstallStep());
+    buildIdfStep.dependOn(&idfBuildCmd.step);
+
+    const flashCmd = b.addSystemCommand(&[_][]const u8{"idf.py"});
+    flashCmd.addArg("flash");
+    flashCmd.step.dependOn(buildIdfStep);
+
+    const flashStep = b.step("flash", "Build the zig library, the final image and flash the image onto the esp.");
+    flashStep.dependOn(buildIdfStep);
+    flashStep.dependOn(&flashCmd.step);
 }
