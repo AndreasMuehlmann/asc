@@ -37,6 +37,11 @@ pub fn build(b: *std.Build) void {
     controllerLib.root_module.addImport("serverContract", serverContractModule);
     controllerLib.root_module.addImport("clientContract", clientContractModule);
 
+    controllerLib.addIncludePath(b.path("controller/"));
+    controllerLib.addCSourceFile(.{
+        .file = b.path("controller/rtos.c"),
+    });
+
     controllerLib.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
     controllerLib.addCSourceFile(.{
         .file = b.path("lib/BNO055_SensorAPI/bno055.c"),

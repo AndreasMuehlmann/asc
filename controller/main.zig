@@ -2,22 +2,33 @@ const std = @import("std");
 
 const Controller = @import("controller.zig").Controller;
 
-const esp = @cImport({
-    @cInclude("esp_system.h");
+const c = @cImport({
+    @cInclude("stdio.h");
 });
 
-//TODO: overwrite panic
-//TODO: implement networking
-//TODO: get controller to work again
+const esp = @cImport({
+    @cInclude("esp_system.h");
+    @cInclude("esp_log.h");
+});
 
-export fn app_main() void {
+pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
+    esp.esp_log_write(esp.esp_log_get_default_level(), "panic_handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
+
+    while (true) {
+        asm volatile ("" ::: "memory");
+    }
+}
+
+export fn app_main() callconv(.C) void {
     const allocator = std.heap.raw_c_allocator;
     const slice = allocator.alloc(u8, 5) catch unreachable;
     defer allocator.free(slice);
 
     var controller = Controller.init(allocator) catch unreachable;
     defer controller.deinit();
-    controller.run() catch unreachable;
+    controller.run() catch |err| {
+        c.printf("Running controller failed with: %s\n", @errorName(err));
+    };
 
     esp.esp_restart();
 }
