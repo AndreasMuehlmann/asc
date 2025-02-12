@@ -2,14 +2,25 @@ const std = @import("std");
 
 const Controller = @import("controller.zig").Controller;
 
+const clientContract = @import("clientContract");
+const serverContract = @import("serverContract");
+const NetServer = @import("netServer.zig").NetServer;
+
 const c = @cImport({
     @cInclude("stdio.h");
 });
 
+const rtos = @cImport(@cInclude("rtos.h"));
+
 const esp = @cImport({
     @cInclude("esp_system.h");
     @cInclude("esp_log.h");
+    @cInclude("wifi.h");
+    @cInclude("server.h");
 });
+
+const tag = "app main";
+var array: [250]u8 = undefined;
 
 pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
     esp.esp_log_write(esp.esp_log_get_default_level(), "panic_handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
@@ -21,82 +32,32 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
 
 export fn app_main() callconv(.C) void {
     const allocator = std.heap.raw_c_allocator;
-    const slice = allocator.alloc(u8, 5) catch unreachable;
-    defer allocator.free(slice);
 
-    var controller = Controller.init(allocator) catch unreachable;
+    esp.wifi_init();
+
+    var controller: Controller = undefined;
+
+    const port: u16 = 8080;
+    const netServer = try NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
+        allocator,
+        port,
+        &controller,
+    );
+    defer netServer.deinit();
+
+    controller = Controller.init(allocator, netServer) catch |err| {
+        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        const cString: [*c]const u8 = @ptrCast(buffer);
+        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", cString);
+        return;
+    };
     defer controller.deinit();
+
     controller.run() catch |err| {
-        c.printf("Running controller failed with: %s\n", @errorName(err));
+        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        const cString: [*c]const u8 = @ptrCast(buffer);
+        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Running controller failed with error: %s", cString);
     };
 
     esp.esp_restart();
 }
-
-//
-//   const os = std.os;
-//
-//   // const NetServer = @import("netServer.zig").NetServer;
-//
-//   const clientContract = @import("clientContract");
-//   const serverContract = @import("serverContract");
-//
-//   const esp = @cImport({
-//       @cInclude("sdkconfig.h");
-//       @cInclude("esp_err.h");
-//       @cInclude("esp_log.h");
-//       @cInclude("esp_system.h");
-//   });
-//
-//   const c = @cImport(@cInclude("stdio.h"));
-//
-//   export fn app_main() void {
-
-//       //const params = comptime clap.parseParamsComptime(
-//       //    \\-h, --help            Display this help and exit.
-//       //    \\-p, --port <u16>      Port for the server.
-//       //);
-//
-//       //var diag = clap.Diagnostic{};
-//       //var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
-//       //    .diagnostic = &diag,
-//       //    .allocator = gpa.allocator(),
-//       //}) catch |err| {
-//       //    diag.report(std.io.getStdErr().writer(), err) catch {};
-//       //    return;
-//       //};
-//       //defer res.deinit();
-//
-//       //if (res.args.help != 0)
-//       //    return clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
-//
-//       //if (pigpio.gpioInitialise() < 0) {
-//       //    std.log.err("Failure in gpioInitialise.\n", .{});
-//       //    return error.PigpioInitialization;
-//       //}
-//       //defer pigpio.gpioTerminate();
-//
-//       //const act = os.linux.Sigaction{
-//       //    .handler = .{ .handler = sigIntHandler },
-//       //    .mask = os.linux.empty_sigset,
-//       //    .flags = 0,
-//       //};
-//
-//       //if (os.linux.sigaction(os.linux.SIG.INT, &act, null) != 0) {
-//       //    return error.SignalHandlerCreation;
-//       //}
-//
-//       //var port: u16 = 8080;
-//       //if (res.args.port) |argPort| {
-//       //    port = argPort;
-//       //}
-//       //const netServer = try NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
-//       //    gpa.allocator(),
-//       //    port,
-//       //    &controller,
-//       //);
-//
-//       _ = c.printf("Hello world!\n");
-//       esp.esp_restart();
-//
-//   }

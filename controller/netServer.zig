@@ -1,16 +1,27 @@
 const std = @import("std");
-const net = std.net;
-const posix = std.posix;
+
+const esp = @cImport({
+    @cInclude("esp_system.h");
+    @cInclude("esp_log.h");
+    @cInclude("wifi.h");
+    @cInclude("server.h");
+});
+
+const c = @cImport({
+    @cInclude("stdio.h");
+});
 
 const decode = @import("decode");
 const encode = @import("encode");
+
+const tag = "net server";
 
 pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: type, comptime handlerT: type, comptime clientContractT: type) type {
     return struct {
         allocator: std.mem.Allocator,
 
-        listener: posix.socket_t,
-        stream: net.Stream,
+        listener: c_int,
+        connection: c_int,
 
         decoder: decode.Decoder(serverContractEnumT, serverContractT, handlerT),
 
@@ -20,65 +31,50 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
         var buffer: [128]u8 = undefined;
 
         pub fn init(allocator: std.mem.Allocator, port: u16, handler: *handlerT) !Self {
-            const address = std.net.Address.initIp4(.{ 0, 0, 0, 0 }, port);
-
-            const sock = try posix.socket(address.any.family, posix.SOCK.STREAM | posix.SOCK.NONBLOCK, posix.IPPROTO.TCP);
-            defer posix.close(sock);
-
-            const tpe: u32 = posix.SOCK.STREAM | posix.SOCK.NONBLOCK;
-            const protocol = posix.IPPROTO.TCP;
-            const listener = try posix.socket(address.any.family, tpe, protocol);
-
-            try posix.setsockopt(listener, posix.SOL.SOCKET, posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
-            try posix.bind(listener, &address.any, address.getOsSockLen());
-            try posix.listen(listener, 128);
-
-            var socket: i32 = undefined;
-            while (true) {
-                socket = posix.accept(listener, null, null, posix.SOCK.NONBLOCK) catch |err| {
-                    if (err == error.WouldBlock) {
-                        std.time.sleep(1_000_000);
-                        continue;
-                    }
-                    return err;
-                };
-                break;
+            var listenerResult: esp.ListenerResult = .{ .server_fd = 0, .result = 0 };
+            esp.create_listening_socket(port, &listenerResult);
+            if (listenerResult.result != esp.OK) {
+                esp.esp_log_write(esp.esp_log_get_default_level(), "NetServer", "Listening socket couldn't be created. Error code: %d\n", listenerResult.result);
+                @panic("Error when creating listening socket.");
             }
-
-            const stream = std.net.Stream{ .handle = socket };
+            var connectionResult: esp.ConnectionResult = .{ .connection = 0, .result = 0 };
+            esp.wait_for_connection(listenerResult.server_fd, &connectionResult);
+            if (listenerResult.result != esp.OK) {
+                esp.esp_log_write(esp.esp_log_get_default_level(), "NetServer", "Connection couldn't be accepted. Error code: %d\n", connectionResult.result);
+                @panic("Error when waiting for connection.");
+            }
 
             const decoder = decode.Decoder(serverContractEnumT, serverContractT, handlerT).init(allocator, handler);
 
-            return .{ .allocator = allocator, .listener = listener, .stream = stream, .decoder = decoder };
+            return .{ .allocator = allocator, .listener = listenerResult.server_fd, .connection = connectionResult.connection, .decoder = decoder };
         }
 
         pub fn recv(self: *Self) !void {
-            const bytesRead = self.stream.read(&buffer) catch |err| {
-                if (err == error.WouldBlock) {
-                    return;
-                }
-                return err;
-            };
-            if (bytesRead == 0) {
-                return error.ConnectionClosed;
+            var recvResult: esp.RecvResult = .{ .buffer = &buffer, .size = buffer.len, .result = 0, .bytesRead = 0 };
+            esp.non_blocking_recv(self.connection, &recvResult);
+            switch (recvResult.result) {
+                esp.WOULD_BLOCK => return,
+                esp.CONNECTION_CLOSED => return error.ConnectionClosed,
+                esp.UNKNOWN => {
+                    return error.RecvFailed;
+                },
+                esp.OK => try self.decoder.decode(buffer[0..@intCast(recvResult.bytesRead)]),
+                else => unreachable,
             }
-            try self.decoder.decode(buffer[0..bytesRead]);
         }
 
-        pub fn send(self: Self, comptime T: type, message: T) !void {
+        pub fn send(self: *Self, comptime T: type, message: T) !void {
             const bytes = try Encoder.encode(T, message);
-            var index: usize = 0;
-            while (index < bytes.len) {
-                index += self.stream.write(bytes[index..]) catch |err| switch (err) {
-                    error.WouldBlock => continue,
-                    else => return err,
-                };
+            const buf: [*c]u8 = bytes.ptr;
+            const result: c_int = esp.non_blocking_send(self.connection, buf, bytes.len);
+            if (result != esp.OK) {
+                return error.SendFailed;
             }
         }
 
         pub fn deinit(self: Self) void {
-            self.stream.close();
-            posix.close(self.listener);
+            esp.closeSock(self.listener);
+            esp.closeSock(self.connection);
         }
     };
 }

@@ -8,3 +8,4 @@ measurements.csv
 shared/icm20948/.zig-cache/
 shared/icm20948/zig-out/
 main/includeDirs.txt
+controller/credentials.h

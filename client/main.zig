@@ -55,7 +55,7 @@ pub fn main() !void {
     if (os.linux.sigaction(os.linux.SIG.INT, &act, null) != 0) {
         return error.SignalHandlerCreation;
     }
-    var hostname: []const u8 = "raspberrypi.fritz.box";
+    var hostname: []const u8 = "espressif.fritz.box";
     if (res.args.server) |argHostname| {
         hostname = argHostname;
     }
