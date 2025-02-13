@@ -81,8 +81,7 @@ pub const Controller = struct {
     pub fn handleCommand(self: *Self, command: []const u8) !void {
         var array: [250]u8 = undefined;
         const buffer = std.fmt.bufPrintZ(&array, "{s}", .{command}) catch unreachable;
-        const cString: [*c]const u8 = @ptrCast(buffer);
-        _ = c.printf("%s\n", cString);
+        _ = c.printf("%s\n", buffer.ptr);
         self.allocator.free(command);
     }
 

@@ -53,16 +53,14 @@ export fn app_main() callconv(.C) void {
 
     controller = Controller.init(allocator, netServer) catch |err| {
         const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
-        const cString: [*c]const u8 = @ptrCast(buffer);
-        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", cString);
+        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
         return;
     };
     defer controller.deinit();
 
     controller.run() catch |err| {
         const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
-        const cString: [*c]const u8 = @ptrCast(buffer);
-        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Running controller failed with error: %s", cString);
+        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Running controller failed with error: %s", buffer.ptr);
     };
 
     esp.esp_restart();
