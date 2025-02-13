@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Controller = @import("controller.zig").Controller;
+const UartConsole = @import("uartConsole.zig").UartConsole;
 
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
@@ -23,7 +24,7 @@ const tag = "app main";
 var array: [250]u8 = undefined;
 
 pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
-    esp.esp_log_write(esp.esp_log_get_default_level(), "panic_handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
+    esp.esp_log_write(esp.ESP_LOG_ERROR, "panic handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
 
     while (true) {
         asm volatile ("" ::: "memory");
@@ -32,6 +33,11 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
 
 export fn app_main() callconv(.C) void {
     const allocator = std.heap.raw_c_allocator;
+
+    var uartConsole = UartConsole.init();
+
+    var name = [_]u8{ 'u', 'a', 'r', 't', ' ', 'c', 'o', 'n', 's', 'o', 'l', 'e', 0 };
+    rtos.rtosXTaskCreate(UartConsole.run, &name, 2000, &uartConsole, 1);
 
     esp.wifi_init();
 

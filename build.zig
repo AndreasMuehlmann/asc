@@ -42,6 +42,7 @@ pub fn build(b: *std.Build) void {
         "controller/rtos.c",
         "controller/server.c",
         "controller/wifi.c",
+        "controller/uart.c",
     } });
 
     controllerLib.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
