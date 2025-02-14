@@ -16,14 +16,22 @@ pub fn build(b: *std.Build) void {
     const decodeModule = b.addModule("decode", .{ .root_source_file = b.path("shared/messageFormat/decode.zig") });
     const serverContractModule = b.addModule("encode", .{ .root_source_file = b.path("shared/serverContract.zig") });
     const clientContractModule = b.addModule("decode", .{ .root_source_file = b.path("shared/clientContract.zig") });
-
-    const clap = b.dependency("clap", .{});
-
     const unitTestsMessageFormat = b.addTest(.{
         .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
         .target = clientTarget,
     });
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
+
+    const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
+    _ = commandParserModule;
+
+    const unitTestsCommandParser = b.addTest(.{
+        .root_source_file = b.path("shared/commandParser/commandParser.zig"),
+        .target = clientTarget,
+    });
+    const runUnitTestsCommandParser = b.addRunArtifact(unitTestsCommandParser);
+
+    const clap = b.dependency("clap", .{});
 
     const controllerLib = b.addStaticLibrary(.{
         .name = "asc",
@@ -129,6 +137,7 @@ pub fn build(b: *std.Build) void {
     const testStep = b.step("test", "Run unit tests");
     testStep.dependOn(&runUnitTestsClient.step);
     testStep.dependOn(&runUnitTestsMessageFormat.step);
+    testStep.dependOn(&runUnitTestsCommandParser.step);
 
     const idfBuildCmd = b.addSystemCommand(&[_][]const u8{"idf.py"});
     idfBuildCmd.addArg("build");
