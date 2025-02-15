@@ -12,6 +12,7 @@ pub const TokenType = enum {
     shortOption,
     longOption,
     string,
+    eof,
 };
 
 pub const Token = struct {
@@ -44,13 +45,12 @@ pub const Lexer = struct {
                     const ch = self.peekChar();
                     _ = self.readChar();
                     if (Self.isLetter(ch)) {
-                        _ = try self.readIdentifier();
-                        return .{ .type = TokenType.longOption, .literal = self.command[position..self.position] };
+                        return .{ .type = TokenType.longOption, .literal = try self.readIdentifier() };
                     }
                 } else if (Self.isLetter(c)) {
                     if (Self.isTokenTermination(self.peekChar())) {
                         _ = self.readChar();
-                        return .{ .type = TokenType.shortOption, .literal = self.command[position..self.position] };
+                        return .{ .type = TokenType.shortOption, .literal = self.command[self.position - 1 .. self.position] };
                     }
                 } else {
                     _ = self.goto(position);
@@ -58,6 +58,7 @@ pub const Lexer = struct {
                 }
                 unreachable;
             },
+            0 => return .{ .type = TokenType.eof, .literal = "" },
             else => {
                 return .{ .type = TokenType.string, .literal = try self.readString() };
             },
@@ -172,7 +173,7 @@ test "TestNextToken" {
     {
         const token = try lexer.nextToken();
         try std.testing.expectEqual(token.type, TokenType.longOption);
-        try std.testing.expectEqualStrings("--op", token.literal);
+        try std.testing.expectEqualStrings("op", token.literal);
     }
     {
         const token = try lexer.nextToken();
@@ -182,7 +183,7 @@ test "TestNextToken" {
     {
         const token = try lexer.nextToken();
         try std.testing.expectEqual(token.type, TokenType.shortOption);
-        try std.testing.expectEqualStrings("-h", token.literal);
+        try std.testing.expectEqualStrings("h", token.literal);
     }
     {
         const token = try lexer.nextToken();
