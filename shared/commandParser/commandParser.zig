@@ -2,6 +2,7 @@ const std = @import("std");
 const lexerMod = @import("lexer.zig");
 
 const ParserError = error{
+    MissingRequiredOption,
     MultipleSameOption,
     UnknownOption,
     OptionWithoutValue,
@@ -10,9 +11,6 @@ const ParserError = error{
 
 pub fn CommandParser(comptime commandT: type) type {
     const commandTInfo = @typeInfo(commandT);
-    if (commandTInfo != .Struct) {
-        @compileError("Expected commandT to be a struct.");
-    }
 
     return struct {
         allocator: std.mem.Allocator,
@@ -69,37 +67,39 @@ pub fn CommandParser(comptime commandT: type) type {
                             }
                         }
                         previousOption = null;
+                        continue;
                     } else {
+                        // throw an error if field is not a union or a struct
                         continue;
                     }
-                    continue;
                 }
-                if (token.type == lexerMod.TokenType.longOption) {
-                    if (previousOption != null) {
-                        return ParserError.OptionWithoutValue;
-                    }
-                    var matched = false;
-                    inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
-                        if (std.mem.eql(u8, token.literal, field.name)) {
-                            matched = true;
-                            if (found[i]) {
-                                return ParserError.MultipleSameOption;
-                            }
 
-                            found[i] = true;
+                if (previousOption != null) {
+                    return ParserError.OptionWithoutValue;
+                }
+                var matched = false;
+                inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
+                    const isMatchingLongOption: bool = token.type == lexerMod.TokenType.longOption and std.mem.eql(u8, token.literal, field.name);
+                    const isMatchingShortOption: bool = token.type == lexerMod.TokenType.shortOption and token.literal[0] == field.name[0];
+                    if (isMatchingLongOption or isMatchingShortOption) {
+                        matched = true;
+                        if (found[i]) {
+                            return ParserError.MultipleSameOption;
+                        }
 
-                            if (field.type == bool) {
-                                @field(parsedStruct, field.name) = true;
-                                break;
-                            }
+                        found[i] = true;
 
-                            previousOption = field.name;
+                        if (field.type == bool) {
+                            @field(parsedStruct, field.name) = true;
                             break;
                         }
+
+                        previousOption = field.name;
+                        break;
                     }
-                    if (!matched) {
-                        return ParserError.UnknownOption;
-                    }
+                }
+                if (!matched) {
+                    return ParserError.UnknownOption;
                 }
             }
 
@@ -112,6 +112,8 @@ pub fn CommandParser(comptime commandT: type) type {
                         @field(parsedStruct, field.name) = @as(*const field.type, @ptrCast(default_value_aligned)).*;
                     } else if (field.type == bool) {
                         @field(parsedStruct, field.name) = false;
+                    } else {
+                        return ParserError.MissingRequiredOption;
                     }
                 }
             }
@@ -148,10 +150,14 @@ const set = struct {
     optional: ?f32,
     otherOptional: ?f32,
     number: i32,
+    zzz: u64,
 };
 
 test "TestParser" {
-    var commandParser = try CommandParser(set).init(testing.allocator, "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999");
+    var commandParser = try CommandParser(set).init(
+        testing.allocator,
+        "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999 -z 500",
+    );
     const setCommand: set = try commandParser.parse();
     try testing.expect(setCommand.flag);
     try testing.expect(!setCommand.flag2);
@@ -161,4 +167,5 @@ test "TestParser" {
     try testing.expectEqual(-1.3, setCommand.optional);
     try testing.expectEqual(null, setCommand.otherOptional);
     try testing.expectEqual(-999, setCommand.number);
+    try testing.expectEqual(500, setCommand.zzz);
 }
