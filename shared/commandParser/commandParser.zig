@@ -2,16 +2,10 @@ const std = @import("std");
 const lexerMod = @import("lexer.zig");
 
 const ParserError = error{
-    InfoNotSameLengthAsCommandFields,
     MultipleSameOption,
     UnknownOption,
     OptionWithoutValue,
     CommandNameInvalid,
-};
-
-pub const Info = struct {
-    found: bool = false,
-    description: []const u8,
 };
 
 pub fn CommandParser(comptime commandT: type) type {
@@ -23,15 +17,11 @@ pub fn CommandParser(comptime commandT: type) type {
     return struct {
         allocator: std.mem.Allocator,
         lexer: lexerMod.Lexer,
-        infos: []Info,
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator, command: []const u8, infos: []Info) !Self {
-            if (commandTInfo.Struct.fields.len != infos.len) {
-                return ParserError.InfoNotSameLengthAsCommandFields;
-            }
-            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command), .infos = infos };
+        pub fn init(allocator: std.mem.Allocator, command: []const u8) !Self {
+            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command) };
         }
 
         fn parse(self: *Self) !commandT {
@@ -50,22 +40,22 @@ pub fn CommandParser(comptime commandT: type) type {
                 }
 
                 return try self.parseStruct(T);
-            } else {
-                return parsePrimitiveType(T, token);
             }
-            return error.NotImplemented;
+            if (typeInfo == .Optional) {
+                return try self.parseType(typeInfo.Optional.child, token);
+            }
+            return parsePrimitiveType(T, token);
         }
 
         fn parseStruct(self: *Self, comptime T: type) !T {
+            const typeInfo = @typeInfo(T);
             var parsedStruct: T = undefined;
-            //if (!@hasField(T, "infos")) {
-            //    @compileError("A command has to have an infos field.");
-            //}
-            //const infosTypeInfo = @typeInfo(@field(T, "infos"));
-            //if (infosTypeInfo != .Pointer or infosTypeInfo.Pointer.size != .Slice or infosTypeInfo.Pointer.child != Info) {
-            //    @compileError("A command has to have an infos field which has to be a slice of Info.");
-            //}
             var previousOption: ?[]const u8 = null;
+
+            var arr: [typeInfo.Struct.fields.len]bool = undefined;
+            const found = &arr;
+            @memset(found, false);
+
             while (true) {
                 const token = try self.lexer.nextToken();
                 if (token.type == lexerMod.TokenType.eof) {
@@ -89,13 +79,14 @@ pub fn CommandParser(comptime commandT: type) type {
                         return ParserError.OptionWithoutValue;
                     }
                     var matched = false;
-                    inline for (0..commandTInfo.Struct.fields.len, commandTInfo.Struct.fields) |_, field| {
+                    inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
                         if (std.mem.eql(u8, token.literal, field.name)) {
                             matched = true;
-                            //if (self.infos[i].found) {
-                            //    return ParserError.MultipleSameOption;
-                            //}
-                            //self.infos[i].found = true;
+                            if (found[i]) {
+                                return ParserError.MultipleSameOption;
+                            }
+
+                            found[i] = true;
 
                             if (field.type == bool) {
                                 @field(parsedStruct, field.name) = true;
@@ -111,16 +102,37 @@ pub fn CommandParser(comptime commandT: type) type {
                     }
                 }
             }
+
+            inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
+                if (!found[i]) {
+                    if (@typeInfo(field.type) == .Optional) {
+                        @field(parsedStruct, field.name) = null;
+                    } else if (field.default_value) |default_value| {
+                        const default_value_aligned: *align(field.alignment) const anyopaque = @alignCast(default_value);
+                        @field(parsedStruct, field.name) = @as(*const field.type, @ptrCast(default_value_aligned)).*;
+                    } else if (field.type == bool) {
+                        @field(parsedStruct, field.name) = false;
+                    }
+                }
+            }
             return parsedStruct;
         }
 
         fn parsePrimitiveType(comptime T: type, token: lexerMod.Token) !T {
             const typeInfo = @typeInfo(T);
             if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
-                // allocate this string
                 return token.literal;
             }
-            return error.NotImplemented;
+            if (typeInfo == .Float) {
+                return try std.fmt.parseFloat(T, token.literal);
+            }
+            if (typeInfo == .Int) {
+                if (typeInfo.Int.signedness == .signed) {
+                    return try std.fmt.parseInt(T, token.literal, 0);
+                }
+                return try std.fmt.parseUnsigned(T, token.literal, 0);
+            }
+            unreachable;
         }
     };
 }
@@ -128,24 +140,25 @@ pub fn CommandParser(comptime commandT: type) type {
 const testing = std.testing;
 
 const set = struct {
-    flag: bool = false,
+    flag: bool,
+    flag2: bool,
     ssid: []const u8,
     password: []const u8,
     security: u8 = 2,
     optional: ?f32,
+    otherOptional: ?f32,
+    number: i32,
 };
 
 test "TestParser" {
-    var infos = [_]Info{
-        .{ .description = "A boolean flag" },
-        .{ .description = "The ssid for the wlan" },
-        .{ .description = "The password for the wlan" },
-        .{ .description = "The security level used" },
-        .{ .description = "An optional" },
-    };
-    var commandParser = try CommandParser(set).init(testing.allocator, "set --ssid SomeName --password 12345 --flag", &infos);
+    var commandParser = try CommandParser(set).init(testing.allocator, "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999");
     const setCommand: set = try commandParser.parse();
+    try testing.expect(setCommand.flag);
+    try testing.expect(!setCommand.flag2);
     try testing.expectEqualStrings("SomeName", setCommand.ssid);
     try testing.expectEqualStrings("12345", setCommand.password);
-    try testing.expect(setCommand.flag);
+    try testing.expectEqual(2, setCommand.security);
+    try testing.expectEqual(-1.3, setCommand.optional);
+    try testing.expectEqual(null, setCommand.otherOptional);
+    try testing.expectEqual(-999, setCommand.number);
 }
