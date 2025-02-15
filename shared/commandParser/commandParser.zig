@@ -7,11 +7,11 @@ const ParserError = error{
     UnknownOption,
     OptionWithoutValue,
     CommandNameInvalid,
+    UnknownSubcommand,
+    SubcommandMustBeStruct,
 };
 
 pub fn CommandParser(comptime commandT: type) type {
-    const commandTInfo = @typeInfo(commandT);
-
     return struct {
         allocator: std.mem.Allocator,
         lexer: lexerMod.Lexer,
@@ -30,14 +30,10 @@ pub fn CommandParser(comptime commandT: type) type {
         fn parseType(self: *Self, comptime T: type, token: lexerMod.Token) !T {
             const typeInfo = @typeInfo(T);
             if (typeInfo == .Struct) {
-                const typeName = @typeName(T);
-                const optionalIndex = std.mem.lastIndexOfLinear(u8, typeName, ".");
-                const typeBaseName = if (optionalIndex) |index| typeName[index + 1 ..] else typeName;
-                if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, typeBaseName)) {
-                    return ParserError.CommandNameInvalid;
-                }
-
-                return try self.parseStruct(T);
+                return try self.parseStruct(T, token);
+            }
+            if (typeInfo == .Union and typeInfo.Union.tag_type != null) {
+                return try self.parseTaggedUnion(T, token);
             }
             if (typeInfo == .Optional) {
                 return try self.parseType(typeInfo.Optional.child, token);
@@ -45,7 +41,14 @@ pub fn CommandParser(comptime commandT: type) type {
             return parsePrimitiveType(T, token);
         }
 
-        fn parseStruct(self: *Self, comptime T: type) !T {
+        fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
+            const typeName = @typeName(T);
+            const optionalIndex = std.mem.lastIndexOfLinear(u8, typeName, ".");
+            const typeBaseName = if (optionalIndex) |index| typeName[index + 1 ..] else typeName;
+            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, typeBaseName)) {
+                return ParserError.CommandNameInvalid;
+            }
+
             const typeInfo = @typeInfo(T);
             var parsedStruct: T = undefined;
             var previousOption: ?[]const u8 = null;
@@ -55,22 +58,28 @@ pub fn CommandParser(comptime commandT: type) type {
             @memset(found, false);
 
             while (true) {
-                const token = try self.lexer.nextToken();
-                if (token.type == lexerMod.TokenType.eof) {
+                const tok = try self.lexer.nextToken();
+                if (tok.type == lexerMod.TokenType.eof) {
                     break;
                 }
-                if (token.type == lexerMod.TokenType.string) {
+                if (tok.type == lexerMod.TokenType.string) {
                     if (previousOption) |prevOption| {
-                        inline for (commandTInfo.Struct.fields) |field| {
+                        inline for (typeInfo.Struct.fields) |field| {
                             if (std.mem.eql(u8, prevOption, field.name)) {
-                                @field(parsedStruct, field.name) = try self.parseType(field.type, token);
+                                @field(parsedStruct, field.name) = try self.parseType(field.type, tok);
                             }
                         }
                         previousOption = null;
                         continue;
                     } else {
-                        // throw an error if field is not a union or a struct
-                        continue;
+                        inline for (typeInfo.Struct.fields) |field| {
+                            const fieldTypeInfo = @typeInfo(field.type);
+                            if (fieldTypeInfo == .Union and fieldTypeInfo.Union.tag_type != null) {
+                                @field(parsedStruct, field.name) = try self.parseTaggedUnion(field.type, tok);
+                                break;
+                            }
+                        }
+                        break;
                     }
                 }
 
@@ -79,8 +88,8 @@ pub fn CommandParser(comptime commandT: type) type {
                 }
                 var matched = false;
                 inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
-                    const isMatchingLongOption: bool = token.type == lexerMod.TokenType.longOption and std.mem.eql(u8, token.literal, field.name);
-                    const isMatchingShortOption: bool = token.type == lexerMod.TokenType.shortOption and token.literal[0] == field.name[0];
+                    const isMatchingLongOption: bool = tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, field.name);
+                    const isMatchingShortOption: bool = tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == field.name[0];
                     if (isMatchingLongOption or isMatchingShortOption) {
                         matched = true;
                         if (found[i]) {
@@ -112,12 +121,34 @@ pub fn CommandParser(comptime commandT: type) type {
                         @field(parsedStruct, field.name) = @as(*const field.type, @ptrCast(default_value_aligned)).*;
                     } else if (field.type == bool) {
                         @field(parsedStruct, field.name) = false;
-                    } else {
+                    } else if (@typeInfo(field.type) == .Union and @typeInfo(field.type).Union.tag_type != null) {} else {
                         return ParserError.MissingRequiredOption;
                     }
                 }
             }
             return parsedStruct;
+        }
+
+        fn parseTaggedUnion(self: *Self, comptime T: type, token: lexerMod.Token) !T {
+            const typeInfo = @typeInfo(T);
+            var matched = false;
+            var parsedUnion: T = undefined;
+            inline for (typeInfo.Union.fields) |field| {
+                if (std.mem.eql(u8, token.literal, field.name)) {
+                    if (@typeInfo(field.type) != .Struct) {
+                        return ParserError.SubcommandMustBeStruct;
+                    }
+
+                    const parsedStruct = try self.parseStruct(field.type, token);
+                    parsedUnion = @unionInit(T, field.name, parsedStruct);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                return ParserError.UnknownSubcommand;
+            }
+            return parsedUnion;
         }
 
         fn parsePrimitiveType(comptime T: type, token: lexerMod.Token) !T {
@@ -168,4 +199,49 @@ test "TestParser" {
     try testing.expectEqual(null, setCommand.otherOptional);
     try testing.expectEqual(-999, setCommand.number);
     try testing.expectEqual(500, setCommand.zzz);
+}
+
+const testCommand = struct {
+    flag: bool,
+    subCommands: SubCommands,
+};
+
+const SubCommandsEnum = enum {
+    red,
+    blue,
+};
+
+const SubCommands = union(SubCommandsEnum) {
+    red: red,
+    blue: blue,
+};
+
+const red = struct {
+    red: bool,
+};
+
+const blue = struct {
+    blue: []const u8,
+};
+
+test "TestSubcommands" {
+    var commandParser = try CommandParser(testCommand).init(
+        testing.allocator,
+        "testCommand --flag blue --blue aColor",
+    );
+    const testCmd: testCommand = try commandParser.parse();
+
+    try testing.expect(testCmd.flag);
+    try testing.expectEqual(@as(SubCommandsEnum, testCmd.subCommands), SubCommandsEnum.blue);
+    try testing.expectEqualStrings(testCmd.subCommands.blue.blue, "aColor");
+}
+
+test "TestMultipleCommands" {
+    var commandParser = try CommandParser(SubCommands).init(
+        testing.allocator,
+        "blue --blue aColor",
+    );
+    const subCommands: SubCommands = try commandParser.parse();
+
+    try testing.expectEqualStrings(subCommands.blue.blue, "aColor");
 }
