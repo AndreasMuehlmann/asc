@@ -12,17 +12,21 @@ const ParserError = error{
     HelpMessage,
 };
 
-pub fn CommandParser(comptime commandT: type) type {
+const FieldDescription = struct {
+    fieldName: []const u8,
+    description: []const u8,
+};
+
+pub fn CommandParser(comptime commandT: type, comptime descriptions: []const FieldDescription) type {
     return struct {
         allocator: std.mem.Allocator,
         lexer: lexerMod.Lexer,
-        descriptions: std.StringHashMap([]const u8),
-        message: []u8,
+        message: []const u8,
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator, command: []const u8, descriptions: std.StringHashMap([]const u8)) !Self {
-            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command), .descriptions = descriptions, .message = "" };
+        pub fn init(allocator: std.mem.Allocator, command: []const u8) !Self {
+            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command), .message = "" };
         }
 
         fn parse(self: *Self) !commandT {
@@ -91,7 +95,7 @@ pub fn CommandParser(comptime commandT: type) type {
                     const isHelpMessage = (tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, "help")) or
                         (tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == 'h');
                     if (isHelpMessage) {
-                        try self.generateHelpMessage(T);
+                        self.message = Self.generateHelpMessage(T);
                         return ParserError.HelpMessage;
                     }
                     const isMatchingLongOption: bool = tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, field.name);
@@ -174,59 +178,40 @@ pub fn CommandParser(comptime commandT: type) type {
             unreachable;
         }
 
-        fn generateHelpMessage(self: *Self, comptime T: type) !void {
+        fn generateHelpMessage(comptime T: type) []const u8 {
             const typeInfo = @typeInfo(T);
 
-            var array: [256]u8 = undefined;
-            const buffer: []u8 = &array;
+            comptime var helpMessage: [typeInfo.Struct.fields.len + 1][]const u8 = undefined;
 
-            var helpMessage: [typeInfo.Struct.fields.len + 1]std.ArrayList(u8) = undefined;
+            helpMessage[0] = "-h, --help";
 
-            helpMessage[0] = std.ArrayList(u8).init(self.allocator);
-            try helpMessage[0].appendSlice("-h, --help");
-
-            var maxLength = helpMessage[0].items.len;
+            comptime var maxLength = helpMessage[0].len;
             inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
-                helpMessage[i] = std.ArrayList(u8).init(self.allocator);
-                if (hasAbreviation(T, i - 1)) {
-                    try helpMessage[i].append('-');
-                    try helpMessage[i].append(field.name[0]);
-                    try helpMessage[i].appendSlice(", ");
+                helpMessage[i] = "";
+                if (comptime hasAbreviation(T, i - 1)) {
+                    helpMessage[i] = helpMessage[i] ++ "-" ++ field.name[0..1] ++ ", ";
                 }
-                try helpMessage[i].appendSlice("--");
-                try helpMessage[i].appendSlice(field.name);
+                helpMessage[i] = helpMessage[i] ++ "--" ++ field.name;
 
                 if (field.type != bool) {
-                    try helpMessage[i].appendSlice(" <");
-                    try helpMessage[i].appendSlice(comptime printableTypeName(field.type));
-                    try helpMessage[i].append('>');
+                    helpMessage[i] = helpMessage[i] ++ " <" ++ comptime printableTypeName(field.type) ++ ">";
                 }
-                maxLength = @max(maxLength, helpMessage[i].items.len);
+                maxLength = @max(maxLength, helpMessage[i].len);
             }
 
             inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
-                var descriptionOption: ?[]const u8 = null;
-                if (self.descriptions.contains(try std.fmt.bufPrint(buffer, "{s}.{s}", .{ typeBaseName(T), field.name }))) {
-                    descriptionOption = self.descriptions.get(field.name).?;
-                } else if (self.descriptions.contains(field.name)) {
-                    descriptionOption = self.descriptions.get(field.name).?;
-                }
-
+                const descriptionOption = comptime getFieldDescription(field.name);
                 if (descriptionOption) |description| {
-                    const spacesToAlign: usize = (maxLength + 4) - helpMessage[i].items.len;
-                    @memset(buffer[0..spacesToAlign], ' ');
-                    try helpMessage[i].appendSlice(buffer[0..spacesToAlign]);
-                    try helpMessage[i].appendSlice(description);
+                    helpMessage[i] = helpMessage[i] ++ comptime repeat(" ", (maxLength + 4) - helpMessage[i].len) ++ description;
                 }
             }
 
-            var assembledHelpMessage = std.ArrayList(u8).init(self.allocator);
-            for (helpMessage) |line| {
-                try assembledHelpMessage.appendSlice(line.items);
-                line.deinit();
-                try assembledHelpMessage.append('\n');
+            comptime var assembledHelpMessage: []const u8 = "";
+            inline for (helpMessage) |line| {
+                assembledHelpMessage = assembledHelpMessage ++ line ++ "\n";
             }
-            self.message = try assembledHelpMessage.toOwnedSlice();
+
+            return assembledHelpMessage;
         }
 
         fn hasAbreviation(comptime T: type, comptime index: usize) bool {
@@ -240,6 +225,15 @@ pub fn CommandParser(comptime commandT: type) type {
                 }
             }
             return true;
+        }
+
+        fn getFieldDescription(comptime fieldName: []const u8) ?[]const u8 {
+            inline for (descriptions) |fieldDescription| {
+                if (comptime std.mem.eql(u8, fieldDescription.fieldName, fieldName)) {
+                    return fieldDescription.description;
+                }
+            }
+            return null;
         }
 
         fn printableTypeName(comptime T: type) []const u8 {
@@ -257,6 +251,14 @@ pub fn CommandParser(comptime commandT: type) type {
             const typeName = @typeName(T);
             const optionalIndex = std.mem.lastIndexOfLinear(u8, typeName, ".");
             return if (optionalIndex) |index| typeName[index + 1 ..] else typeName;
+        }
+
+        fn repeat(comptime string: []const u8, comptime count: usize) []const u8 {
+            comptime var result: []const u8 = "";
+            for (0..count) |_| {
+                result = result ++ string;
+            }
+            return result;
         }
     };
 }
@@ -276,12 +278,9 @@ const set = struct {
 };
 
 test "TestParser" {
-    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
-    defer descriptions.deinit();
-    var commandParser = try CommandParser(set).init(
+    var commandParser = try CommandParser(set, &.{}).init(
         testing.allocator,
         "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999 -z 500",
-        descriptions,
     );
     const setCommand: set = try commandParser.parse();
     try testing.expect(setCommand.flag);
@@ -320,12 +319,9 @@ const blue = struct {
 };
 
 test "TestSubcommands" {
-    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
-    defer descriptions.deinit();
-    var commandParser = try CommandParser(testCommand).init(
+    var commandParser = try CommandParser(testCommand, &.{}).init(
         testing.allocator,
         "testCommand --flag blue --blue aColor",
-        descriptions,
     );
     const testCmd: testCommand = try commandParser.parse();
 
@@ -335,12 +331,9 @@ test "TestSubcommands" {
 }
 
 test "TestMultipleCommands" {
-    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
-    defer descriptions.deinit();
-    var commandParser = try CommandParser(SubCommands).init(
+    var commandParser = try CommandParser(SubCommands, &.{}).init(
         testing.allocator,
         "blue --blue aColor",
-        descriptions,
     );
     const subCommands: SubCommands = try commandParser.parse();
 
@@ -348,15 +341,14 @@ test "TestMultipleCommands" {
 }
 
 test "TestGenerateHelpMessage" {
-    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
-    defer descriptions.deinit();
-    try descriptions.put("red", "A color.");
-    try descriptions.put("road", "Some argument.");
+    const descriptions: []const FieldDescription = &.{
+        .{ .fieldName = "red", .description = "A color." },
+        .{ .fieldName = "road", .description = "Some argument." },
+    };
 
-    var commandParser = try CommandParser(red).init(
+    var commandParser = try CommandParser(red, descriptions).init(
         testing.allocator,
         "red --help",
-        descriptions,
     );
     try testing.expectError(ParserError.HelpMessage, commandParser.parse());
     const expectHelpMessage =
@@ -368,5 +360,26 @@ test "TestGenerateHelpMessage" {
     _ = commandParser.parse() catch {
         try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
     };
-    testing.allocator.free(commandParser.message);
+}
+
+test "TestGenerateHelpMessageMultipleCommands" {
+    const descriptions: []const FieldDescription = &.{
+        .{ .fieldName = "red", .description = "A color." },
+        .{ .fieldName = "road", .description = "Some argument." },
+        .{ .fieldName = "blue", .description = "Another color." },
+    };
+
+    var commandParser = try CommandParser(SubCommands, descriptions).init(
+        testing.allocator,
+        "blue --help",
+    );
+    try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+    const expectHelpMessage =
+        \\-h, --help
+        \\-b, --blue <str>    Another color.
+        \\
+    ;
+    _ = commandParser.parse() catch {
+        try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
+    };
 }
