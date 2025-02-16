@@ -23,7 +23,6 @@ pub fn build(b: *std.Build) void {
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
 
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
-    _ = commandParserModule;
 
     const unitTestsCommandParser = b.addTest(.{
         .root_source_file = b.path("shared/commandParser/commandParser.zig"),
@@ -44,6 +43,8 @@ pub fn build(b: *std.Build) void {
     controllerLib.root_module.addImport("decode", decodeModule);
     controllerLib.root_module.addImport("serverContract", serverContractModule);
     controllerLib.root_module.addImport("clientContract", clientContractModule);
+
+    controllerLib.root_module.addImport("commandParser", commandParserModule);
 
     controllerLib.addIncludePath(b.path("controller/"));
     controllerLib.addCSourceFiles(.{ .files = &[_][]const u8{

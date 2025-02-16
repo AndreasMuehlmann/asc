@@ -37,7 +37,7 @@ export fn app_main() callconv(.C) void {
     var uartConsole = UartConsole.init();
 
     var name = [_]u8{ 'u', 'a', 'r', 't', ' ', 'c', 'o', 'n', 's', 'o', 'l', 'e', 0 };
-    rtos.rtosXTaskCreate(UartConsole.run, &name, 2000, &uartConsole, 1);
+    rtos.rtosXTaskCreate(UartConsole.run, &name, 5000, &uartConsole, 1);
 
     esp.wifi_init();
 

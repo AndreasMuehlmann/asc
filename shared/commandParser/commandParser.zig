@@ -1,7 +1,12 @@
 const std = @import("std");
 const lexerMod = @import("lexer.zig");
 
-const ParserError = error{
+// TODO: Quotes and escapes
+// TODO: Proper error messages
+// TODO: printing sub commands
+// TODO: also allow --help when no top level struct
+
+pub const ParserError = error{
     MissingRequiredOption,
     MultipleSameOption,
     UnknownOption,
@@ -12,7 +17,7 @@ const ParserError = error{
     HelpMessage,
 };
 
-const FieldDescription = struct {
+pub const FieldDescription = struct {
     fieldName: []const u8,
     description: []const u8,
 };
@@ -25,11 +30,11 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator, command: []const u8) !Self {
+        pub fn init(allocator: std.mem.Allocator, command: []const u8) Self {
             return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command), .message = "" };
         }
 
-        fn parse(self: *Self) !commandT {
+        pub fn parse(self: *Self) !commandT {
             const token = try self.lexer.nextToken();
             return try self.parseType(commandT, token);
         }
@@ -278,7 +283,7 @@ const set = struct {
 };
 
 test "TestParser" {
-    var commandParser = try CommandParser(set, &.{}).init(
+    var commandParser = CommandParser(set, &.{}).init(
         testing.allocator,
         "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999 -z 500",
     );
@@ -319,7 +324,7 @@ const blue = struct {
 };
 
 test "TestSubcommands" {
-    var commandParser = try CommandParser(testCommand, &.{}).init(
+    var commandParser = CommandParser(testCommand, &.{}).init(
         testing.allocator,
         "testCommand --flag blue --blue aColor",
     );
@@ -331,7 +336,7 @@ test "TestSubcommands" {
 }
 
 test "TestMultipleCommands" {
-    var commandParser = try CommandParser(SubCommands, &.{}).init(
+    var commandParser = CommandParser(SubCommands, &.{}).init(
         testing.allocator,
         "blue --blue aColor",
     );
@@ -346,7 +351,7 @@ test "TestGenerateHelpMessage" {
         .{ .fieldName = "road", .description = "Some argument." },
     };
 
-    var commandParser = try CommandParser(red, descriptions).init(
+    var commandParser = CommandParser(red, descriptions).init(
         testing.allocator,
         "red --help",
     );
@@ -369,7 +374,7 @@ test "TestGenerateHelpMessageMultipleCommands" {
         .{ .fieldName = "blue", .description = "Another color." },
     };
 
-    var commandParser = try CommandParser(SubCommands, descriptions).init(
+    var commandParser = CommandParser(SubCommands, descriptions).init(
         testing.allocator,
         "blue --help",
     );
