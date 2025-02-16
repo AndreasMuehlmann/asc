@@ -1,3 +1,4 @@
+*.csv
 build
 .zig-cache
 zig-cache

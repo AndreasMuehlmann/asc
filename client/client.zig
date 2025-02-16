@@ -12,14 +12,21 @@ pub const Client = struct {
     allocator: std.mem.Allocator,
     netClient: NetClientT,
     gui: Gui,
+    file: std.fs.File,
 
     const Self = @This();
     const NetClientT = NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self, serverContract.ServerContract);
 
     pub fn init(allocator: std.mem.Allocator, netClient: NetClientT) !Self {
+        const file = try std.fs.cwd().createFile(
+            "measurement.csv",
+            .{},
+        );
+
+        try file.writeAll("time,yaw,accelerationX,accelerationY,accelerationZ\n");
         const gui = try Gui.init(allocator);
 
-        return .{ .allocator = allocator, .netClient = netClient, .gui = gui };
+        return .{ .allocator = allocator, .netClient = netClient, .gui = gui, .file = file };
     }
 
     pub fn run(self: *Self) !void {
@@ -39,9 +46,18 @@ pub const Client = struct {
     pub fn deinit(self: Self) void {
         self.netClient.deinit();
         self.gui.deinit();
+        self.file.close();
     }
 
     pub fn handleMeasurement(self: *Self, measurement: clientContract.Measurement) !void {
+        const buffer = try std.fmt.allocPrint(
+            self.allocator,
+            "{d},{d},{d},{d},{d}\n",
+            .{ measurement.time, measurement.heading, measurement.accelerationX, measurement.accelerationY, measurement.accelerationZ },
+        );
+        try self.file.writeAll(buffer);
+        self.allocator.free(buffer);
+
         var array = [_]rl.Vector2{rl.Vector2.init(measurement.time, measurement.heading)};
         try self.gui.addPoints("Yaw", "Heading", &array);
 

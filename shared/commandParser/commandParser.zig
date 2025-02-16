@@ -9,17 +9,20 @@ const ParserError = error{
     CommandNameInvalid,
     UnknownSubcommand,
     SubcommandMustBeStruct,
+    HelpMessage,
 };
 
 pub fn CommandParser(comptime commandT: type) type {
     return struct {
         allocator: std.mem.Allocator,
         lexer: lexerMod.Lexer,
+        descriptions: std.StringHashMap([]const u8),
+        message: []u8,
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator, command: []const u8) !Self {
-            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command) };
+        pub fn init(allocator: std.mem.Allocator, command: []const u8, descriptions: std.StringHashMap([]const u8)) !Self {
+            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command), .descriptions = descriptions, .message = "" };
         }
 
         fn parse(self: *Self) !commandT {
@@ -42,10 +45,7 @@ pub fn CommandParser(comptime commandT: type) type {
         }
 
         fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
-            const typeName = @typeName(T);
-            const optionalIndex = std.mem.lastIndexOfLinear(u8, typeName, ".");
-            const typeBaseName = if (optionalIndex) |index| typeName[index + 1 ..] else typeName;
-            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, typeBaseName)) {
+            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, typeBaseName(T))) {
                 return ParserError.CommandNameInvalid;
             }
 
@@ -88,6 +88,12 @@ pub fn CommandParser(comptime commandT: type) type {
                 }
                 var matched = false;
                 inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
+                    const isHelpMessage = (tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, "help")) or
+                        (tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == 'h');
+                    if (isHelpMessage) {
+                        try self.generateHelpMessage(T);
+                        return ParserError.HelpMessage;
+                    }
                     const isMatchingLongOption: bool = tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, field.name);
                     const isMatchingShortOption: bool = tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == field.name[0];
                     if (isMatchingLongOption or isMatchingShortOption) {
@@ -167,6 +173,91 @@ pub fn CommandParser(comptime commandT: type) type {
             }
             unreachable;
         }
+
+        fn generateHelpMessage(self: *Self, comptime T: type) !void {
+            const typeInfo = @typeInfo(T);
+
+            var array: [256]u8 = undefined;
+            const buffer: []u8 = &array;
+
+            var helpMessage: [typeInfo.Struct.fields.len + 1]std.ArrayList(u8) = undefined;
+
+            helpMessage[0] = std.ArrayList(u8).init(self.allocator);
+            try helpMessage[0].appendSlice("-h, --help");
+
+            var maxLength = helpMessage[0].items.len;
+            inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
+                helpMessage[i] = std.ArrayList(u8).init(self.allocator);
+                if (hasAbreviation(T, i - 1)) {
+                    try helpMessage[i].append('-');
+                    try helpMessage[i].append(field.name[0]);
+                    try helpMessage[i].appendSlice(", ");
+                }
+                try helpMessage[i].appendSlice("--");
+                try helpMessage[i].appendSlice(field.name);
+
+                if (field.type != bool) {
+                    try helpMessage[i].appendSlice(" <");
+                    try helpMessage[i].appendSlice(comptime printableTypeName(field.type));
+                    try helpMessage[i].append('>');
+                }
+                maxLength = @max(maxLength, helpMessage[i].items.len);
+            }
+
+            inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
+                var descriptionOption: ?[]const u8 = null;
+                if (self.descriptions.contains(try std.fmt.bufPrint(buffer, "{s}.{s}", .{ typeBaseName(T), field.name }))) {
+                    descriptionOption = self.descriptions.get(field.name).?;
+                } else if (self.descriptions.contains(field.name)) {
+                    descriptionOption = self.descriptions.get(field.name).?;
+                }
+
+                if (descriptionOption) |description| {
+                    const spacesToAlign: usize = (maxLength + 4) - helpMessage[i].items.len;
+                    @memset(buffer[0..spacesToAlign], ' ');
+                    try helpMessage[i].appendSlice(buffer[0..spacesToAlign]);
+                    try helpMessage[i].appendSlice(description);
+                }
+            }
+
+            var assembledHelpMessage = std.ArrayList(u8).init(self.allocator);
+            for (helpMessage) |line| {
+                try assembledHelpMessage.appendSlice(line.items);
+                line.deinit();
+                try assembledHelpMessage.append('\n');
+            }
+            self.message = try assembledHelpMessage.toOwnedSlice();
+        }
+
+        fn hasAbreviation(comptime T: type, comptime index: usize) bool {
+            const typeInfo = @typeInfo(T);
+            if (typeInfo.Struct.fields[index].name[0] == 'h') {
+                return false;
+            }
+            inline for (0..index) |i| {
+                if (typeInfo.Struct.fields[index].name[0] == typeInfo.Struct.fields[i].name[0]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        fn printableTypeName(comptime T: type) []const u8 {
+            const typeInfo = @typeInfo(T);
+            if (typeInfo == .Optional) {
+                return "?" ++ printableTypeName(typeInfo.Optional.child);
+            }
+            if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice and typeInfo.Pointer.child == u8) {
+                return "str";
+            }
+            return @typeName(T);
+        }
+
+        fn typeBaseName(comptime T: type) []const u8 {
+            const typeName = @typeName(T);
+            const optionalIndex = std.mem.lastIndexOfLinear(u8, typeName, ".");
+            return if (optionalIndex) |index| typeName[index + 1 ..] else typeName;
+        }
     };
 }
 
@@ -185,9 +276,12 @@ const set = struct {
 };
 
 test "TestParser" {
+    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
+    defer descriptions.deinit();
     var commandParser = try CommandParser(set).init(
         testing.allocator,
         "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999 -z 500",
+        descriptions,
     );
     const setCommand: set = try commandParser.parse();
     try testing.expect(setCommand.flag);
@@ -218,6 +312,7 @@ const SubCommands = union(SubCommandsEnum) {
 
 const red = struct {
     red: bool,
+    road: ?[]const u8,
 };
 
 const blue = struct {
@@ -225,9 +320,12 @@ const blue = struct {
 };
 
 test "TestSubcommands" {
+    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
+    defer descriptions.deinit();
     var commandParser = try CommandParser(testCommand).init(
         testing.allocator,
         "testCommand --flag blue --blue aColor",
+        descriptions,
     );
     const testCmd: testCommand = try commandParser.parse();
 
@@ -237,11 +335,38 @@ test "TestSubcommands" {
 }
 
 test "TestMultipleCommands" {
+    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
+    defer descriptions.deinit();
     var commandParser = try CommandParser(SubCommands).init(
         testing.allocator,
         "blue --blue aColor",
+        descriptions,
     );
     const subCommands: SubCommands = try commandParser.parse();
 
     try testing.expectEqualStrings(subCommands.blue.blue, "aColor");
+}
+
+test "TestGenerateHelpMessage" {
+    var descriptions = std.StringHashMap([]const u8).init(testing.allocator);
+    defer descriptions.deinit();
+    try descriptions.put("red", "A color.");
+    try descriptions.put("road", "Some argument.");
+
+    var commandParser = try CommandParser(red).init(
+        testing.allocator,
+        "red --help",
+        descriptions,
+    );
+    try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+    const expectHelpMessage =
+        \\-h, --help
+        \\-r, --red        A color.
+        \\--road <?str>    Some argument.
+        \\
+    ;
+    _ = commandParser.parse() catch {
+        try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
+    };
+    testing.allocator.free(commandParser.message);
 }
