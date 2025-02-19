@@ -3,9 +3,13 @@
 An autonomous slot-car (something like carrera) running on a Raspberry Pi.
 It also provides a cross-platform client application that will be able to send commands and is able to plot measurements.
 
-
 ![Slotcar](doc/slotcarWithRaspberryPiImuAndBattery.jpg)
+
 ![Plot](doc/plot.png)
+Measurements made by the IMU
+
+![Plot](doc/forsternTrackReconstruction.png)
+A Reconstruction of a [slot-car track](https://www.srcp3.de/)
 
 ## Quickstart
 

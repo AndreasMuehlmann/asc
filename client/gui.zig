@@ -2,6 +2,8 @@ const std = @import("std");
 
 const rl = @import("raylib");
 
+const headingToPosition = @import("headingToPosition.zig");
+
 pub const GuiError = error{
     UnkownDataSetName,
     UnkownPlotName,
@@ -151,6 +153,9 @@ const Plot = struct {
             }
             indexFirstPoint += 1;
         }
+        if (indexFirstPoint >= dataSet.points.items.len) {
+            return;
+        }
         var prevPoint = self.toGlobal(dataSet.points.items[indexFirstPoint]);
         for (indexFirstPoint + 1..dataSet.points.items.len) |i| {
             if (dataSet.points.items[i].x > self.maxCoord.x) {
@@ -230,17 +235,52 @@ pub const Gui = struct {
         rl.setTargetFPS(60);
         rl.setWindowMinSize(800, 800);
 
+        const file = try std.fs.cwd().openFile("OneRound.csv", .{});
+        defer file.close();
+
+        var bufReader = std.io.bufferedReader(file.reader());
+        const reader = bufReader.reader();
+
+        var list = std.ArrayList(rl.Vector2).init(allocator);
+
+        _ = try reader.readUntilDelimiterAlloc(allocator, '\n', std.math.maxInt(usize));
+        var count: usize = 0;
+        while (true) {
+            const line = reader.readUntilDelimiterAlloc(allocator, '\n', std.math.maxInt(usize)) catch break;
+            var tokenizer = std.mem.tokenize(u8, line, &[_]u8{','});
+
+            const time = try std.fmt.parseFloat(f32, tokenizer.next().?);
+            const yaw = try std.fmt.parseFloat(f32, tokenizer.next().?);
+            try list.append(rl.Vector2.init(time, yaw));
+            count += 1;
+        }
+        var slice = try list.toOwnedSlice();
+        headingToPosition.headingToPosition(&slice, 40.0 / 14.0);
+
+        var minCoord = rl.Vector2.init(std.math.floatMax(f32), std.math.floatMax(f32));
+        var maxCoord = rl.Vector2.init(-std.math.floatMax(f32), -std.math.floatMax(f32));
+        for (slice) |point| {
+            minCoord.x = @min(minCoord.x, point.x);
+            minCoord.y = @min(minCoord.y, point.y);
+            maxCoord.x = @max(maxCoord.x, point.x);
+            maxCoord.y = @max(maxCoord.y, point.y);
+        }
+
         var dataSetsYaw = try allocator.alloc(DataSet, 1);
-        dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "y", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        //dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
-        var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
-        dataSetsAcceleration[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
-        dataSetsAcceleration[1] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
-        dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
+        //var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
+        //dataSetsAcceleration[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
+        //dataSetsAcceleration[1] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
+        //dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
 
-        var plots = try allocator.alloc(Plot, 2);
-        plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
-        plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+        var plots = try allocator.alloc(Plot, 1);
+        plots[0] = Plot.init(allocator, "Track", "x", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), minCoord, maxCoord, 30, windowWidthF, windowHeightF, dataSetsYaw);
+        try plots[0].addPoints("y", slice);
+        //plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        //plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+
         return .{ .allocator = allocator, .plots = plots };
     }
 
@@ -253,6 +293,9 @@ pub const Gui = struct {
         rl.beginDrawing();
         defer rl.endDrawing();
 
+        if (rl.isKeyPressed(.s)) {
+            rl.takeScreenshot("screenshot.png");
+        }
         rl.clearBackground(rl.Color.white);
 
         for (0..self.plots.len) |i| {
