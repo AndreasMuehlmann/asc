@@ -1,10 +1,8 @@
 const std = @import("std");
 const lexerMod = @import("lexer.zig");
+const commandParserUtils = @import("commandParserUtils.zig");
 
-// TODO: Quotes and escapes
 // TODO: Proper error messages
-// TODO: printing sub commands
-// TODO: also allow --help when no top level struct
 
 pub const ParserError = error{
     MissingRequiredOption,
@@ -14,6 +12,8 @@ pub const ParserError = error{
     CommandNameInvalid,
     UnknownSubcommand,
     SubcommandMustBeStruct,
+    UnionUntagged,
+    TagTypeHasToBeEnum,
     HelpMessage,
 };
 
@@ -24,18 +24,24 @@ pub const FieldDescription = struct {
 
 pub fn CommandParser(comptime commandT: type, comptime descriptions: []const FieldDescription) type {
     return struct {
-        allocator: std.mem.Allocator,
+        arena: std.heap.ArenaAllocator,
         lexer: lexerMod.Lexer,
         message: []const u8,
 
         const Self = @This();
 
         pub fn init(allocator: std.mem.Allocator, command: []const u8) Self {
-            return .{ .allocator = allocator, .lexer = lexerMod.Lexer.init(command), .message = "" };
+            return .{ .arena = std.heap.ArenaAllocator.init(allocator), .lexer = lexerMod.Lexer.init(command), .message = "" };
         }
 
         pub fn parse(self: *Self) !commandT {
             const token = try self.lexer.nextToken();
+            try self.checkHelp(commandT, token);
+            const isHelpNotAsOption = token.type == lexerMod.TokenType.string and std.mem.eql(u8, token.literal, "help");
+            if (isHelpNotAsOption) {
+                self.message = Self.generateHelpMessage(commandT);
+                return ParserError.HelpMessage;
+            }
             return try self.parseType(commandT, token);
         }
 
@@ -50,11 +56,11 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             if (typeInfo == .Optional) {
                 return try self.parseType(typeInfo.Optional.child, token);
             }
-            return parsePrimitiveType(T, token);
+            return self.parsePrimitiveType(T, token);
         }
 
         fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
-            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, typeBaseName(T))) {
+            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, commandParserUtils.typeBaseName(T))) {
                 return ParserError.CommandNameInvalid;
             }
 
@@ -71,6 +77,9 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 if (tok.type == lexerMod.TokenType.eof) {
                     break;
                 }
+
+                try self.checkHelp(T, tok);
+
                 if (tok.type == lexerMod.TokenType.string) {
                     if (previousOption) |prevOption| {
                         inline for (typeInfo.Struct.fields) |field| {
@@ -95,14 +104,9 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 if (previousOption != null) {
                     return ParserError.OptionWithoutValue;
                 }
+
                 var matched = false;
                 inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
-                    const isHelpMessage = (tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, "help")) or
-                        (tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == 'h');
-                    if (isHelpMessage) {
-                        self.message = Self.generateHelpMessage(T);
-                        return ParserError.HelpMessage;
-                    }
                     const isMatchingLongOption: bool = tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, field.name);
                     const isMatchingShortOption: bool = tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == field.name[0];
                     if (isMatchingLongOption or isMatchingShortOption) {
@@ -166,10 +170,12 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             return parsedUnion;
         }
 
-        fn parsePrimitiveType(comptime T: type, token: lexerMod.Token) !T {
+        fn parsePrimitiveType(self: *Self, comptime T: type, token: lexerMod.Token) !T {
             const typeInfo = @typeInfo(T);
-            if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
-                return token.literal;
+            if (token.type == lexerMod.TokenType.string and typeInfo == .Pointer and
+                typeInfo.Pointer.size == .Slice and typeInfo.Pointer.child == u8)
+            {
+                return try self.parseString(token.literal);
             }
             if (typeInfo == .Float) {
                 return try std.fmt.parseFloat(T, token.literal);
@@ -183,7 +189,41 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             unreachable;
         }
 
-        fn generateHelpMessage(comptime T: type) []const u8 {
+        fn parseString(self: *Self, string: []const u8) ![]u8 {
+            const arenaAllocator = self.arena.allocator();
+            var escapedString = std.ArrayList(u8).init(arenaAllocator);
+
+            var escaped: bool = false;
+
+            const str = if (string[0] == '"') string[1 .. string.len - 1] else string;
+            for (str) |char| {
+                if (escaped) {
+                    try escapedString.append(char);
+                    escaped = false;
+                    continue;
+                }
+
+                if (char == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                try escapedString.append(char);
+            }
+
+            return escapedString.items;
+        }
+
+        pub fn generateHelpMessage(comptime T: type) []const u8 {
+            const typeInfo = @typeInfo(T);
+            if (typeInfo == .Struct) {
+                return comptime Self.generateHelpMessageStruct(T);
+            } else if (typeInfo == .Union) {
+                return comptime Self.generateHelpMessageTaggedUnion(T) ++ "\n";
+            }
+            unreachable;
+        }
+
+        fn generateHelpMessageStruct(comptime T: type) []const u8 {
             const typeInfo = @typeInfo(T);
 
             comptime var helpMessage: [typeInfo.Struct.fields.len + 1][]const u8 = undefined;
@@ -193,13 +233,22 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             comptime var maxLength = helpMessage[0].len;
             inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
                 helpMessage[i] = "";
-                if (comptime hasAbreviation(T, i - 1)) {
-                    helpMessage[i] = helpMessage[i] ++ "-" ++ field.name[0..1] ++ ", ";
-                }
-                helpMessage[i] = helpMessage[i] ++ "--" ++ field.name;
 
-                if (field.type != bool) {
-                    helpMessage[i] = helpMessage[i] ++ " <" ++ comptime printableTypeName(field.type) ++ ">";
+                const fieldTypeInfo = @typeInfo(field.type);
+                if (fieldTypeInfo == .Union) {
+                    if (fieldTypeInfo.Union.tag_type == null) {
+                        @compileError("Union has to be tagged.");
+                    }
+                    helpMessage[i] = comptime Self.generateHelpMessageTaggedUnion(field.type);
+                } else {
+                    if (comptime commandParserUtils.hasAbreviation(T, i - 1)) {
+                        helpMessage[i] = helpMessage[i] ++ "-" ++ field.name[0..1] ++ ", ";
+                    }
+                    helpMessage[i] = helpMessage[i] ++ "--" ++ field.name;
+
+                    if (field.type != bool) {
+                        helpMessage[i] = helpMessage[i] ++ " <" ++ comptime commandParserUtils.printableTypeName(field.type) ++ ">";
+                    }
                 }
                 maxLength = @max(maxLength, helpMessage[i].len);
             }
@@ -207,7 +256,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
                 const descriptionOption = comptime getFieldDescription(field.name);
                 if (descriptionOption) |description| {
-                    helpMessage[i] = helpMessage[i] ++ comptime repeat(" ", (maxLength + 4) - helpMessage[i].len) ++ description;
+                    helpMessage[i] = helpMessage[i] ++ comptime commandParserUtils.repeat(" ", (maxLength + 4) - helpMessage[i].len) ++ description;
                 }
             }
 
@@ -219,17 +268,26 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             return assembledHelpMessage;
         }
 
-        fn hasAbreviation(comptime T: type, comptime index: usize) bool {
-            const typeInfo = @typeInfo(T);
-            if (typeInfo.Struct.fields[index].name[0] == 'h') {
-                return false;
+        pub fn generateHelpMessageTaggedUnion(comptime T: type) []const u8 {
+            comptime var message: []const u8 = commandParserUtils.typeBaseName(T) ++ ": ";
+
+            const tagTypeInfo = @typeInfo(@typeInfo(T).Union.tag_type.?);
+            if (tagTypeInfo != .Enum) {
+                @compileError("Union has to have enum as tag.");
             }
-            inline for (0..index) |i| {
-                if (typeInfo.Struct.fields[index].name[0] == typeInfo.Struct.fields[i].name[0]) {
-                    return false;
-                }
+            inline for (tagTypeInfo.Enum.fields[0 .. tagTypeInfo.Enum.fields.len - 1]) |tagField| {
+                message = message ++ tagField.name ++ ", ";
             }
-            return true;
+            return message ++ tagTypeInfo.Enum.fields[tagTypeInfo.Enum.fields.len - 1].name;
+        }
+
+        fn checkHelp(self: *Self, comptime T: type, token: lexerMod.Token) !void {
+            const isHelp = (token.type == lexerMod.TokenType.longOption and std.mem.eql(u8, token.literal, "help")) or
+                (token.type == lexerMod.TokenType.shortOption and token.literal[0] == 'h');
+            if (isHelp) {
+                self.message = Self.generateHelpMessage(T);
+                return ParserError.HelpMessage;
+            }
         }
 
         fn getFieldDescription(comptime fieldName: []const u8) ?[]const u8 {
@@ -241,29 +299,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             return null;
         }
 
-        fn printableTypeName(comptime T: type) []const u8 {
-            const typeInfo = @typeInfo(T);
-            if (typeInfo == .Optional) {
-                return "?" ++ printableTypeName(typeInfo.Optional.child);
-            }
-            if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice and typeInfo.Pointer.child == u8) {
-                return "str";
-            }
-            return @typeName(T);
-        }
-
-        fn typeBaseName(comptime T: type) []const u8 {
-            const typeName = @typeName(T);
-            const optionalIndex = std.mem.lastIndexOfLinear(u8, typeName, ".");
-            return if (optionalIndex) |index| typeName[index + 1 ..] else typeName;
-        }
-
-        fn repeat(comptime string: []const u8, comptime count: usize) []const u8 {
-            comptime var result: []const u8 = "";
-            for (0..count) |_| {
-                result = result ++ string;
-            }
-            return result;
+        pub fn deinit(self: Self) void {
+            self.arena.deinit();
         }
     };
 }
@@ -285,13 +322,14 @@ const set = struct {
 test "TestParser" {
     var commandParser = CommandParser(set, &.{}).init(
         testing.allocator,
-        "set --ssid SomeName --password 12345 --optional -1.3 --flag --number -999 -z 500",
+        "set --ssid \"Some\\\\Na\\ me\" --password 12\\\\3\\\"45 --optional -1.3 --flag --number -999 -z 500",
     );
+    defer commandParser.deinit();
     const setCommand: set = try commandParser.parse();
     try testing.expect(setCommand.flag);
     try testing.expect(!setCommand.flag2);
-    try testing.expectEqualStrings("SomeName", setCommand.ssid);
-    try testing.expectEqualStrings("12345", setCommand.password);
+    try testing.expectEqualStrings("Some\\Na me", setCommand.ssid);
+    try testing.expectEqualStrings("12\\3\"45", setCommand.password);
     try testing.expectEqual(2, setCommand.security);
     try testing.expectEqual(-1.3, setCommand.optional);
     try testing.expectEqual(null, setCommand.otherOptional);
@@ -328,6 +366,7 @@ test "TestSubcommands" {
         testing.allocator,
         "testCommand --flag blue --blue aColor",
     );
+    defer commandParser.deinit();
     const testCmd: testCommand = try commandParser.parse();
 
     try testing.expect(testCmd.flag);
@@ -340,6 +379,7 @@ test "TestMultipleCommands" {
         testing.allocator,
         "blue --blue aColor",
     );
+    defer commandParser.deinit();
     const subCommands: SubCommands = try commandParser.parse();
 
     try testing.expectEqualStrings(subCommands.blue.blue, "aColor");
@@ -355,6 +395,7 @@ test "TestGenerateHelpMessage" {
         testing.allocator,
         "red --help",
     );
+    defer commandParser.deinit();
     try testing.expectError(ParserError.HelpMessage, commandParser.parse());
     const expectHelpMessage =
         \\-h, --help
@@ -374,14 +415,49 @@ test "TestGenerateHelpMessageMultipleCommands" {
         .{ .fieldName = "blue", .description = "Another color." },
     };
 
-    var commandParser = CommandParser(SubCommands, descriptions).init(
+    const commandParserT = CommandParser(SubCommands, descriptions);
+    {
+        var commandParser = commandParserT.init(
+            testing.allocator,
+            "blue --help",
+        );
+        defer commandParser.deinit();
+        try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+        const expectHelpMessage =
+            \\-h, --help
+            \\-b, --blue <str>    Another color.
+            \\
+        ;
+        _ = commandParser.parse() catch {
+            try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
+        };
+    }
+    var commandParser = commandParserT.init(
         testing.allocator,
-        "blue --help",
+        "help",
     );
+    defer commandParser.deinit();
+    try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+    const expectHelpMessage =
+        \\SubCommands: red, blue
+        \\
+    ;
+    _ = commandParser.parse() catch {
+        try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
+    };
+}
+
+test "TestGenerateHelpMessageSubcommands" {
+    var commandParser = CommandParser(testCommand, &.{}).init(
+        testing.allocator,
+        "testCommand --help",
+    );
+    defer commandParser.deinit();
     try testing.expectError(ParserError.HelpMessage, commandParser.parse());
     const expectHelpMessage =
         \\-h, --help
-        \\-b, --blue <str>    Another color.
+        \\-f, --flag
+        \\SubCommands: red, blue
         \\
     ;
     _ = commandParser.parse() catch {

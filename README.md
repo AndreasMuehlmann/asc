@@ -9,7 +9,7 @@ It also provides a cross-platform client application that will be able to send c
 Measurements made by the IMU
 
 ![Plot](doc/forsternTrackReconstruction.png)
-A Reconstruction of a [slot-car track](https://www.srcp3.de/)
+A reconstruction of a [slot-car track](https://www.srcp3.de/)
 
 ## Quickstart
 

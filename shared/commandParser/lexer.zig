@@ -6,6 +6,7 @@ const LexerError = error{
     UnclosedQuote,
     UnexpectedCharacter,
     EscapingEnd,
+    EscapingNonQuoteOrBackslashOrSpace,
 };
 
 pub const TokenType = enum {
@@ -125,6 +126,10 @@ pub const Lexer = struct {
             }
             if (escaped and char == 0) {
                 return LexerError.EscapingEnd;
+            }
+
+            if (escaped and (char != '"' and char != '\\' and char != ' ')) {
+                return LexerError.EscapingNonQuoteOrBackslashOrSpace;
             }
             if (escaped) {
                 escaped = false;
