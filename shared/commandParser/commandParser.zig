@@ -2,8 +2,6 @@ const std = @import("std");
 const lexerMod = @import("lexer.zig");
 const commandParserUtils = @import("commandParserUtils.zig");
 
-// TODO: Proper error messages
-
 pub const ParserError = error{
     MissingRequiredOption,
     MultipleSameOption,
@@ -11,7 +9,6 @@ pub const ParserError = error{
     OptionWithoutValue,
     CommandNameInvalid,
     UnknownSubcommand,
-    SubcommandMustBeStruct,
     UnionUntagged,
     TagTypeHasToBeEnum,
     HelpMessage,
@@ -31,11 +28,27 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         const Self = @This();
 
         pub fn init(allocator: std.mem.Allocator, command: []const u8) Self {
-            return .{ .arena = std.heap.ArenaAllocator.init(allocator), .lexer = lexerMod.Lexer.init(command), .message = "" };
+            const arena = std.heap.ArenaAllocator.init(allocator);
+            return .{ .arena = arena, .lexer = lexerMod.Lexer.init(command), .message = "" };
+        }
+
+        fn handleErrorNextToken(self: *Self) !lexerMod.Token {
+            const allocator = self.arena.allocator();
+            const token = self.lexer.nextToken() catch |err| {
+                switch (err) {
+                    lexerMod.LexerError.TokenTerminationAfterIdentifier => self.message = try std.fmt.allocPrint(allocator, "Identifier has to consist of letters and has to end with whitespace or the end of the string (token at position: {d}).", .{self.lexer.errorPosition}),
+                    lexerMod.LexerError.TokenTerminationAfterQuotedString => self.message = try std.fmt.allocPrint(allocator, "Expected whitespace or end of the string after quoted string (token at position: {d}).", .{self.lexer.errorPosition}),
+                    lexerMod.LexerError.UnclosedQuote => self.message = try std.fmt.allocPrint(allocator, "Quote unclosed (token at position: {d}).", .{self.lexer.errorPosition}),
+                    lexerMod.LexerError.EscapingEnd => self.message = try std.fmt.allocPrint(allocator, "Escaping the end is not allowed (token at position: {d}).", .{self.lexer.errorPosition}),
+                    lexerMod.LexerError.EscapingNonQuoteOrBackslashOrSpace => self.message = try std.fmt.allocPrint(allocator, "Only quotes backslashs or spaces can be escaped (token at position: {d}).", .{self.lexer.errorPosition}),
+                }
+                return err;
+            };
+            return token;
         }
 
         pub fn parse(self: *Self) !commandT {
-            const token = try self.lexer.nextToken();
+            const token = try self.handleErrorNextToken();
             try self.checkHelp(commandT, token);
             const isHelpNotAsOption = token.type == lexerMod.TokenType.string and std.mem.eql(u8, token.literal, "help");
             if (isHelpNotAsOption) {
@@ -60,7 +73,9 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         }
 
         fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
-            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, commandParserUtils.typeBaseName(T))) {
+            const allocator = self.arena.allocator();
+            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, comptime commandParserUtils.typeBaseName(T))) {
+                self.message = try std.fmt.allocPrint(allocator, "Command name at position {d} is invalid, expected " ++ comptime commandParserUtils.typeBaseName(T) ++ ".", .{token.position});
                 return ParserError.CommandNameInvalid;
             }
 
@@ -73,8 +88,12 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             @memset(found, false);
 
             while (true) {
-                const tok = try self.lexer.nextToken();
+                const tok = try self.handleErrorNextToken();
                 if (tok.type == lexerMod.TokenType.eof) {
+                    if (previousOption != null) {
+                        self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found end of string.", .{tok.position});
+                        return ParserError.OptionWithoutValue;
+                    }
                     break;
                 }
 
@@ -102,6 +121,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
 
                 if (previousOption != null) {
+                    self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found another option.", .{tok.position});
                     return ParserError.OptionWithoutValue;
                 }
 
@@ -112,6 +132,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     if (isMatchingLongOption or isMatchingShortOption) {
                         matched = true;
                         if (found[i]) {
+                            self.message = try std.fmt.allocPrint(allocator, "Option at position {d} was found before multiple occurences of the same option are not allowed.", .{tok.position});
                             return ParserError.MultipleSameOption;
                         }
 
@@ -127,6 +148,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     }
                 }
                 if (!matched) {
+                    self.message = try std.fmt.allocPrint(allocator, "Option at position {} not found to match any of the expected options.", .{tok.position});
                     return ParserError.UnknownOption;
                 }
             }
@@ -141,6 +163,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     } else if (field.type == bool) {
                         @field(parsedStruct, field.name) = false;
                     } else if (@typeInfo(field.type) == .Union and @typeInfo(field.type).Union.tag_type != null) {} else {
+                        self.message = "Required option --" ++ field.name ++ " was not found.";
                         return ParserError.MissingRequiredOption;
                     }
                 }
@@ -155,7 +178,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             inline for (typeInfo.Union.fields) |field| {
                 if (std.mem.eql(u8, token.literal, field.name)) {
                     if (@typeInfo(field.type) != .Struct) {
-                        return ParserError.SubcommandMustBeStruct;
+                        @compileError("A subcommand has to be a struct.");
                     }
 
                     const parsedStruct = try self.parseStruct(field.type, token);
@@ -165,6 +188,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
             }
             if (!matched) {
+                self.message = try std.fmt.allocPrint(self.arena.allocator(), "Unknown command at position {d} {s}.", .{ token.position, token.literal });
                 return ParserError.UnknownSubcommand;
             }
             return parsedUnion;
@@ -218,7 +242,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             if (typeInfo == .Struct) {
                 return comptime Self.generateHelpMessageStruct(T);
             } else if (typeInfo == .Union) {
-                return comptime Self.generateHelpMessageTaggedUnion(T) ++ "\n";
+                return "    " ++ comptime Self.generateHelpMessageTaggedUnion(T) ++ "\n";
             }
             unreachable;
         }
@@ -228,18 +252,18 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
             comptime var helpMessage: [typeInfo.Struct.fields.len + 1][]const u8 = undefined;
 
-            helpMessage[0] = "-h, --help";
+            helpMessage[0] = "    -h, --help";
 
             comptime var maxLength = helpMessage[0].len;
             inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
-                helpMessage[i] = "";
+                helpMessage[i] = "    ";
 
                 const fieldTypeInfo = @typeInfo(field.type);
                 if (fieldTypeInfo == .Union) {
                     if (fieldTypeInfo.Union.tag_type == null) {
                         @compileError("Union has to be tagged.");
                     }
-                    helpMessage[i] = comptime Self.generateHelpMessageTaggedUnion(field.type);
+                    helpMessage[i] = "    " ++ comptime Self.generateHelpMessageTaggedUnion(field.type);
                 } else {
                     if (comptime commandParserUtils.hasAbreviation(T, i - 1)) {
                         helpMessage[i] = helpMessage[i] ++ "-" ++ field.name[0..1] ++ ", ";

@@ -18,11 +18,15 @@ const backspace = 8;
 
 const CommandsEnum = enum {
     set,
+    someCommand,
 };
 
 const commands = union(CommandsEnum) {
     set: set,
+    someCommand: someCommand,
 };
+
+const someCommand = struct {};
 
 const set = struct {
     ssid: []const u8,
@@ -40,7 +44,7 @@ pub const UartConsole = struct {
 
     fn readLine() !usize {
         var index: usize = 0;
-        while (index < buffer.len) : (rtos.rtosVTaskDelay(5)) {
+        while (index < buffer.len) : (rtos.rtosVTaskDelay(1)) {
             const char: c_int = c.getchar();
             if (char == 0 or char == 0xFF or char == '\r' or char == c.EOF) {
                 continue;
@@ -82,15 +86,14 @@ pub const UartConsole = struct {
 
             var commandParser = commandParserT.init(std.heap.raw_c_allocator, buffer[0..length]);
             const command = commandParser.parse() catch |err| {
-                if (err == commandParserMod.ParserError.HelpMessage) {
-                    const nullTerminated = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}\n", .{commandParser.message}) catch unreachable;
-                    defer std.heap.raw_c_allocator.free(nullTerminated);
-                    _ = c.printf(nullTerminated);
+                var message: []const u8 = undefined;
+                if (commandParser.message.len == 0) {
+                    message = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}\n", .{@errorName(err)}) catch unreachable;
                 } else {
-                    const nullTerminated = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}\n", .{@errorName(err)}) catch unreachable;
-                    defer std.heap.raw_c_allocator.free(nullTerminated);
-                    _ = c.printf(nullTerminated);
+                    message = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}\n", .{commandParser.message}) catch unreachable;
                 }
+                _ = c.printf(message.ptr);
+                std.heap.raw_c_allocator.free(message);
                 continue;
             };
 
@@ -101,6 +104,9 @@ pub const UartConsole = struct {
                     const nullTerminatedPassword = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}", .{setCmd.password}) catch unreachable;
                     defer std.heap.raw_c_allocator.free(nullTerminatedPassword);
                     _ = c.printf("Set ssid to %s and password to %s\n", nullTerminatedSsid.ptr, nullTerminatedPassword.ptr);
+                },
+                CommandsEnum.someCommand => |_| {
+                    _ = c.printf("Doing something\n");
                 },
             }
         }

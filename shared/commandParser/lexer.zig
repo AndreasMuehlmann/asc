@@ -1,10 +1,9 @@
 const std = @import("std");
 
-const LexerError = error{
+pub const LexerError = error{
     TokenTerminationAfterIdentifier,
     TokenTerminationAfterQuotedString,
     UnclosedQuote,
-    UnexpectedCharacter,
     EscapingEnd,
     EscapingNonQuoteOrBackslashOrSpace,
 };
@@ -19,6 +18,7 @@ pub const TokenType = enum {
 pub const Token = struct {
     type: TokenType,
     literal: []const u8,
+    position: usize,
 };
 
 pub const Lexer = struct {
@@ -26,11 +26,12 @@ pub const Lexer = struct {
     position: usize,
     readPosition: usize,
     char: u8,
+    errorPosition: usize,
 
     const Self = @This();
 
     pub fn init(command: []const u8) Self {
-        var self: Self = .{ .command = command, .position = 0, .readPosition = 0, .char = 0 };
+        var self: Self = .{ .command = command, .position = 0, .readPosition = 0, .char = 0, .errorPosition = 0 };
         self.char = self.readChar();
         return self;
     }
@@ -46,22 +47,22 @@ pub const Lexer = struct {
                     const ch = self.peekChar();
                     _ = self.readChar();
                     if (Self.isLetter(ch)) {
-                        return .{ .type = TokenType.longOption, .literal = try self.readIdentifier() };
+                        return .{ .type = TokenType.longOption, .literal = try self.readIdentifier(), .position = position };
                     }
                 } else if (Self.isLetter(c)) {
                     if (Self.isTokenTermination(self.peekChar())) {
                         _ = self.readChar();
-                        return .{ .type = TokenType.shortOption, .literal = self.command[self.position - 1 .. self.position] };
+                        return .{ .type = TokenType.shortOption, .literal = self.command[self.position - 1 .. self.position], .position = position };
                     }
                 } else {
                     _ = self.goto(position);
-                    return .{ .type = TokenType.string, .literal = try self.readString() };
+                    return .{ .type = TokenType.string, .literal = try self.readString(), .position = position };
                 }
                 unreachable;
             },
-            0 => return .{ .type = TokenType.eof, .literal = "" },
+            0 => return .{ .type = TokenType.eof, .literal = "", .position = position },
             else => {
-                return .{ .type = TokenType.string, .literal = try self.readString() };
+                return .{ .type = TokenType.string, .literal = try self.readString(), .position = position };
             },
         }
         unreachable;
@@ -106,6 +107,7 @@ pub const Lexer = struct {
             _ = self.readChar();
         }
         if (!Self.isTokenTermination(self.char)) {
+            self.errorPosition = position;
             return LexerError.TokenTerminationAfterIdentifier;
         }
         return self.command[position..self.position];
@@ -119,6 +121,7 @@ pub const Lexer = struct {
         const position = self.position;
         var escaped: bool = false;
         const quoted: bool = self.char == '"';
+        self.errorPosition = position;
         while (true) {
             const char = self.readChar();
             if (quoted and char == 0) {
