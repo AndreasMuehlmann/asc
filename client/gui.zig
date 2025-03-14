@@ -267,19 +267,19 @@ pub const Gui = struct {
         }
 
         var dataSetsYaw = try allocator.alloc(DataSet, 1);
-        dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "y", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
-        //dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        //dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "y", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
-        //var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
-        //dataSetsAcceleration[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
-        //dataSetsAcceleration[1] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
-        //dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
+        var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
+        dataSetsAcceleration[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
+        dataSetsAcceleration[1] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
+        dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
 
-        var plots = try allocator.alloc(Plot, 1);
-        plots[0] = Plot.init(allocator, "Track", "x", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), minCoord, maxCoord, 30, windowWidthF, windowHeightF, dataSetsYaw);
-        try plots[0].addPoints("y", slice);
-        //plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
-        //plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+        var plots = try allocator.alloc(Plot, 2);
+        //plots[0] = Plot.init(allocator, "Track", "x", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), minCoord, maxCoord, 30, windowWidthF, windowHeightF, dataSetsYaw);
+        //try plots[0].addPoints("y", slice);
+        plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
 
         return .{ .allocator = allocator, .plots = plots };
     }

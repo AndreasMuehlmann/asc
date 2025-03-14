@@ -41,10 +41,6 @@ pub const UartConsole = struct {
 
     var buffer: [256]u8 = undefined;
 
-    pub fn init() Self {
-        return .{};
-    }
-
     fn readLine() !usize {
         var index: usize = 0;
         while (index < buffer.len) : (rtos.rtosVTaskDelay(1)) {
@@ -72,7 +68,6 @@ pub const UartConsole = struct {
         return index;
     }
 
-    // TODO: get allocator from anyopaque pointer
     pub fn run(_: ?*anyopaque) callconv(.C) void {
         const descriptions: []const commandParserMod.FieldDescription = &.{
             .{ .fieldName = "ssid", .description = "The name of the wlan to connect to." },
@@ -112,7 +107,6 @@ pub const UartConsole = struct {
                 CommandsEnum.set => |setCmd| {
                     const nullTerminatedSsid = std.fmt.bufPrintZ(&buffer, "{s}", .{setCmd.ssid}) catch unreachable;
                     const nullTerminatedPassword = std.fmt.bufPrintZ(buffer[@divTrunc(buffer.len, 2)..], "{s}", .{setCmd.password}) catch unreachable;
-                    _ = c.printf("Set ssid to %s and password to %s\n", nullTerminatedSsid.ptr, nullTerminatedPassword.ptr);
 
                     var err = esp.nvs_set_str(nvsHandle, "ssid", nullTerminatedSsid);
                     if (err != esp.ESP_OK) {
@@ -128,6 +122,8 @@ pub const UartConsole = struct {
                     if (err != esp.ESP_OK) {
                         esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error commiting ssid and password to flash memory: %s", esp.esp_err_to_name(err));
                     }
+
+                    _ = c.printf("Set ssid to %s and password to %s\n", nullTerminatedSsid.ptr, nullTerminatedPassword.ptr);
                 },
                 CommandsEnum.restart => |_| {
                     esp.esp_restart();

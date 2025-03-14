@@ -3,10 +3,6 @@
     .version = "0.0.0",
     .minimum_zig_version = "0.11.0",
     .dependencies = .{
-        .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.9.1.tar.gz",
-            .hash = "122062d301a203d003547b414237229b09a7980095061697349f8bef41be9c30266b",
-        },
         .@"raylib-zig" = .{
             .url = "git+https://github.com/Not-Nik/raylib-zig?ref=devel#58724227e7fd90bebfcbd44c6013231447a67ff2",
             .hash = "1220eedbc450fcfced1599d69f1e2c38b60af51616dbf724f6b9a8ed2c2a7c62cf9c",
