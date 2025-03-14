@@ -7,7 +7,10 @@ const c = @cImport({
 const rtos = @cImport(@cInclude("rtos.h"));
 
 const esp = @cImport({
+    @cInclude("nvs.h");
+    @cInclude("nvs_flash.h");
     @cInclude("esp_log.h");
+    @cInclude("esp_system.h");
 });
 
 const commandParserMod = @import("commandParser");
@@ -18,15 +21,15 @@ const backspace = 8;
 
 const CommandsEnum = enum {
     set,
-    someCommand,
+    restart,
 };
 
 const commands = union(CommandsEnum) {
     set: set,
-    someCommand: someCommand,
+    restart: restart,
 };
 
-const someCommand = struct {};
+const restart = struct {};
 
 const set = struct {
     ssid: []const u8,
@@ -36,7 +39,7 @@ const set = struct {
 pub const UartConsole = struct {
     const Self = @This();
 
-    var buffer: [128]u8 = undefined;
+    var buffer: [256]u8 = undefined;
 
     pub fn init() Self {
         return .{};
@@ -76,6 +79,14 @@ pub const UartConsole = struct {
             .{ .fieldName = "password", .description = "The passowrd for the wlan to connect to." },
         };
 
+        var nvsHandle: esp.nvs_handle_t = undefined;
+        const nvs_err = esp.nvs_open("storage", esp.NVS_READWRITE, &nvsHandle);
+        if (nvs_err != esp.ESP_OK) {
+            esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error opening flash memory handle: %s", esp.esp_err_to_name(nvs_err));
+            @panic("Error while opening handle for flash memory in uart console.");
+        }
+        defer esp.nvs_close(nvsHandle);
+
         const commandParserT: type = CommandParser(commands, descriptions);
         while (true) {
             const length = Self.readLine() catch |err| {
@@ -99,14 +110,27 @@ pub const UartConsole = struct {
 
             switch (command) {
                 CommandsEnum.set => |setCmd| {
-                    const nullTerminatedSsid = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}", .{setCmd.ssid}) catch unreachable;
-                    defer std.heap.raw_c_allocator.free(nullTerminatedSsid);
-                    const nullTerminatedPassword = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}", .{setCmd.password}) catch unreachable;
-                    defer std.heap.raw_c_allocator.free(nullTerminatedPassword);
+                    const nullTerminatedSsid = std.fmt.bufPrintZ(&buffer, "{s}", .{setCmd.ssid}) catch unreachable;
+                    const nullTerminatedPassword = std.fmt.bufPrintZ(buffer[@divTrunc(buffer.len, 2)..], "{s}", .{setCmd.password}) catch unreachable;
                     _ = c.printf("Set ssid to %s and password to %s\n", nullTerminatedSsid.ptr, nullTerminatedPassword.ptr);
+
+                    var err = esp.nvs_set_str(nvsHandle, "ssid", nullTerminatedSsid);
+                    if (err != esp.ESP_OK) {
+                        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error setting ssid: %s", esp.esp_err_to_name(err));
+                        continue;
+                    }
+                    err = esp.nvs_set_str(nvsHandle, "password", nullTerminatedPassword);
+                    if (err != esp.ESP_OK) {
+                        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error setting password: %s", esp.esp_err_to_name(err));
+                        continue;
+                    }
+                    err = esp.nvs_commit(nvsHandle);
+                    if (err != esp.ESP_OK) {
+                        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error commiting ssid and password to flash memory: %s", esp.esp_err_to_name(err));
+                    }
                 },
-                CommandsEnum.someCommand => |_| {
-                    _ = c.printf("Doing something\n");
+                CommandsEnum.restart => |_| {
+                    esp.esp_restart();
                 },
             }
         }

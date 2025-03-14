@@ -62,13 +62,21 @@ void wifi_connection()
                                                         &event_handler,
                                                         NULL,
                                                         &instance_got_ip));
+    nvs_handle_t nvs_handle;
+    ESP_ERROR_CHECK(nvs_open("storage", NVS_READWRITE, &nvs_handle));
 
-    wifi_config_t wifi_configuration = {
-        .sta = {
-            .ssid = SSID,
-            .password = PASS,
-           }
-        };
+    size_t ssid_size = 32;
+    size_t password_size = 64;
+    char ssid[32];
+    char password[64];
+    ESP_ERROR_CHECK(nvs_get_str(nvs_handle, "ssid", ssid, &ssid_size));
+    ESP_ERROR_CHECK(nvs_get_str(nvs_handle, "password", password, &password_size));
+
+    wifi_config_t wifi_configuration = {0};
+
+    strlcpy((char*)wifi_configuration.sta.ssid, ssid, sizeof(wifi_configuration.sta.ssid));
+    strlcpy((char*)wifi_configuration.sta.password, password, sizeof(wifi_configuration.sta.password));
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_configuration));
     ESP_ERROR_CHECK(esp_wifi_start());

@@ -72,6 +72,3 @@ Vision:
 
 ## TODO
 
-- battery for raspberry pi
-- build setup into car
-- IMU that works well in high acceleration environment and also works with I2C without clock stretching (not supported by raspberry pi) and provides higher measurement frequency

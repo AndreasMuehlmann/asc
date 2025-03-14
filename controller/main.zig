@@ -34,12 +34,11 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
 export fn app_main() callconv(.C) void {
     const allocator = std.heap.raw_c_allocator;
 
-    var uartConsole = UartConsole.init();
+    esp.wifi_init();
 
+    var uartConsole = UartConsole.init();
     var name = [_]u8{ 'u', 'a', 'r', 't', ' ', 'c', 'o', 'n', 's', 'o', 'l', 'e', 0 };
     rtos.rtosXTaskCreate(UartConsole.run, &name, 5000, &uartConsole, 1);
-
-    esp.wifi_init();
 
     var controller: Controller = undefined;
 
