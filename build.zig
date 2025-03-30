@@ -30,6 +30,8 @@ pub fn build(b: *std.Build) void {
     });
     const runUnitTestsCommandParser = b.addRunArtifact(unitTestsCommandParser);
 
+    const clap = b.dependency("clap", .{});
+
     const controllerLib = b.addStaticLibrary(.{
         .name = "asc",
         .root_source_file = b.path("controller/main.zig"),
@@ -92,7 +94,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(controllerLib);
 
     const clientExe = b.addExecutable(.{
-        .name = "ascclient",
+        .name = "client",
         .root_source_file = b.path("client/main.zig"),
         .target = clientTarget,
         .optimize = optimize,
@@ -114,7 +116,7 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("decode", decodeModule);
     clientExe.root_module.addImport("serverContract", serverContractModule);
     clientExe.root_module.addImport("clientContract", clientContractModule);
-    clientExe.root_module.addImport("commandParser", commandParserModule);
+    clientExe.root_module.addImport("clap", clap.module("clap"));
 
     b.installArtifact(clientExe);
 

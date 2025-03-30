@@ -72,7 +72,6 @@ Vision:
 
 ## TODO
 
-- Command parser for client cli
 - Fix error in command parser for quoted strings?? Not sure if this is even a problem
 - update documentation
 - connect bno055

@@ -1,12 +1,12 @@
 const std = @import("std");
 const os = std.os;
 
+const clap = @import("clap");
+
 const Client = @import("client.zig").Client;
 const NetClient = @import("netClient.zig").NetClient;
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
-const commandParserMod = @import("commandParser");
-const CommandParser = commandParserMod.CommandParser;
 
 var client: Client = undefined;
 var isClientCreated: bool = false;
@@ -23,14 +23,28 @@ pub fn sigIntHandler(sig: c_int) callconv(.C) void {
     std.process.exit(1);
 }
 
-const ascclient = struct {
-    server: []const u8 = "espressif.fritz.box",
-    port: u16 = 8080,
-};
-
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
+
+    const params = comptime clap.parseParamsComptime(
+        \\-h, --help            Display this help and exit.
+        \\-s, --server <str>    Hostname of the server to connect to.
+        \\-p, --port <u16>      Port of the server to connect to.
+    );
+
+    var diag = clap.Diagnostic{};
+    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
+        .diagnostic = &diag,
+        .allocator = gpa.allocator(),
+    }) catch |err| {
+        diag.report(std.io.getStdErr().writer(), err) catch {};
+        return;
+    };
+    defer res.deinit();
+
+    if (res.args.help != 0)
+        return clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
 
     const act = os.linux.Sigaction{
         .handler = .{ .handler = sigIntHandler },
@@ -41,41 +55,18 @@ pub fn main() !void {
     if (os.linux.sigaction(os.linux.SIG.INT, &act, null) != 0) {
         return error.SignalHandlerCreation;
     }
-
-    const descriptions: []const commandParserMod.FieldDescription = &.{
-        .{ .fieldName = "ssid", .description = "The name of the wlan to connect to." },
-        .{ .fieldName = "password", .description = "The passowrd for the wlan to connect to." },
-    };
-
-    var commandStrList = std.ArrayList(u8).init(gpa.allocator());
-    defer commandStrList.deinit();
-
-    var argsIterator = std.process.args();
-    defer argsIterator.deinit();
-
-    _ = argsIterator.next();
-    try commandStrList.appendSlice("ascclient");
-    while (argsIterator.next()) |arg| {
-        try commandStrList.append(' ');
-        try commandStrList.appendSlice(arg);
+    var hostname: []const u8 = "espressif.fritz.box";
+    if (res.args.server) |argHostname| {
+        hostname = argHostname;
     }
-    const commandStr = try commandStrList.toOwnedSlice();
-    defer gpa.allocator().free(commandStr);
-
-    const commandParserT: type = CommandParser(ascclient, descriptions);
-    var commandParser = commandParserT.init(gpa.allocator(), commandStr);
-    defer commandParser.deinit();
-    const command = commandParser.parse() catch {
-        const stdout = std.io.getStdOut().writer();
-        try stdout.print("{s}\n", .{commandParser.message});
-        return;
-    };
-    std.debug.print("{s}, {d}\n", .{ command.server, command.port });
-
+    var port: u16 = 8080;
+    if (res.args.port) |argPort| {
+        port = argPort;
+    }
     const netClient = try NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Client, serverContract.ServerContract).init(
         gpa.allocator(),
-        command.server,
-        command.port,
+        hostname,
+        port,
         &client,
     );
     client = try Client.init(gpa.allocator(), netClient);
