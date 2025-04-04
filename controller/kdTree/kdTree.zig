@@ -4,6 +4,18 @@ const Node = @import("node.zig").Node;
 
 
 pub fn KdTree(comptime pointT: type, comptime dimesions: usize) type {
+    if (!@hasDecl(pointT, "distanceNoRoot")) {
+        @compileError("distanceNoRoot(pointT, pointT) f64 has to be declared on a point type.");
+    }
+    if (@TypeOf(@field(pointT, "distanceNoRoot")) != fn (pointT, pointT) f64) {
+        @compileError("distanceNoRoot(pointT, pointT) f64 has to be declared on a point type and have the correct signature.");
+    }
+    if (!@hasDecl(pointT, "getDimension")) {
+        @compileError("getDimension(pointT, usize) f64 has to be declared on a point type.");
+    }
+    if (@TypeOf(@field(pointT, "getDimension")) != fn (pointT, usize) f64) {
+        @compileError("getDimension(pointT, usize) f64 has to be declared on a point type and have the correct signature.");
+    }
     const nodeT = Node(pointT, dimesions);
     return struct {
         root: ?*nodeT,
@@ -66,7 +78,7 @@ fn nearestNeighborSlice(points: []Point, point: Point) ?Point {
     }
     var nn = points[0];
     for (points[1..]) |p| {
-        if (point.calcSquaredDistance(p) < point.calcSquaredDistance(nn)) {
+        if (point.distanceNoRoot(p) < point.distanceNoRoot(nn)) {
             nn = p;
         }
     }

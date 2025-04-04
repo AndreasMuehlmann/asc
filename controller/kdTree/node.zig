@@ -72,14 +72,14 @@ pub fn Node(comptime pointT: type, comptime dimesions: usize) type {
                 }
             }
 
-            if (point.calcSquaredDistance(self.point) < point.calcSquaredDistance(nn)) {
+            if (point.distanceNoRoot(self.point) < point.distanceNoRoot(nn)) {
                 nn = self.point;
             }
 
             if (otherSubtree) |node| {
-                if ((treeValue - value) * (treeValue - value) < point.calcSquaredDistance(nn)) {
+                if ((treeValue - value) * (treeValue - value) < point.distanceNoRoot(nn)) {
                     const nnOtherSubtree: pointT = node.nearestNeighbor(point);
-                    if (point.calcSquaredDistance(nnOtherSubtree) < point.calcSquaredDistance(nn)) {
+                    if (point.distanceNoRoot(nnOtherSubtree) < point.distanceNoRoot(nn)) {
                         nn = nnOtherSubtree;
                     }
                 }
