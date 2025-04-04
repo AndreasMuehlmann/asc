@@ -1,8 +1,77 @@
 const std = @import("std");
 
-const Point = @import("point.zig").Point;
 const Node = @import("node.zig").Node;
 
+
+pub fn KdTree(comptime pointT: type, comptime dimesions: usize) type {
+    const nodeT = Node(pointT, dimesions);
+    return struct {
+        root: ?*nodeT,
+        allocator: std.mem.Allocator,
+
+        const Self = @This();
+
+        pub fn init(allocator: std.mem.Allocator, points: []pointT) !Self {
+            return .{
+                .allocator = allocator,
+                .root = try nodeT.initSubTree(allocator, points, 0),
+            };
+        }
+
+        pub fn insert(self: *Self, point: pointT) !void {
+            const node: *nodeT = try self.allocator.create(nodeT);
+            node.point = point;
+            node.left = null;
+            node.right = null;
+            node.splittingDimension = 0;
+
+            if (self.root) |root| {
+                root.insert(node);
+            } else {
+                self.root = node;
+            }
+        }
+
+        pub fn nearestNeighbor(self: Self, point: pointT) ?pointT {
+            if (self.root) |root| {
+                return root.nearestNeighbor(point);
+            }
+            return null;
+        }
+
+        pub fn print(self: Self) !void {
+            const stdout = std.io.getStdOut().writer();
+            try stdout.writeAll("digraph 1 {\n");
+            if (self.root) |root| {
+                _ = try root.print(0);
+            }
+            try stdout.writeAll("}");
+        }
+
+        pub fn deinit(self: Self) void {
+            if (self.root) |r|
+                r.deinitSubTree(self.allocator);
+        }
+    };
+}
+
+const testing = std.testing;
+
+const Point = @import("point.zig").Point;
+const kdTreeT = KdTree(Point, 2);
+
+fn nearestNeighborSlice(points: []Point, point: Point) ?Point {
+    if (points.len == 0) {
+        return null;
+    }
+    var nn = points[0];
+    for (points[1..]) |p| {
+        if (point.calcSquaredDistance(p) < point.calcSquaredDistance(nn)) {
+            nn = p;
+        }
+    }
+    return nn;
+}
 
 pub fn main() !void {
     const maxLength = 1000;
@@ -16,8 +85,9 @@ pub fn main() !void {
         for (0..length) |i| {
             points[i] = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
         }
+        var kdTree = try kdTreeT.init(gpa.allocator(), points[0..length]);
 
-        var kdTree: KdTree = try KdTree.init(gpa.allocator(), points[0..length]);
+        try kdTree.print();
         defer kdTree.deinit();
 
         const point = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
@@ -31,58 +101,6 @@ pub fn main() !void {
     }
 }
 
-
-pub const KdTree = struct {
-    root: ?*Node,
-    allocator: std.mem.Allocator,
-
-    const Self = @This();
-
-    pub fn init(allocator: std.mem.Allocator, points: []Point) !Self {
-        return .{
-            .allocator = allocator,
-            .root = try Node.initSubTree(allocator, points, 0),
-        };
-    }
-
-    pub fn insert(self: *Self, point: Point) !void {
-        const node: *Node = try self.allocator.create(Node);
-        node.point = point;
-        node.left = null;
-        node.right = null;
-        node.splittingDimension = 0;
-
-        if (self.root) |root| {
-            root.insert(node);
-        } else {
-            self.root = node;
-        }
-    }
-
-    pub fn nearestNeighbor(self: Self, point: Point) ?Point {
-        if (self.root) |root| {
-            return root.nearestNeighbor(point);
-        }
-        return null;
-    }
-
-    pub fn print(self: Self) !void {
-        const stdout = std.io.getStdOut().writer();
-        try stdout.writeAll("digraph 1 {\n");
-        if (self.root) |root| {
-            _ = try root.print(0);
-        }
-        try stdout.writeAll("}");
-    }
-
-    pub fn deinit(self: Self) void {
-        if (self.root) |r|
-            r.deinitSubTree(self.allocator);
-    }
-};
-
-const testing = std.testing;
-
 test "initAndInsert" {
     var points = [_]Point{
         .{ .x = -1, .y = 1 },
@@ -94,7 +112,7 @@ test "initAndInsert" {
         .{ .x = 20, .y = 10 },
     };
 
-    var kdTree: KdTree = try KdTree.init(testing.allocator, &points);
+    var kdTree = try kdTreeT.init(testing.allocator, &points);
     defer kdTree.deinit();
 
     try kdTree.insert(.{ .x = 5, .y = 5 });
@@ -118,18 +136,6 @@ test "initAndInsert" {
     try testing.expectEqual(5, rootrll.point.y);
 }
 
-fn nearestNeighborSlice(points: []Point, point: Point) ?Point {
-    if (points.len == 0) {
-        return null;
-    }
-    var nn = points[0];
-    for (points[1..]) |p| {
-        if (point.calcSquaredDistance(p) < point.calcSquaredDistance(nn)) {
-            nn = p;
-        }
-    }
-    return nn;
-}
 
 test "nearestNeighbor" {
     var points = [_]Point{
@@ -142,7 +148,7 @@ test "nearestNeighbor" {
         .{ .x = 7, .y = 2 },
     };
 
-    var kdTree: KdTree = try KdTree.init(testing.allocator, &points);
+    var kdTree = try kdTreeT.init(testing.allocator, &points);
     defer kdTree.deinit();
 
     const nn: Point = kdTree.nearestNeighbor(.{ .x = 5, .y = 5 }).?;
@@ -162,7 +168,7 @@ test "nearestNeighborAgainstSliceNearestNeighbor" {
             points[i] = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
         }
 
-        var kdTree: KdTree = try KdTree.init(testing.allocator, points[0..length]);
+        var kdTree = try kdTreeT.init(testing.allocator, points[0..length]);
         defer kdTree.deinit();
 
         const point = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};

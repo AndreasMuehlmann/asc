@@ -19,3 +19,4 @@ pub const Point = struct {
         return xDiff * xDiff + yDiff * yDiff;
     }
 };
+
