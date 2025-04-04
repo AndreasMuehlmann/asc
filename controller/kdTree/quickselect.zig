@@ -75,5 +75,3 @@ test "quickselect" {
     try testing.expectEqual(4, medianIndex);
     try testing.expectEqual(4, points[medianIndex].x);
 }
-
-test "kdTreeWithExpectedStructure" {}

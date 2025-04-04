@@ -199,21 +199,37 @@ const testing = std.testing;
 
 test "initAndInsert" {
     var points = [_]Point{
-        .{ .x = 0, .y = 0 },
-        .{ .x = 0, .y = 0 },
-        .{ .x = -1, .y = 0 },
-        .{ .x = 4, .y = 0 },
-        .{ .x = 20, .y = 0 },
-        .{ .x = 1, .y = 0 },
-        .{ .x = 5, .y = 0 },
-        .{ .x = 9, .y = 0 },
-        .{ .x = 7, .y = 0 },
+        .{ .x = -1, .y = 1 },
+        .{ .x = 1, .y = 3 },
+        .{ .x = 4, .y = 5 },
+        .{ .x = 5, .y = 7 },
+        .{ .x = 7, .y = 9 },
+        .{ .x = 9, .y = 13 },
+        .{ .x = 20, .y = 10 },
     };
 
     var kdTree: KdTree = try KdTree.init(testing.allocator, &points);
     defer kdTree.deinit();
 
     try kdTree.insert(.{ .x = 5, .y = 5 });
+
+    try testing.expectEqual(5, kdTree.root.?.point.x);
+    const rootl = kdTree.root.?.left.?;
+    try testing.expectEqual(3, rootl.point.y);
+    const rootr = kdTree.root.?.right.?;
+    try testing.expectEqual(10, rootr.point.y);
+
+    const rootll = rootl.left.?;
+    try testing.expectEqual(-1, rootll.point.x);
+    const rootlr = rootl.right.?;
+    try testing.expectEqual(4, rootlr .point.x);
+    const rootrl = rootr.left.?;
+    try testing.expectEqual(7, rootrl.point.x);
+    const rootrr = rootr.right.?;
+    try testing.expectEqual(9, rootrr.point.x);
+
+    const rootrll = rootrl.left.?;
+    try testing.expectEqual(5, rootrll.point.y);
 }
 
 fn nearestNeighborSlice(points: []Point, point: Point) ?Point {
