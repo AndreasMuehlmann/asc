@@ -79,3 +79,9 @@ Vision:
 
 - Plotting more easily configurable
 - Sending commands from network connection with command parser
+
+### Visualize kdtree with graphviz
+
+run program containing `kdtree.print()` and pipe output into `graph.dot`.
+`dot -Tsvg graph.dot > graph.svg`
+

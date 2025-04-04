@@ -12,4 +12,10 @@ pub const Point = struct {
         }
         unreachable;
     }
+
+    pub fn calcSquaredDistance(self: Self, point: Point) f64 {
+        const xDiff = self.x - point.x;
+        const yDiff = self.y - point.y;
+        return xDiff * xDiff + yDiff * yDiff;
+    }
 };
