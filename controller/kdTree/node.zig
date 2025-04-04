@@ -88,18 +88,44 @@ pub fn Node(comptime pointT: type, comptime dimesions: usize) type {
             return nn;
         }
 
-        pub fn print(self: Self, id: usize) !usize {
-            var buffer: [100]u8 = undefined;
+        pub fn print(self: Self, allocator: std.mem.Allocator, id: usize) !usize {
             const stdout = std.io.getStdOut().writer();
-            try stdout.writeAll(try std.fmt.bufPrint(&buffer, "    {d} [label = \"({d:.1}, {d:.1}) {d}\"];\n", .{id, self.point.x, self.point.y, self.splittingDimension}));
+            var arrayList = std.ArrayList(u8).init(allocator);
+            defer arrayList.deinit();
+            try arrayList.appendSlice("    ");
+            const bu = try std.fmt.allocPrint(allocator, "{d}", .{id});
+            defer allocator.free(bu);
+
+            try arrayList.appendSlice(bu);
+            try arrayList.appendSlice(" [label = \"(");
+
+            const b = try std.fmt.allocPrint(allocator, "{d:.1}", .{self.point.getDimension(0)});
+            defer allocator.free(b);
+            try arrayList.appendSlice(b);
+            for (1..dimesions) |i| {
+                const buf = try std.fmt.allocPrint(allocator, ", {d:.1}", .{self.point.getDimension(i)});
+                defer allocator.free(buf);
+                try arrayList.appendSlice(buf);
+            }
+            try arrayList.appendSlice(") ");
+            const buf = try std.fmt.allocPrint(allocator, "{d}", .{self.splittingDimension});
+            defer allocator.free(buf);
+            try arrayList.appendSlice(buf);
+            try arrayList.appendSlice("\"];\n");
+            try stdout.writeAll(arrayList.items);
             var subTreeSize: usize = 1;
             if (self.left) |l| {
-                try stdout.writeAll(try std.fmt.bufPrint(&buffer, "    {d} -> {d};\n", .{id, id + 1}));
-                subTreeSize += try l.print(id + 1);
+                const buffer = try std.fmt.allocPrint(allocator, "    {d} -> {d};\n", .{id, id + 1});
+                defer allocator.free(buffer);
+                try stdout.writeAll(buffer);
+
+                subTreeSize += try l.print(allocator, id + 1);
             }
             if (self.right) |r| {
-                try stdout.writeAll(try std.fmt.bufPrint(&buffer, "    {d} -> {d};\n", .{id, id + subTreeSize}));
-                subTreeSize += try r.print(id + subTreeSize);
+                const buffer = try std.fmt.allocPrint(allocator, "    {d} -> {d};\n", .{id, id + subTreeSize});
+                defer allocator.free(buffer);
+                try stdout.writeAll(buffer);
+                subTreeSize += try r.print(allocator, id + subTreeSize);
             }
             return subTreeSize;
         }

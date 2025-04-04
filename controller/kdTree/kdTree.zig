@@ -43,7 +43,7 @@ pub fn KdTree(comptime pointT: type, comptime dimesions: usize) type {
             const stdout = std.io.getStdOut().writer();
             try stdout.writeAll("digraph 1 {\n");
             if (self.root) |root| {
-                _ = try root.print(0);
+                _ = try root.print(self.allocator, 0);
             }
             try stdout.writeAll("}");
         }
@@ -77,7 +77,7 @@ pub fn main() !void {
     const maxLength = 1000;
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var points: [maxLength]Point = undefined;
-    for (0..100) |_| {
+    for (0..1) |_| {
         const length = std.crypto.random.uintAtMost(usize, maxLength);
         if (length == 0) {
             continue;
@@ -86,8 +86,6 @@ pub fn main() !void {
             points[i] = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
         }
         var kdTree = try kdTreeT.init(gpa.allocator(), points[0..length]);
-
-        try kdTree.print();
         defer kdTree.deinit();
 
         const point = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
