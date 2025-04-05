@@ -38,12 +38,12 @@ pub const Vec2D = struct {
         return self.array[dimension];
     }
 
-    pub fn distanceNoRoot(self: Self, vec: Vec2D) *f64 {
+    pub fn distanceNoRoot(self: Self, vec: Vec2D) f64 {
         return std.math.powi(f64, self.getX() - vec.getX(), 2) 
                 + std.math.powi(f64, self.getY() - vec.getY(), 2);
     }
 
-    pub fn distance(self: Self, vec: Vec2D) *f64 {
+    pub fn distance(self: Self, vec: Vec2D) f64 {
         return std.math.sqrt(self.distanceNoRoot(vec));
     }
 };
@@ -97,13 +97,13 @@ pub const Vec3D = struct {
         return self.array[dimension];
     }
     
-    pub fn distanceNoRoot(self: Self, vec: Vec2D) *f64 {
+    pub fn distanceNoRoot(self: Self, vec: Vec2D) f64 {
         return std.math.powi(f64, self.getX() - vec.getX(), 2) 
                 + std.math.powi(f64, self.getY() - vec.getY(), 2) 
                 + std.math.powi(f64, self.getZ() - vec.getZ(), 2);
     }
 
-    pub fn distance(self: Self, vec: Vec2D) *f64 {
+    pub fn distance(self: Self, vec: Vec2D) f64 {
         return std.math.sqrt(self.distanceNoRoot(vec));
     }
 };

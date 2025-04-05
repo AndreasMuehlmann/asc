@@ -30,6 +30,10 @@ pub fn KdTree(comptime pointT: type, comptime dimesions: usize) type {
             };
         }
 
+        pub fn initNodes(self: *Self, points: []pointT) !void {
+            self.root = try nodeT.initSubTree(self.allocator, points, 0);
+        }
+
         pub fn insert(self: *Self, point: pointT) !void {
             const node: *nodeT = try self.allocator.create(nodeT);
             node.point = point;
