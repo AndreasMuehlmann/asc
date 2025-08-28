@@ -1,15 +1,16 @@
 .{
-    .name = "asc",
+    .fingerprint = 0x66fd62d23973253a,
+    .name = .asc,
     .version = "0.0.0",
     .minimum_zig_version = "0.11.0",
     .dependencies = .{
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.9.1.tar.gz",
-            .hash = "122062d301a203d003547b414237229b09a7980095061697349f8bef41be9c30266b",
+            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.10.0.tar.gz",
+            .hash = "clap-0.10.0-oBajB434AQBDh-Ei3YtoKIRxZacVPF1iSwp3IX_ZB8f0",
         },
-        .@"raylib-zig" = .{
-            .url = "git+https://github.com/Not-Nik/raylib-zig?ref=devel#58724227e7fd90bebfcbd44c6013231447a67ff2",
-            .hash = "1220eedbc450fcfced1599d69f1e2c38b60af51616dbf724f6b9a8ed2c2a7c62cf9c",
+        .raylib_zig = .{
+            .url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#1b6a05ca3bf23377a3bc818d572d82551f070454",
+            .hash = "raylib_zig-5.6.0-dev-KE8RECUqBQBWlaix-mLGaEFsUP2gqKmE190hcLRacIPo",
         },
     },
     .paths = .{

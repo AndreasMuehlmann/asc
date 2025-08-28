@@ -12,13 +12,13 @@ pub const MessageFormatError = error{
 pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime handlerT: type) type {
     const typeInfoEnum = @typeInfo(contractEnumT);
 
-    if (typeInfoEnum != .Enum) {
+    if (typeInfoEnum != .@"enum") {
         @compileError("contractEnumT has to be an enum!");
     }
-    comptime var handlerFunctionNames: [typeInfoEnum.Enum.fields.len][]const u8 = undefined;
+    comptime var handlerFunctionNames: [typeInfoEnum.@"enum".fields.len][]const u8 = undefined;
 
-    inline for (0..typeInfoEnum.Enum.fields.len) |index| {
-        handlerFunctionNames[index] = comptime std.fmt.comptimePrint("{s}{c}{s}", .{ "handle", std.ascii.toUpper(typeInfoEnum.Enum.fields[index].name[0]), typeInfoEnum.Enum.fields[index].name[1..] });
+    inline for (0..typeInfoEnum.@"enum".fields.len) |index| {
+        handlerFunctionNames[index] = comptime std.fmt.comptimePrint("{s}{c}{s}", .{ "handle", std.ascii.toUpper(typeInfoEnum.@"enum".fields[index].name[0]), typeInfoEnum.@"enum".fields[index].name[1..] });
     }
 
     return struct {
@@ -50,7 +50,8 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     return;
                 } else if (self.byteCount == 1) {
                     internalBuffer[self.byteCount] = bytes[0];
-                    try self.decodeMessageLength(&internalBuffer);
+                    var constinternalBuffer: []const u8 = internalBuffer;
+                    try self.decodeMessageLength(&constinternalBuffer);
                     self.byteCount = 0;
                     if (bytes.len == 1) {
                         return;
@@ -74,10 +75,12 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     self.byteCount += bytes.len;
                 } else if (bytes.len == bytesNeeded) {
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytesNeeded], bytes);
-                    try self.decodeMessage(&internalBuffer);
+                    var constinternalBuffer: []const u8 = internalBuffer;
+                    try self.decodeMessage(&constinternalBuffer);
                 } else {
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytesNeeded], bytes[0..bytesNeeded]);
-                    try self.decodeMessage(&internalBuffer);
+                    var constinternalBuffer: []const u8 = internalBuffer;
+                    try self.decodeMessage(&constinternalBuffer);
                     try self.decode(bytes[bytesNeeded..]);
                 }
             } else {
@@ -99,7 +102,7 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
             inline for (handlerFunctionNames, 0..) |handlerFunctionName, i| {
                 if (i == index) {
                     const function = @field(handlerT, handlerFunctionName);
-                    try function(self.handler, @field(decoded, typeInfoEnum.Enum.fields[i].name));
+                    try function(self.handler, @field(decoded, typeInfoEnum.@"enum".fields[i].name));
                 }
             }
         }
@@ -125,29 +128,29 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
 
         pub fn decodeType(self: Self, comptime T: type, buffer: *[]const u8, index: *usize) !T {
             const typeInfo = @typeInfo(T);
-            if (typeInfo == .Struct) {
+            if (typeInfo == .@"struct") {
                 var decodeStruct: T = undefined;
-                inline for (typeInfo.Struct.fields) |field| {
+                inline for (typeInfo.@"struct".fields) |field| {
                     @field(decodeStruct, field.name) = try self.decodeType(field.type, buffer, index);
                 }
                 return decodeStruct;
             }
-            if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
+            if (typeInfo == .@"pointer" and typeInfo.@"pointer".size == .@"slice") {
                 const length: u8 = buffer.*[index.*];
                 index.* += 1;
-                const slice: []typeInfo.Pointer.child = try self.allocator.alloc(typeInfo.Pointer.child, length);
+                const slice: []typeInfo.@"pointer".child = try self.allocator.alloc(typeInfo.@"pointer".child, length);
                 for (0..length) |i| {
-                    const childValue: typeInfo.Pointer.child = try self.decodeType(typeInfo.Pointer.child, buffer, index);
+                    const childValue: typeInfo.@"pointer".child = try self.decodeType(typeInfo.@"pointer".child, buffer, index);
                     slice[i] = childValue;
                 }
                 return slice;
             }
-            if (typeInfo == .Union and typeInfo.Union.tag_type != null) {
+            if (typeInfo == .@"union" and typeInfo.@"union".tag_type != null) {
                 const tag = buffer.*[index.*];
                 index.* += 1;
 
                 var decodeUnion: T = undefined;
-                inline for (typeInfo.Union.fields, 0..) |field, i| {
+                inline for (typeInfo.@"union".fields, 0..) |field, i| {
                     if (i == tag) {
                         decodeUnion = @unionInit(T, field.name, try self.decodeType(field.type, buffer, index));
                         break;
@@ -160,7 +163,7 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 index.* += 1;
                 return number;
             }
-            if (typeInfo == .Float or typeInfo == .Int) {
+            if (typeInfo == .@"float" or typeInfo == .@"int") {
                 const byteSize = @sizeOf(T);
                 var bytes: [byteSize]u8 = undefined;
                 const bytesPtr: *[byteSize]u8 = &bytes;

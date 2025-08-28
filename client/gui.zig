@@ -247,7 +247,7 @@ pub const Gui = struct {
         var count: usize = 0;
         while (true) {
             const line = reader.readUntilDelimiterAlloc(allocator, '\n', std.math.maxInt(usize)) catch break;
-            var tokenizer = std.mem.tokenize(u8, line, &[_]u8{','});
+            var tokenizer = std.mem.tokenizeScalar(u8, line, ',');
 
             const time = try std.fmt.parseFloat(f32, tokenizer.next().?);
             const yaw = try std.fmt.parseFloat(f32, tokenizer.next().?);

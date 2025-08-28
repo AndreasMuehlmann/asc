@@ -2,11 +2,11 @@ const std = @import("std");
 
 pub fn hasAbreviation(comptime T: type, comptime index: usize) bool {
     const typeInfo = @typeInfo(T);
-    if (typeInfo.Struct.fields[index].name[0] == 'h') {
+    if (typeInfo.@"struct".fields[index].name[0] == 'h') {
         return false;
     }
     inline for (0..index) |i| {
-        if (typeInfo.Struct.fields[index].name[0] == typeInfo.Struct.fields[i].name[0]) {
+        if (typeInfo.@"struct".fields[index].name[0] == typeInfo.@"struct".fields[i].name[0]) {
             return false;
         }
     }
@@ -15,10 +15,10 @@ pub fn hasAbreviation(comptime T: type, comptime index: usize) bool {
 
 pub fn printableTypeName(comptime T: type) []const u8 {
     const typeInfo = @typeInfo(T);
-    if (typeInfo == .Optional) {
+    if (typeInfo == .@"optional") {
         return "?" ++ printableTypeName(typeInfo.Optional.child);
     }
-    if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice and typeInfo.Pointer.child == u8) {
+    if (typeInfo == .@"pointer" and typeInfo.@"pointer".size == .@"slice" and typeInfo.@"pointer".child == u8) {
         return "str";
     }
     return @typeName(T);

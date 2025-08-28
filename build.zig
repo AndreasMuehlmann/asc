@@ -86,7 +86,7 @@ pub fn build(b: *std.Build) void {
 
     const file = std.fs.cwd().openFile("main/includeDirs.txt", .{}) catch @panic("main/includeDirs.txt was not found.");
     const file_contents = file.readToEndAlloc(b.allocator, 100000) catch unreachable;
-    var it = std.mem.tokenize(u8, file_contents, ";");
+    var it = std.mem.tokenizeScalar(u8, file_contents, ';');
     while (it.next()) |dir| {
         controllerLib.addIncludePath(.{ .cwd_relative = dir });
     }
@@ -100,7 +100,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const raylib_dep = b.dependency("raylib-zig", .{
+    const raylib_dep = b.dependency("raylib_zig", .{
         .target = clientTarget,
         .optimize = optimize,
     });

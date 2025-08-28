@@ -19,7 +19,7 @@ pub fn Encoder(contractT: type) type {
         pub fn encode(comptime T: type, value: T) ![]u8 {
             var index: usize = 2;
             const typeInfoMessage = @typeInfo(contractT);
-            inline for (typeInfoMessage.Union.fields) |field| {
+            inline for (typeInfoMessage.@"union".fields) |field| {
                 if (T == field.type) {
                     try Self.encodeType(contractT, @unionInit(contractT, field.name, value), &internalBuffer, &index);
                     break;
@@ -38,12 +38,12 @@ pub fn Encoder(contractT: type) type {
 
         pub fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
             const typeInfo = @typeInfo(T);
-            if (typeInfo == .Struct) {
-                inline for (typeInfo.Struct.fields) |field| {
+            if (typeInfo == .@"struct") {
+                inline for (typeInfo.@"struct".fields) |field| {
                     const fieldValue = @field(value, field.name);
                     try encodeType(field.type, fieldValue, buffer, index);
                 }
-            } else if (typeInfo == .Pointer and typeInfo.Pointer.size == .Slice) {
+            } else if (typeInfo == .@"pointer" and typeInfo.@"pointer".size == .@"slice") {
                 if (value.len > std.math.maxInt(u8)) {
                     return MessageFormatError.ListTooLong;
                 }
@@ -51,14 +51,14 @@ pub fn Encoder(contractT: type) type {
                 buffer.*[index.*] = length;
                 index.* += 1;
                 for (value) |childValue| {
-                    try encodeType(typeInfo.Pointer.child, childValue, buffer, index);
+                    try encodeType(typeInfo.@"pointer".child, childValue, buffer, index);
                 }
-            } else if (typeInfo == .Union and typeInfo.Union.tag_type != null) {
-                const tag = @intFromEnum(@as(typeInfo.Union.tag_type.?, value));
+            } else if (typeInfo == .@"union" and typeInfo.@"union".tag_type != null) {
+                const tag = @intFromEnum(@as(typeInfo.@"union".tag_type.?, value));
                 buffer.*[index.*] = tag;
                 index.* += 1;
 
-                inline for (typeInfo.Union.fields, 0..) |field, i| {
+                inline for (typeInfo.@"union".fields, 0..) |field, i| {
                     if (i == tag) {
                         try encodeType(field.type, @field(value, field.name), buffer, index);
                     }
@@ -66,7 +66,7 @@ pub fn Encoder(contractT: type) type {
             } else if (T == u8) {
                 buffer.*[index.*] = value;
                 index.* += 1;
-            } else if (typeInfo == .Float or typeInfo == .Int) {
+            } else if (typeInfo == .@"float" or typeInfo == .@"int") {
                 const byteSize = @sizeOf(T);
                 const bytes: *const [byteSize]u8 = @ptrCast(&value);
                 @memcpy(buffer.*[index.* .. index.* + byteSize], bytes);

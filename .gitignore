@@ -11,3 +11,5 @@ shared/icm20948/.zig-cache/
 shared/icm20948/zig-out/
 main/includeDirs.txt
 controller/credentials.h
+controller/icp/Book1.xlsx
+controller/icp/plot.py

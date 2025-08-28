@@ -7,7 +7,7 @@ pub const Vec2D = struct {
     const Self = @This();
 
     pub fn init(x: f64, y: f64) Self {
-        return .{[_]f64{x, y}};
+        return .{.array = [_]f64{x, y}};
     }
 
     pub fn getX(self: Self) f64 {
@@ -39,8 +39,9 @@ pub const Vec2D = struct {
     }
 
     pub fn distanceNoRoot(self: Self, vec: Vec2D) f64 {
-        return std.math.powi(f64, self.getX() - vec.getX(), 2) 
-                + std.math.powi(f64, self.getY() - vec.getY(), 2);
+        const xDiff = self.getX() - vec.getX();
+        const yDiff = self.getY() - vec.getY();
+        return xDiff * xDiff + yDiff * yDiff;
     }
 
     pub fn distance(self: Self, vec: Vec2D) f64 {
@@ -54,7 +55,7 @@ pub const Vec3D = struct {
     const Self = @This();
 
     pub fn init(x: f64, y: f64, z: f64) Self {
-        return .{[_]f64{x, y, z}};
+        return .{.array = [_]f64{x, y, z}};
     }
 
     pub fn getX(self: Self) f64 {
@@ -98,9 +99,10 @@ pub const Vec3D = struct {
     }
     
     pub fn distanceNoRoot(self: Self, vec: Vec2D) f64 {
-        return std.math.powi(f64, self.getX() - vec.getX(), 2) 
-                + std.math.powi(f64, self.getY() - vec.getY(), 2) 
-                + std.math.powi(f64, self.getZ() - vec.getZ(), 2);
+        const xDiff = self.getX() - vec.getX();
+        const yDiff = self.getY() - vec.getY();
+        const zDiff = self.getZ() - vec.getY();
+        return xDiff * xDiff + yDiff * yDiff + zDiff * zDiff;
     }
 
     pub fn distance(self: Self, vec: Vec2D) f64 {

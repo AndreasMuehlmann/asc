@@ -60,14 +60,14 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
         fn parseType(self: *Self, comptime T: type, token: lexerMod.Token) !T {
             const typeInfo = @typeInfo(T);
-            if (typeInfo == .Struct) {
+            if (typeInfo == .@"struct") {
                 return try self.parseStruct(T, token);
             }
-            if (typeInfo == .Union and typeInfo.Union.tag_type != null) {
+            if (typeInfo == .@"union" and typeInfo.@"union".tag_type != null) {
                 return try self.parseTaggedUnion(T, token);
             }
-            if (typeInfo == .Optional) {
-                return try self.parseType(typeInfo.Optional.child, token);
+            if (typeInfo == .@"optional") {
+                return try self.parseType(typeInfo.@"optional".child, token);
             }
             return self.parsePrimitiveType(T, token);
         }
@@ -83,7 +83,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             var parsedStruct: T = undefined;
             var previousOption: ?[]const u8 = null;
 
-            var arr: [typeInfo.Struct.fields.len]bool = undefined;
+            var arr: [typeInfo.@"struct".fields.len]bool = undefined;
             const found = &arr;
             @memset(found, false);
 
@@ -101,7 +101,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
                 if (tok.type == lexerMod.TokenType.string) {
                     if (previousOption) |prevOption| {
-                        inline for (typeInfo.Struct.fields) |field| {
+                        inline for (typeInfo.@"struct".fields) |field| {
                             if (std.mem.eql(u8, prevOption, field.name)) {
                                 @field(parsedStruct, field.name) = try self.parseType(field.type, tok);
                             }
@@ -109,9 +109,9 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                         previousOption = null;
                         continue;
                     } else {
-                        inline for (typeInfo.Struct.fields) |field| {
+                        inline for (typeInfo.@"struct".fields) |field| {
                             const fieldTypeInfo = @typeInfo(field.type);
-                            if (fieldTypeInfo == .Union and fieldTypeInfo.Union.tag_type != null) {
+                            if (fieldTypeInfo == .@"union" and fieldTypeInfo.@"union".tag_type != null) {
                                 @field(parsedStruct, field.name) = try self.parseTaggedUnion(field.type, tok);
                                 break;
                             }
@@ -126,7 +126,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
 
                 var matched = false;
-                inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
+                inline for (0..typeInfo.@"struct".fields.len, typeInfo.@"struct".fields) |i, field| {
                     const isMatchingLongOption: bool = tok.type == lexerMod.TokenType.longOption and std.mem.eql(u8, tok.literal, field.name);
                     const isMatchingShortOption: bool = tok.type == lexerMod.TokenType.shortOption and tok.literal[0] == field.name[0];
                     if (isMatchingLongOption or isMatchingShortOption) {
@@ -153,16 +153,16 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
             }
 
-            inline for (0..typeInfo.Struct.fields.len, typeInfo.Struct.fields) |i, field| {
+            inline for (0..typeInfo.@"struct".fields.len, typeInfo.@"struct".fields) |i, field| {
                 if (!found[i]) {
-                    if (@typeInfo(field.type) == .Optional) {
+                    if (@typeInfo(field.type) == .@"optional") {
                         @field(parsedStruct, field.name) = null;
-                    } else if (field.default_value) |default_value| {
+                    } else if (field.defaultValue()) |default_value| {
                         const default_value_aligned: *align(field.alignment) const anyopaque = @alignCast(default_value);
                         @field(parsedStruct, field.name) = @as(*const field.type, @ptrCast(default_value_aligned)).*;
                     } else if (field.type == bool) {
                         @field(parsedStruct, field.name) = false;
-                    } else if (@typeInfo(field.type) == .Union and @typeInfo(field.type).Union.tag_type != null) {} else {
+                    } else if (@typeInfo(field.type) == .@"union" and @typeInfo(field.type).@"union".tag_type != null) {} else {
                         self.message = "Required option --" ++ field.name ++ " was not found.";
                         return ParserError.MissingRequiredOption;
                     }
@@ -175,9 +175,9 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             const typeInfo = @typeInfo(T);
             var matched = false;
             var parsedUnion: T = undefined;
-            inline for (typeInfo.Union.fields) |field| {
+            inline for (typeInfo.@"union".fields) |field| {
                 if (std.mem.eql(u8, token.literal, field.name)) {
-                    if (@typeInfo(field.type) != .Struct) {
+                    if (@typeInfo(field.type) != .@"struct") {
                         @compileError("A subcommand has to be a struct.");
                     }
 
@@ -196,16 +196,16 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
         fn parsePrimitiveType(self: *Self, comptime T: type, token: lexerMod.Token) !T {
             const typeInfo = @typeInfo(T);
-            if (token.type == lexerMod.TokenType.string and typeInfo == .Pointer and
-                typeInfo.Pointer.size == .Slice and typeInfo.Pointer.child == u8)
+            if (token.type == lexerMod.TokenType.string and typeInfo == .@"pointer" and
+                typeInfo.@"pointer".size == .@"slice" and typeInfo.@"pointer".child == u8)
             {
                 return try self.parseString(token.literal);
             }
-            if (typeInfo == .Float) {
+            if (typeInfo == .@"float") {
                 return try std.fmt.parseFloat(T, token.literal);
             }
-            if (typeInfo == .Int) {
-                if (typeInfo.Int.signedness == .signed) {
+            if (typeInfo == .@"int") {
+                if (typeInfo.@"int".signedness == .signed) {
                     return try std.fmt.parseInt(T, token.literal, 0);
                 }
                 return try std.fmt.parseUnsigned(T, token.literal, 0);
@@ -239,9 +239,9 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
         pub fn generateHelpMessage(comptime T: type) []const u8 {
             const typeInfo = @typeInfo(T);
-            if (typeInfo == .Struct) {
+            if (typeInfo == .@"struct") {
                 return comptime Self.generateHelpMessageStruct(T);
-            } else if (typeInfo == .Union) {
+            } else if (typeInfo == .@"union") {
                 return "    " ++ comptime Self.generateHelpMessageTaggedUnion(T) ++ "\n";
             }
             unreachable;
@@ -250,17 +250,17 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         fn generateHelpMessageStruct(comptime T: type) []const u8 {
             const typeInfo = @typeInfo(T);
 
-            comptime var helpMessage: [typeInfo.Struct.fields.len + 1][]const u8 = undefined;
+            comptime var helpMessage: [typeInfo.@"struct".fields.len + 1][]const u8 = undefined;
 
             helpMessage[0] = "    -h, --help";
 
             comptime var maxLength = helpMessage[0].len;
-            inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
+            inline for (1..typeInfo.@"struct".fields.len + 1, typeInfo.@"struct".fields) |i, field| {
                 helpMessage[i] = "    ";
 
                 const fieldTypeInfo = @typeInfo(field.type);
-                if (fieldTypeInfo == .Union) {
-                    if (fieldTypeInfo.Union.tag_type == null) {
+                if (fieldTypeInfo == .@"union") {
+                    if (fieldTypeInfo.@"union".tag_type == null) {
                         @compileError("Union has to be tagged.");
                     }
                     helpMessage[i] = "    " ++ comptime Self.generateHelpMessageTaggedUnion(field.type);
@@ -277,7 +277,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 maxLength = @max(maxLength, helpMessage[i].len);
             }
 
-            inline for (1..typeInfo.Struct.fields.len + 1, typeInfo.Struct.fields) |i, field| {
+            inline for (1..typeInfo.@"struct".fields.len + 1, typeInfo.@"struct".fields) |i, field| {
                 const descriptionOption = comptime getFieldDescription(field.name);
                 if (descriptionOption) |description| {
                     helpMessage[i] = helpMessage[i] ++ comptime commandParserUtils.repeat(" ", (maxLength + 4) - helpMessage[i].len) ++ description;
@@ -295,14 +295,14 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         pub fn generateHelpMessageTaggedUnion(comptime T: type) []const u8 {
             comptime var message: []const u8 = commandParserUtils.typeBaseName(T) ++ ": ";
 
-            const tagTypeInfo = @typeInfo(@typeInfo(T).Union.tag_type.?);
-            if (tagTypeInfo != .Enum) {
+            const tagTypeInfo = @typeInfo(@typeInfo(T).@"union".tag_type.?);
+            if (tagTypeInfo != .@"enum") {
                 @compileError("Union has to have enum as tag.");
             }
-            inline for (tagTypeInfo.Enum.fields[0 .. tagTypeInfo.Enum.fields.len - 1]) |tagField| {
+            inline for (tagTypeInfo.@"enum".fields[0 .. tagTypeInfo.@"enum".fields.len - 1]) |tagField| {
                 message = message ++ tagField.name ++ ", ";
             }
-            return message ++ tagTypeInfo.Enum.fields[tagTypeInfo.Enum.fields.len - 1].name;
+            return message ++ tagTypeInfo.@"enum".fields[tagTypeInfo.@"enum".fields.len - 1].name;
         }
 
         fn checkHelp(self: *Self, comptime T: type, token: lexerMod.Token) !void {
