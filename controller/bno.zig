@@ -14,11 +14,11 @@ var bno = bnoApi.bno055_t{
     .dev_addr = bnoApi.BNO055_I2C_ADDR1,
 };
 
-fn delay(milliSeconds: u32) callconv(.C) void {
+fn delay(milliSeconds: u32) callconv(.c) void {
     _ = pigpio.gpioDelay(milliSeconds * 1000);
 }
 
-fn bnoUartRead(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C) i8 {
+fn bnoUartRead(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.c) i8 {
     var message = [_]u8{ 0xAA, 0x01, registerAddress, length };
     const writeResult: c_int = pigpio.serWrite(handle, @ptrCast(&message), message.len);
     if (writeResult < 0) {
@@ -105,7 +105,7 @@ fn bnoUartRead(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8)
     return 0;
 }
 
-fn bnoUartWrite(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.C) i8 {
+fn bnoUartWrite(deviceAddress: u8, registerAddress: u8, data: [*c]u8, length: u8) callconv(.c) i8 {
     const message = allocator.alloc(u8, length + 4) catch {
         std.log.err("Allocation error while trying to write to uart bus.\n", .{});
         return 1;

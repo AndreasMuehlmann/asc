@@ -43,7 +43,7 @@ pub const Client = struct {
         }
     }
 
-    pub fn deinit(self: Self) void {
+    pub fn deinit(self: *Self) void {
         self.netClient.deinit();
         self.gui.deinit();
         self.file.close();

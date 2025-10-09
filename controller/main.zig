@@ -27,11 +27,11 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
     esp.esp_log_write(esp.ESP_LOG_ERROR, "panic handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
 
     while (true) {
-        asm volatile ("" ::: "memory");
+        asm volatile ("" ::: .{ .memory = true });
     }
 }
 
-export fn app_main() callconv(.C) void {
+export fn app_main() callconv(.c) void {
     const allocator = std.heap.raw_c_allocator;
 
     esp.wifi_init();

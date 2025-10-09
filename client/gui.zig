@@ -2,8 +2,6 @@ const std = @import("std");
 
 const rl = @import("raylib");
 
-const headingToPosition = @import("headingToPosition.zig");
-
 pub const GuiError = error{
     UnkownDataSetName,
     UnkownPlotName,
@@ -183,9 +181,9 @@ const Plot = struct {
             var buffer: [restoredPoints]rl.Vector2 = undefined;
             for (0..self.dataSets.len) |i| {
                 @memcpy(&buffer, self.dataSets[i].points.items[self.dataSets[i].points.items.len - restoredPoints ..]);
-                self.dataSets[i].points.clearAndFree();
-                try self.dataSets[i].points.ensureTotalCapacity(restoredPoints);
-                try self.dataSets[i].points.appendSlice(&buffer);
+                self.dataSets[i].points.clearAndFree(self.allocator);
+                try self.dataSets[i].points.ensureTotalCapacity(self.allocator, restoredPoints);
+                try self.dataSets[i].points.appendSlice(self.allocator, &buffer);
             }
         }
 
@@ -199,16 +197,16 @@ const Plot = struct {
 
         for (0..self.dataSets.len) |i| {
             if (std.mem.eql(u8, dataSetName, self.dataSets[i].name)) {
-                try self.dataSets[i].points.appendSlice(points);
+                try self.dataSets[i].points.appendSlice(self.allocator, points);
                 return;
             }
         }
         return GuiError.UnkownDataSetName;
     }
 
-    pub fn deinit(self: Self) void {
-        for (self.dataSets) |dataSet| {
-            dataSet.points.deinit();
+    pub fn deinit(self: *Self) void {
+        for (self.dataSets) |*dataSet| {
+            dataSet.points.deinit(self.allocator);
         }
         self.allocator.free(self.dataSets);
     }
@@ -235,49 +233,15 @@ pub const Gui = struct {
         rl.setTargetFPS(60);
         rl.setWindowMinSize(800, 800);
 
-        const file = try std.fs.cwd().openFile("OneRound.csv", .{});
-        defer file.close();
-
-        var bufReader = std.io.bufferedReader(file.reader());
-        const reader = bufReader.reader();
-
-        var list = std.ArrayList(rl.Vector2).init(allocator);
-
-        _ = try reader.readUntilDelimiterAlloc(allocator, '\n', std.math.maxInt(usize));
-        var count: usize = 0;
-        while (true) {
-            const line = reader.readUntilDelimiterAlloc(allocator, '\n', std.math.maxInt(usize)) catch break;
-            var tokenizer = std.mem.tokenizeScalar(u8, line, ',');
-
-            const time = try std.fmt.parseFloat(f32, tokenizer.next().?);
-            const yaw = try std.fmt.parseFloat(f32, tokenizer.next().?);
-            try list.append(rl.Vector2.init(time, yaw));
-            count += 1;
-        }
-        var slice = try list.toOwnedSlice();
-        headingToPosition.headingToPosition(&slice, 40.0 / 14.0);
-
-        var minCoord = rl.Vector2.init(std.math.floatMax(f32), std.math.floatMax(f32));
-        var maxCoord = rl.Vector2.init(-std.math.floatMax(f32), -std.math.floatMax(f32));
-        for (slice) |point| {
-            minCoord.x = @min(minCoord.x, point.x);
-            minCoord.y = @min(minCoord.y, point.y);
-            maxCoord.x = @max(maxCoord.x, point.x);
-            maxCoord.y = @max(maxCoord.y, point.y);
-        }
-
         var dataSetsYaw = try allocator.alloc(DataSet, 1);
-        //dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "y", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
-        dataSetsYaw[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        dataSetsYaw[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "y", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
         var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
-        dataSetsAcceleration[0] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
-        dataSetsAcceleration[1] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
-        dataSetsAcceleration[2] = .{ .points = std.ArrayList(rl.Vector2).init(allocator), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
+        dataSetsAcceleration[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
+        dataSetsAcceleration[1] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
+        dataSetsAcceleration[2] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
 
         var plots = try allocator.alloc(Plot, 2);
-        //plots[0] = Plot.init(allocator, "Track", "x", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), minCoord, maxCoord, 30, windowWidthF, windowHeightF, dataSetsYaw);
-        //try plots[0].addPoints("y", slice);
         plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
         plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
 
@@ -314,8 +278,8 @@ pub const Gui = struct {
         return GuiError.UnkownPlotName;
     }
 
-    pub fn deinit(self: Self) void {
-        for (self.plots) |plot| {
+    pub fn deinit(self: *Self) void {
+        for (self.plots) |*plot| {
             plot.deinit();
         }
         self.allocator.free(self.plots);

@@ -16,27 +16,37 @@ pub fn build(b: *std.Build) void {
     const decodeModule = b.addModule("decode", .{ .root_source_file = b.path("shared/messageFormat/decode.zig") });
     const serverContractModule = b.addModule("encode", .{ .root_source_file = b.path("shared/serverContract.zig") });
     const clientContractModule = b.addModule("decode", .{ .root_source_file = b.path("shared/clientContract.zig") });
-    const unitTestsMessageFormat = b.addTest(.{
+
+    const testEncodeDecodeMod = b.addModule("testEncodeDecodeMod", .{
         .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
         .target = clientTarget,
     });
+    const unitTestsMessageFormat = b.addTest(.{.root_module = testEncodeDecodeMod});
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
 
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
 
-    const unitTestsCommandParser = b.addTest(.{
+
+    const testCommandParser = b.addModule("testCommandParser", .{
         .root_source_file = b.path("shared/commandParser/commandParser.zig"),
         .target = clientTarget,
+    });
+    const unitTestsCommandParser = b.addTest(.{
+        .root_module = testCommandParser,
     });
     const runUnitTestsCommandParser = b.addRunArtifact(unitTestsCommandParser);
 
     const clap = b.dependency("clap", .{});
 
-    const controllerLib = b.addStaticLibrary(.{
-        .name = "asc",
+
+    const controllerLibMod = b.addModule("asc", .{
         .root_source_file = b.path("controller/main.zig"),
         .target = b.resolveTargetQuery(target),
         .optimize = optimize,
+    });
+    const controllerLib = b.addLibrary(.{
+        .name = "asc",
+        .root_module = controllerLibMod,
     });
 
     controllerLib.root_module.addImport("encode", encodeModule);
@@ -93,11 +103,16 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(controllerLib);
 
-    const clientExe = b.addExecutable(.{
-        .name = "client",
+
+    const clientExeMod = b.addModule("client", .{
         .root_source_file = b.path("client/main.zig"),
         .target = clientTarget,
         .optimize = optimize,
+    });
+
+    const clientExe = b.addExecutable(.{
+        .name = "client",
+        .root_module = clientExeMod,
     });
 
     const raylib_dep = b.dependency("raylib_zig", .{
@@ -129,9 +144,13 @@ pub fn build(b: *std.Build) void {
     const runClientStep = b.step("runClient", "Run the client");
     runClientStep.dependOn(&runClientCmd.step);
 
-    const unitTestsClient = b.addTest(.{
+
+    const unitTestsClientMod = b.addModule("unitTestsClient", .{
         .root_source_file = b.path("client/main.zig"),
         .target = clientTarget,
+    });
+    const unitTestsClient = b.addTest(.{
+        .root_module = unitTestsClientMod,
     });
     const runUnitTestsClient = b.addRunArtifact(unitTestsClient);
 

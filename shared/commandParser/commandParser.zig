@@ -33,14 +33,21 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         }
 
         fn handleErrorNextToken(self: *Self) !lexerMod.Token {
-            const allocator = self.arena.allocator();
+            //TODO: const allocator = self.arena.allocator();
             const token = self.lexer.nextToken() catch |err| {
                 switch (err) {
-                    lexerMod.LexerError.TokenTerminationAfterIdentifier => self.message = try std.fmt.allocPrint(allocator, "Identifier has to consist of letters and has to end with whitespace or the end of the string (token at position: {d}).", .{self.lexer.errorPosition}),
-                    lexerMod.LexerError.TokenTerminationAfterQuotedString => self.message = try std.fmt.allocPrint(allocator, "Expected whitespace or end of the string after quoted string (token at position: {d}).", .{self.lexer.errorPosition}),
-                    lexerMod.LexerError.UnclosedQuote => self.message = try std.fmt.allocPrint(allocator, "Quote unclosed (token at position: {d}).", .{self.lexer.errorPosition}),
-                    lexerMod.LexerError.EscapingEnd => self.message = try std.fmt.allocPrint(allocator, "Escaping the end is not allowed (token at position: {d}).", .{self.lexer.errorPosition}),
-                    lexerMod.LexerError.EscapingNonQuoteOrBackslashOrSpace => self.message = try std.fmt.allocPrint(allocator, "Only quotes backslashs or spaces can be escaped (token at position: {d}).", .{self.lexer.errorPosition}),
+
+                    lexerMod.LexerError.TokenTerminationAfterIdentifier => self.message = "Identifier has to consist of letters and has to end with whitespace or the end of the string (token at position: {d}).",
+                    lexerMod.LexerError.TokenTerminationAfterQuotedString => self.message = "Expected whitespace or end of the string after quoted string (token at position: {d}).",
+                    lexerMod.LexerError.UnclosedQuote => self.message = "Quote unclosed (token at position: {d}).",
+                    lexerMod.LexerError.EscapingEnd => self.message = "Escaping the end is not allowed (token at position: {d}).",
+                    lexerMod.LexerError.EscapingNonQuoteOrBackslashOrSpace => self.message = "Only quotes backslashs or spaces can be escaped (token at position: {d}).",
+
+                   // TODO: lexerMod.LexerError.TokenTerminationAfterIdentifier => self.message = try std.fmt.allocPrint(allocator, "Identifier has to consist of letters and has to end with whitespace or the end of the string (token at position: {d}).", .{self.lexer.errorPosition}),
+                   // TODO: lexerMod.LexerError.TokenTerminationAfterQuotedString => self.message = try std.fmt.allocPrint(allocator, "Expected whitespace or end of the string after quoted string (token at position: {d}).", .{self.lexer.errorPosition}),
+                   // TODO: lexerMod.LexerError.UnclosedQuote => self.message = try std.fmt.allocPrint(allocator, "Quote unclosed (token at position: {d}).", .{self.lexer.errorPosition}),
+                   // TODO: lexerMod.LexerError.EscapingEnd => self.message = try std.fmt.allocPrint(allocator, "Escaping the end is not allowed (token at position: {d}).", .{self.lexer.errorPosition}),
+                   // TODO: lexerMod.LexerError.EscapingNonQuoteOrBackslashOrSpace => self.message = try std.fmt.allocPrint(allocator, "Only quotes backslashs or spaces can be escaped (token at position: {d}).", .{self.lexer.errorPosition}),
                 }
                 return err;
             };
@@ -73,9 +80,11 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         }
 
         fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
-            const allocator = self.arena.allocator();
+            // TODO: const allocator = self.arena.allocator();
             if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, comptime commandParserUtils.typeBaseName(T))) {
-                self.message = try std.fmt.allocPrint(allocator, "Command name at position {d} is invalid, expected " ++ comptime commandParserUtils.typeBaseName(T) ++ ".", .{token.position});
+
+                self.message = "Command name at position {d} is invalid, expected ";
+                // TODO:  self.message = try std.fmt.allocPrint(allocator, "Command name at position {d} is invalid, expected " ++ comptime commandParserUtils.typeBaseName(T) ++ ".", .{token.position});
                 return ParserError.CommandNameInvalid;
             }
 
@@ -91,7 +100,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 const tok = try self.handleErrorNextToken();
                 if (tok.type == lexerMod.TokenType.eof) {
                     if (previousOption != null) {
-                        self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found end of string.", .{tok.position});
+                        self.message = "Expected value for option at position {d}, found end of string.";
+                        // TODO: self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found end of string.", .{tok.position});
                         return ParserError.OptionWithoutValue;
                     }
                     break;
@@ -121,7 +131,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
 
                 if (previousOption != null) {
-                    self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found another option.", .{tok.position});
+                    self.message = "Expected value for option at position {d}, found another option.";
+                    // self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found another option.", .{tok.position});
                     return ParserError.OptionWithoutValue;
                 }
 
@@ -132,7 +143,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     if (isMatchingLongOption or isMatchingShortOption) {
                         matched = true;
                         if (found[i]) {
-                            self.message = try std.fmt.allocPrint(allocator, "Option at position {d} was found before multiple occurences of the same option are not allowed.", .{tok.position});
+                            self.message = "Option at position {d} was found before multiple occurences of the same option are not allowed.";
+                            // TODO self.message = try std.fmt.allocPrint(allocator, "Option at position {d} was found before multiple occurences of the same option are not allowed.", .{tok.position});
                             return ParserError.MultipleSameOption;
                         }
 
@@ -148,7 +160,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     }
                 }
                 if (!matched) {
-                    self.message = try std.fmt.allocPrint(allocator, "Option at position {} not found to match any of the expected options.", .{tok.position});
+                    self.message = "Option at position {} not found to match any of the expected options.";
+                    // TODO: self.message = try std.fmt.allocPrint(allocator, "Option at position {} not found to match any of the expected options.", .{tok.position});
                     return ParserError.UnknownOption;
                 }
             }
@@ -188,7 +201,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
             }
             if (!matched) {
-                self.message = try std.fmt.allocPrint(self.arena.allocator(), "Unknown command at position {d} {s}.", .{ token.position, token.literal });
+                self.message = "Unknown command at position {d} {s}.";
+                // TODO: self.message = try std.fmt.allocPrint(self.arena.allocator(), "Unknown command at position {d} {s}.", .{ token.position, token.literal });
                 return ParserError.UnknownSubcommand;
             }
             return parsedUnion;
@@ -215,14 +229,14 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
         fn parseString(self: *Self, string: []const u8) ![]u8 {
             const arenaAllocator = self.arena.allocator();
-            var escapedString = std.ArrayList(u8).init(arenaAllocator);
+            var escapedString = try std.ArrayList(u8).initCapacity(arenaAllocator, 10);
 
             var escaped: bool = false;
 
             const str = if (string[0] == '"') string[1 .. string.len - 1] else string;
             for (str) |char| {
                 if (escaped) {
-                    try escapedString.append(char);
+                    try escapedString.append(arenaAllocator, char);
                     escaped = false;
                     continue;
                 }
@@ -231,7 +245,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     escaped = true;
                     continue;
                 }
-                try escapedString.append(char);
+                try escapedString.append(arenaAllocator, char);
             }
 
             return escapedString.items;

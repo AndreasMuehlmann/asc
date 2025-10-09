@@ -11,7 +11,7 @@ const serverContract = @import("serverContract");
 var client: Client = undefined;
 var isClientCreated: bool = false;
 
-pub fn sigIntHandler(sig: c_int) callconv(.C) void {
+pub fn sigIntHandler(sig: c_int) callconv(.c) void {
     _ = sig;
 
     std.log.warn("Received signal to exit.\n", .{});
@@ -38,17 +38,17 @@ pub fn main() !void {
         .diagnostic = &diag,
         .allocator = gpa.allocator(),
     }) catch |err| {
-        diag.report(std.io.getStdErr().writer(), err) catch {};
+        diag.reportToFile(.stderr(), err) catch {};
         return;
     };
     defer res.deinit();
 
     if (res.args.help != 0)
-        return clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
+        return clap.helpToFile(.stderr(), clap.Help, &params, .{});
 
     const act = os.linux.Sigaction{
         .handler = .{ .handler = sigIntHandler },
-        .mask = os.linux.empty_sigset,
+        .mask = os.linux.sigemptyset(),
         .flags = 0,
     };
 

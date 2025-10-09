@@ -68,7 +68,7 @@ pub const UartConsole = struct {
         return index;
     }
 
-    pub fn run(_: ?*anyopaque) callconv(.C) void {
+    pub fn run(_: ?*anyopaque) callconv(.c) void {
         const descriptions: []const commandParserMod.FieldDescription = &.{
             .{ .fieldName = "ssid", .description = "The name of the wlan to connect to." },
             .{ .fieldName = "password", .description = "The passowrd for the wlan to connect to." },
@@ -92,14 +92,19 @@ pub const UartConsole = struct {
 
             var commandParser = commandParserT.init(std.heap.raw_c_allocator, buffer[0..length]);
             const command = commandParser.parse() catch |err| {
-                var message: []const u8 = undefined;
+                var message: std.ArrayList(u8) = std.ArrayList(u8).initCapacity(std.heap.raw_c_allocator, 10) catch unreachable;
                 if (commandParser.message.len == 0) {
-                    message = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}\n", .{@errorName(err)}) catch unreachable;
+                    message.appendSlice(std.heap.raw_c_allocator, @errorName(err)) catch unreachable;
+                    message.append(std.heap.raw_c_allocator, '\n') catch unreachable;
+                    message.append(std.heap.raw_c_allocator, 0) catch unreachable;
+                    
                 } else {
-                    message = std.fmt.allocPrintZ(std.heap.raw_c_allocator, "{s}\n", .{commandParser.message}) catch unreachable;
+                    message.appendSlice(std.heap.raw_c_allocator, commandParser.message) catch unreachable;
+                    message.append(std.heap.raw_c_allocator, '\n') catch unreachable;
+                    message.append(std.heap.raw_c_allocator, 0) catch unreachable;
                 }
-                _ = c.printf(message.ptr);
-                std.heap.raw_c_allocator.free(message);
+                _ = c.printf(message.items.ptr);
+                message.deinit(std.heap.raw_c_allocator);
                 continue;
             };
 

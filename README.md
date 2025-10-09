@@ -72,10 +72,13 @@ Vision:
 
 ## TODO
 
-- Fix error in command parser for quoted strings?? Not sure if this is even a problem
-- update documentation
-- connect bno055
+- Fix compile errors for zig build test
 - PCB for esp
+- connect bno055 or other sensor (look into what problems existed there)
+- Icp
+- update documentation
+
+- Fix error in command parser for quoted strings?? Not sure if this is even a problem
 
 - Plotting more easily configurable
 - Sending commands from network connection with command parser

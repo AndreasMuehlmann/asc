@@ -2,15 +2,15 @@
     .fingerprint = 0x66fd62d23973253a,
     .name = .asc,
     .version = "0.0.0",
-    .minimum_zig_version = "0.11.0",
+    .minimum_zig_version = "0.14.0",
     .dependencies = .{
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.10.0.tar.gz",
-            .hash = "clap-0.10.0-oBajB434AQBDh-Ei3YtoKIRxZacVPF1iSwp3IX_ZB8f0",
+            .url = "git+https://github.com/Hejsil/zig-clap#b7e3348ed60f99ba32c75aa707ff7c87adc31b36",
+            .hash = "clap-0.11.0-oBajB-TnAQC7yPLnZRT5WzHZ_4Ly4dX2OILskli74b9H",
         },
         .raylib_zig = .{
-            .url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#1b6a05ca3bf23377a3bc818d572d82551f070454",
-            .hash = "raylib_zig-5.6.0-dev-KE8RECUqBQBWlaix-mLGaEFsUP2gqKmE190hcLRacIPo",
+            .url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#1e257d1738b4ee25fe76ea1b1bd8b5ea2bf639c4",
+            .hash = "raylib_zig-5.6.0-dev-KE8RECxEBQDwM9vp3RY9uvOduewuez61dojPyNO_L9Ph",
         },
     },
     .paths = .{

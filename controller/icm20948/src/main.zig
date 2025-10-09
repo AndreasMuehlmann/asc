@@ -5,7 +5,7 @@ const pigpio = @cImport(@cInclude("pigpio.h"));
 
 const icmApi = @import("icm.zig");
 
-pub fn sigIntHandler(sig: c_int) callconv(.C) void {
+pub fn sigIntHandler(sig: c_int) callconv(.c) void {
     _ = sig;
 
     std.log.warn("Received signal to exit.\n", .{});
