@@ -12,12 +12,14 @@ const c = @cImport({
 });
 
 const rtos = @cImport(@cInclude("rtos.h"));
+const utils = @cImport(@cInclude("utils.h"));
 
 const esp = @cImport({
     @cInclude("esp_system.h");
     @cInclude("esp_log.h");
     @cInclude("wifi.h");
     @cInclude("server.h");
+    @cInclude("nvs_flash.h");
 });
 
 const tag = "app main";
@@ -34,10 +36,13 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
 export fn app_main() callconv(.c) void {
     const allocator = std.heap.raw_c_allocator;
 
-    esp.wifi_init();
+
+    utils.espErrorCheck(esp.nvs_flash_init());
 
     var name = [_]u8{ 'u', 'a', 'r', 't', ' ', 'c', 'o', 'n', 's', 'o', 'l', 'e', 0 };
     rtos.rtosXTaskCreate(UartConsole.run, &name, 5000, null, 1);
+
+    esp.wifi_init();
 
     var controller: Controller = undefined;
 

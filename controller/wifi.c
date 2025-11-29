@@ -1,14 +1,12 @@
-#include <stdio.h> //for basic printf commands
-#include <string.h> //for handling strings
+#include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_wifi.h" //esp_wifi_init functions and wifi operations
-#include "esp_event.h" //for wifi event
+#include "esp_wifi.h"
+#include "esp_event.h"
 #include "esp_log.h"
-#include "nvs_flash.h" //non volatile storage
-
-#include "credentials.h"
+#include "nvs_flash.h"
 
 #define MAXIMUM_RETRY 5
 #define WIFI_CONNECTED_BIT BIT0
@@ -40,7 +38,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-void wifi_connection()
+void wifi_init()
 {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -69,8 +67,35 @@ void wifi_connection()
     size_t password_size = 64;
     char ssid[32];
     char password[64];
-    ESP_ERROR_CHECK(nvs_get_str(nvs_handle, "ssid", ssid, &ssid_size));
-    ESP_ERROR_CHECK(nvs_get_str(nvs_handle, "password", password, &password_size));
+
+    esp_err_t err = nvs_get_str(nvs_handle, "ssid", ssid, &ssid_size);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGE(TAG, "The wifi ssid is missing. You can set it with the set command.");
+        ESP_LOGE(TAG, "Waiting...");
+        while (true) {
+            vTaskDelay(100);
+            esp_err_t err = nvs_get_str(nvs_handle, "ssid", ssid, &ssid_size);
+            if (err == ESP_OK) {
+                break;
+            }
+        }
+    } else {
+        ESP_ERROR_CHECK(err);
+    }
+    err = nvs_get_str(nvs_handle, "password", password, &password_size);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGE(TAG, "The wifi password is missing. You can set it with the set command.");
+        ESP_LOGE(TAG, "Waiting...");
+        while (true) {
+            vTaskDelay(100);
+            err = nvs_get_str(nvs_handle, "password", password, &password_size);
+            if (err == ESP_OK) {
+                break;
+            }
+        }
+    } else {
+        ESP_ERROR_CHECK(err);
+    }
 
     wifi_config_t wifi_configuration = {0};
 
@@ -87,8 +112,6 @@ void wifi_connection()
             pdFALSE,
             portMAX_DELAY);
 
-    /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
-     * happened. */
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "connected to ap");
     } else if (bits & WIFI_FAIL_BIT) {
@@ -96,10 +119,4 @@ void wifi_connection()
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
-}
-
-void wifi_init()
-{
-    ESP_ERROR_CHECK(nvs_flash_init());
-    wifi_connection();
 }

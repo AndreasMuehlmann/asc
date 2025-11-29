@@ -234,7 +234,7 @@ pub const Gui = struct {
         rl.setWindowMinSize(800, 800);
 
         var dataSetsYaw = try allocator.alloc(DataSet, 1);
-        dataSetsYaw[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "y", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        dataSetsYaw[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
         var dataSetsAcceleration = try allocator.alloc(DataSet, 3);
         dataSetsAcceleration[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Acceleration x", .color = rl.Color.dark_purple, .lineWidth = 2.0 };

@@ -58,14 +58,15 @@ pub fn build(b: *std.Build) void {
 
     controllerLib.addIncludePath(b.path("controller/"));
     controllerLib.addCSourceFiles(.{ .files = &[_][]const u8{
+        "controller/utils.c",
         "controller/rtos.c",
         "controller/server.c",
         "controller/wifi.c",
     } });
 
-    controllerLib.addIncludePath(b.path("lib/BNO055_SensorAPI/"));
+    controllerLib.addIncludePath(b.path("lib/BMI270_SensorAPI/"));
     controllerLib.addCSourceFile(.{
-        .file = b.path("lib/BNO055_SensorAPI/bno055.c"),
+        .file = b.path("lib/BMI270_SensorAPI/bmi270.c"),
         .flags = &[_][]const u8{
             "-fno-sanitize=undefined",
             "-fno-sanitize=shift",
