@@ -13,6 +13,11 @@ const c = @cImport({
 
 const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
+const bmi = @cImport({
+    @cInclude("bmi.h");
+    @cInclude("bmi2.h");
+    @cInclude("bmi270.h");
+});
 
 const esp = @cImport({
     @cInclude("esp_system.h");
@@ -20,10 +25,12 @@ const esp = @cImport({
     @cInclude("wifi.h");
     @cInclude("server.h");
     @cInclude("nvs_flash.h");
+    @cInclude("driver/i2c_master.h");
 });
 
 const tag = "app main";
 var array: [250]u8 = undefined;
+
 
 pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
     esp.esp_log_write(esp.ESP_LOG_ERROR, "panic handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
@@ -33,9 +40,9 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
     }
 }
 
+
 export fn app_main() callconv(.c) void {
     const allocator = std.heap.raw_c_allocator;
-
 
     utils.espErrorCheck(esp.nvs_flash_init());
 

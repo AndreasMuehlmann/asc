@@ -5,6 +5,10 @@ const serverContract = @import("serverContract");
 const encode = @import("encode");
 const NetServer = @import("netServer.zig").NetServer;
 
+const i2c = @cImport(@cInclude("i2c.h"));
+const bmi = @cImport(@cInclude("bmi.h"));
+const bmiBosch = @cImport(@cInclude("bmi270.h"));
+
 const c = @cImport({
     @cInclude("stdio.h");
     @cInclude("sys/time.h");
@@ -15,6 +19,8 @@ const esp = @cImport({
     @cInclude("server.h");
     @cInclude("esp_system.h");
     @cInclude("esp_log.h");
+    @cInclude("stdio.h");
+    @cInclude("driver/i2c_master.h");
 });
 
 const rtos = @cImport(@cInclude("rtos.h"));
@@ -39,6 +45,18 @@ pub const Controller = struct {
     }
 
     pub fn run(self: *Self) !void {
+        var busHandle: esp.i2c_master_bus_handle_t = null;
+        var deviceHandle: esp.i2c_master_dev_handle_t = null;
+        i2c.i2c_bus_init(&busHandle);
+        i2c.i2c_device_init(&busHandle, &deviceHandle, bmiBosch.BMI2_I2C_PRIM_ADDR);
+    
+        const result: c_int = bmi.bmiInit(&deviceHandle);
+        if (result < 0) {
+            esp.esp_log_write(esp.ESP_LOG_ERROR, "controller", "Failed to initialize BMI270");
+        } else {
+            esp.esp_log_write(esp.ESP_LOG_INFO, "controller", "Initialized BMI270 successfully");
+        }
+
         const start = @divTrunc(timestampMicros(), 1000);
 
         const ticksPerSecond: i64 = 100;
@@ -64,16 +82,29 @@ pub const Controller = struct {
             }
             lastUpdate = timestampMicros();
 
-            //const euler = try self.bno.getEuler();
-            //const acceleration = try self.bno.getAcceleration();
+
+
+
             self.netServer.recv() catch |err| switch (err) {
                 error.ConnectionClosed => return,
                 else => return err,
             };
 
-            const time: f32 = @floatFromInt(@divTrunc(timestampMicros(), 1000) - start);
-            const measurement: clientContract.Measurement = .{ .time = time / 1_000.0, .heading = 100, .accelerationX = 2, .accelerationY = -3, .accelerationZ = 1 };
-            try self.netServer.send(clientContract.Measurement, measurement);
+            var gyro: bmi.vec = .{};
+            var accel: bmi.vec = .{};
+            const resultRead: c_int = bmi.bmiReadSensors(&gyro, &accel);
+
+            if (resultRead == -1) {
+                esp.esp_log_write(esp.ESP_LOG_ERROR, "controller", "Failed to read measurements from BMI270");
+            } else if (resultRead == -2) {
+                _ = esp.printf("Data not ready");
+            }            
+            if (result == 0) {
+                const time: f32 = @floatFromInt(@divTrunc(timestampMicros(), 1000) - start);
+                const measurement: clientContract.Measurement = .{ .time = time / 1_000.0, .heading = 100, .accelerationX = accel.x, .accelerationY = accel.y, .accelerationZ = accel.z};
+                try self.netServer.send(clientContract.Measurement, measurement);
+            }
+
             rtos.rtosVTaskDelay(10);
         }
     }

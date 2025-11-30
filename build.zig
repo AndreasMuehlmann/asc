@@ -57,19 +57,33 @@ pub fn build(b: *std.Build) void {
     controllerLib.root_module.addImport("commandParser", commandParserModule);
 
     controllerLib.addIncludePath(b.path("controller/"));
+    controllerLib.addIncludePath(b.path("lib/BMI270_SensorAPI/"));
     controllerLib.addCSourceFiles(.{ .files = &[_][]const u8{
         "controller/utils.c",
         "controller/rtos.c",
         "controller/server.c",
         "controller/wifi.c",
+        "controller/i2c.c",
+        "controller/bmi.c",
+
     } });
 
-    controllerLib.addIncludePath(b.path("lib/BMI270_SensorAPI/"));
+        
+        
     controllerLib.addCSourceFile(.{
         .file = b.path("lib/BMI270_SensorAPI/bmi270.c"),
         .flags = &[_][]const u8{
             "-fno-sanitize=undefined",
             "-fno-sanitize=shift",
+            "-g0",
+        },
+    });
+    controllerLib.addCSourceFile(.{
+        .file = b.path("lib/BMI270_SensorAPI/bmi2.c"),
+        .flags = &[_][]const u8{
+            "-fno-sanitize=undefined",
+            "-fno-sanitize=shift",
+            "-g0",
         },
     });
 
