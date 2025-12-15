@@ -19,11 +19,14 @@ const esp = @cImport({
     @cInclude("server.h");
     @cInclude("esp_system.h");
     @cInclude("esp_log.h");
-    @cInclude("stdio.h");
     @cInclude("driver/i2c_master.h");
+    @cInclude("driver/ledc.h");
 });
 
+const pwm = @cImport(@cInclude("pwm.h"));
+
 const rtos = @cImport(@cInclude("rtos.h"));
+const utils = @cImport(@cInclude("utils.h"));
 
 fn timestampMicros() i64 {
     var now = c.timeval{ .tv_sec = 0, .tv_usec = 0 };
@@ -49,12 +52,13 @@ pub const Controller = struct {
         var deviceHandle: esp.i2c_master_dev_handle_t = null;
         i2c.i2c_bus_init(&busHandle);
         i2c.i2c_device_init(&busHandle, &deviceHandle, bmiBosch.BMI2_I2C_PRIM_ADDR);
-    
+
+
         const result: c_int = bmi.bmiInit(&deviceHandle);
         if (result < 0) {
-            esp.esp_log_write(esp.ESP_LOG_ERROR, "controller", "Failed to initialize BMI270");
+            utils.espLog(esp.ESP_LOG_ERROR, "controller", "Failed to initialize BMI270");
         } else {
-            esp.esp_log_write(esp.ESP_LOG_INFO, "controller", "Initialized BMI270 successfully");
+            utils.espLog(esp.ESP_LOG_INFO, "controller", "Initialized BMI270 successfully");
         }
 
         const start = @divTrunc(timestampMicros(), 1000);
@@ -95,9 +99,9 @@ pub const Controller = struct {
             const resultRead: c_int = bmi.bmiReadSensors(&gyro, &accel);
 
             if (resultRead == -1) {
-                esp.esp_log_write(esp.ESP_LOG_ERROR, "controller", "Failed to read measurements from BMI270");
+                utils.espLog(esp.ESP_LOG_ERROR, "controller", "Failed to read measurements from BMI270");
             } else if (resultRead == -2) {
-                _ = esp.printf("Data not ready");
+                _ = c.printf("Data not ready");
             }            
             if (result == 0) {
                 const time: f32 = @floatFromInt(@divTrunc(timestampMicros(), 1000) - start);

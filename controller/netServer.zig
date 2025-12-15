@@ -11,6 +11,8 @@ const c = @cImport({
     @cInclude("stdio.h");
 });
 
+const utils = @cImport(@cInclude("utils.h"));
+
 const decode = @import("decode");
 const encode = @import("encode");
 
@@ -34,13 +36,13 @@ pub fn NetServer(comptime serverContractEnumT: type, comptime serverContractT: t
             var listenerResult: esp.ListenerResult = .{ .server_fd = 0, .result = 0 };
             esp.create_listening_socket(port, &listenerResult);
             if (listenerResult.result != esp.OK) {
-                esp.esp_log_write(esp.ESP_LOG_ERROR, "NetServer", "Listening socket couldn't be created. Error code: %d\n", listenerResult.result);
+                utils.espLog(esp.ESP_LOG_ERROR, "NetServer", "Listening socket couldn't be created. Error code: %d\n", listenerResult.result);
                 @panic("Error when creating listening socket.");
             }
             var connectionResult: esp.ConnectionResult = .{ .connection = 0, .result = 0 };
             esp.wait_for_connection(listenerResult.server_fd, &connectionResult);
             if (listenerResult.result != esp.OK) {
-                esp.esp_log_write(esp.ESP_LOG_ERROR, "NetServer", "Connection couldn't be accepted. Error code: %d\n", connectionResult.result);
+                utils.espLog(esp.ESP_LOG_ERROR, "NetServer", "Connection couldn't be accepted. Error code: %d\n", connectionResult.result);
                 @panic("Error when waiting for connection.");
             }
 

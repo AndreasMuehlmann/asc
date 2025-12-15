@@ -13,6 +13,8 @@ const esp = @cImport({
     @cInclude("esp_system.h");
 });
 
+const utils = @cImport(@cInclude("utils.h"));
+
 const commandParserMod = @import("commandParser");
 const CommandParser = commandParserMod.CommandParser;
 
@@ -77,7 +79,7 @@ pub const UartConsole = struct {
         var nvsHandle: esp.nvs_handle_t = undefined;
         const nvs_err = esp.nvs_open("storage", esp.NVS_READWRITE, &nvsHandle);
         if (nvs_err != esp.ESP_OK) {
-            esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error opening flash memory handle: %s", esp.esp_err_to_name(nvs_err));
+            utils.espLog(esp.ESP_LOG_ERROR, tag, "Error opening flash memory handle: %s", esp.esp_err_to_name(nvs_err));
             @panic("Error while opening handle for flash memory in uart console.");
         }
         defer esp.nvs_close(nvsHandle);
@@ -86,7 +88,7 @@ pub const UartConsole = struct {
         while (true) {
             const length = Self.readLine() catch |err| {
                 const buf = std.fmt.bufPrintZ(&buffer, "{s}", .{@errorName(err)}) catch unreachable;
-                esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "%s\n", buf.ptr);
+                utils.espLog(esp.ESP_LOG_ERROR, tag, "%s\n", buf.ptr);
                 continue;
             };
 
@@ -115,17 +117,17 @@ pub const UartConsole = struct {
 
                     var err = esp.nvs_set_str(nvsHandle, "ssid", nullTerminatedSsid);
                     if (err != esp.ESP_OK) {
-                        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error setting ssid: %s", esp.esp_err_to_name(err));
+                        utils.espLog(esp.ESP_LOG_ERROR, tag, "Error setting ssid: %s", esp.esp_err_to_name(err));
                         continue;
                     }
                     err = esp.nvs_set_str(nvsHandle, "password", nullTerminatedPassword);
                     if (err != esp.ESP_OK) {
-                        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error setting password: %s", esp.esp_err_to_name(err));
+                        utils.espLog(esp.ESP_LOG_ERROR, tag, "Error setting password: %s", esp.esp_err_to_name(err));
                         continue;
                     }
                     err = esp.nvs_commit(nvsHandle);
                     if (err != esp.ESP_OK) {
-                        esp.esp_log_write(esp.ESP_LOG_ERROR, tag, "Error commiting ssid and password to flash memory: %s", esp.esp_err_to_name(err));
+                        utils.espLog(esp.ESP_LOG_ERROR, tag, "Error commiting ssid and password to flash memory: %s", esp.esp_err_to_name(err));
                     }
 
                     _ = c.printf("Set ssid to %s and password to %s\n", nullTerminatedSsid.ptr, nullTerminatedPassword.ptr);

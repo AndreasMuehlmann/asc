@@ -65,7 +65,7 @@ pub fn build(b: *std.Build) void {
         "controller/wifi.c",
         "controller/i2c.c",
         "controller/bmi.c",
-
+        "controller/pwm.c",
     } });
 
         
