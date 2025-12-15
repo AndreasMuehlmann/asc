@@ -44,15 +44,15 @@ void espLog(int level, const char *tag, const char *fmt, ...) {
     esp_log(
         (esp_log_config_t){ .data = level },
         tag,
-        "%s%c (%u) %s: " "%s" "%s\n",
+        "%s%c (%u) %s: ",
         level_to_color(level),
         level_to_char(level),
         esp_log_timestamp(),
-        tag,
-        fmt,
-        LOG_RESET_COLOR,
-        args
+        tag
     );
+
+    esp_log_writev(level, tag, fmt, args);
+    esp_log_write(level, tag, "\n");
 
     va_end(args);
 }

@@ -7,18 +7,11 @@ const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 const NetServer = @import("netServer.zig").NetServer;
 
-const c = @cImport({
-    @cInclude("stdio.h");
-});
-
 const rtos = @cImport(@cInclude("rtos.h"));
-
 const utils = @cImport(@cInclude("utils.h"));
 
-const bmi = @cImport({
-    @cInclude("bmi.h");
-    @cInclude("bmi2.h");
-    @cInclude("bmi270.h");
+const c = @cImport({
+    @cInclude("stdio.h");
 });
 
 const esp = @cImport({
@@ -56,27 +49,21 @@ export fn app_main() callconv(.c) void {
 
     esp.wifi_init();
 
-
-    utils.espLog(esp.ESP_LOG_INFO, "controller", "Initing pwm");
     pwm.pwmInit();
-    utils.espLog(esp.ESP_LOG_INFO, "controller", "setting duty");
-    utils.espErrorCheck(esp.ledc_set_duty(esp.LEDC_LOW_SPEED_MODE, esp.LEDC_CHANNEL_0, 500));
-    utils.espErrorCheck(esp.ledc_update_duty(esp.LEDC_LOW_SPEED_MODE, esp.LEDC_CHANNEL_0));
-    utils.espLog(esp.ESP_LOG_INFO, "controller", "set dutj");
-    
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized motor control successfully");
 
     var controller: Controller = undefined;
 
     const port: u16 = 8080;
 
-    utils.espLog(esp.ESP_LOG_INFO, "main", "Starting server...");
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Starting server...");
     const netServer = try NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
         allocator,
         port,
         &controller,
     );
     defer netServer.deinit();
-    utils.espLog(esp.ESP_LOG_INFO, "main", "Client connected");
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Client connected");
 
     controller = Controller.init(allocator, netServer) catch |err| {
         const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
