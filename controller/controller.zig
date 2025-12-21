@@ -8,9 +8,10 @@ const NetServer = @import("netServer.zig").NetServer;
 const pwm = @cImport(@cInclude("pwm.h"));
 const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
+const utilsZig = @import("utils.zig");
 const i2c = @cImport(@cInclude("i2c.h"));
-const bmi = @cImport(@cInclude("bmi.h"));
-const bmiBosch = @cImport(@cInclude("bmi270.h"));
+
+const Bmi = @import("bmi.zig").Bmi;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -29,15 +30,6 @@ const esp = @cImport({
 
 const tag = "controller";
 
-
-fn timestampMicros() i64 {
-    var now = c.timeval{ .tv_sec = 0, .tv_usec = 0 };
-    _ = c.gettimeofday(&now, null);
-    const seconds: i64 = @intCast(now.tv_sec);
-    const micros: i64 = @intCast(now.tv_usec);
-    return seconds * 1000000 + micros;
-}
-
 pub const Controller = struct {
     const Self = @This();
     const NetServerT = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract);
@@ -46,54 +38,25 @@ pub const Controller = struct {
     netServer: NetServerT,
     initTime: i64,
     i2cBusHandle: esp.i2c_master_bus_handle_t,
-    i2cDeviceHandle: esp.i2c_master_dev_handle_t,
+    bmi: Bmi,
 
     pub fn init(allocator: std.mem.Allocator, netServer: NetServerT) !Self {
         var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
-        var i2cDeviceHandle: esp.i2c_master_dev_handle_t = null;
         i2c.i2c_bus_init(&i2cBusHandle);
-        i2c.i2c_device_init(&i2cBusHandle, &i2cDeviceHandle, bmiBosch.BMI2_I2C_PRIM_ADDR);
-
-        const result: c_int = bmi.bmiInit(&i2cDeviceHandle);
-        if (result < 0) {
-            utils.espLog(esp.ESP_LOG_ERROR, tag, "Failed to initialize BMI270");
-            return error.Bmi270InitFailed;
-        }
-        utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized BMI270 successfully");
+        const bmi = try Bmi.init(&i2cBusHandle);
 
         return .{ 
             .allocator = allocator,
             .netServer = netServer,
-            .initTime = @divTrunc(timestampMicros(), 1000),
+            .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
             .i2cBusHandle = i2cBusHandle,
-            .i2cDeviceHandle = i2cDeviceHandle
+            .bmi = bmi,
         };
     }
 
     pub fn run(self: *Self) !void {
-        const ticksPerSecond: i64 = 100;
-        const microsPerTick: i64 = 1_000_000 / ticksPerSecond;
-        var accumulator: i64 = 0;
-        var lastUpdate = timestampMicros();
-        while (true) : (accumulator -= microsPerTick) {
-            var timestamp = timestampMicros();
-            while (accumulator + (timestamp - lastUpdate) < 0) {
-                const micros = @divTrunc(@abs(accumulator + timestamp - lastUpdate), 2);
-                const microsU32: u32 = @intCast(micros);
-                if (rtos.rtosMillisToTicks(@divTrunc(microsU32, 1000)) > 1) {
-                    rtos.rtosVTaskDelay(rtos.rtosMillisToTicks(@divTrunc(microsU32, 1000)));
-                } else {
-                    _ = c.usleep(microsU32);
-                }
-                timestamp = timestampMicros();
-            }
-
-            accumulator += timestampMicros() - lastUpdate;
-            if (accumulator > 1_000) {
-                accumulator = 1_000;
-            }
-            lastUpdate = timestampMicros();
-
+        var lastWake = rtos.rtosXTaskGetTickCount();
+        while (true) {
             self.netServer.recv() catch |err| switch (err) {
                 error.ConnectionClosed => return,
                 else => return err,
@@ -101,27 +64,23 @@ pub const Controller = struct {
 
             try self.step();
 
-            rtos.rtosVTaskDelay(10);
+            rtos.rtosVTaskDelayUntil(&lastWake, rtos.rtosMillisToTicks(10));
         }
     }
 
     fn step(self: *Self) !void {
         pwm.setDuty(500);
 
-        var gyro: bmi.vec = .{};
-        var accel: bmi.vec = .{};
-        const resultRead: c_int = bmi.bmiReadSensors(&gyro, &accel);
-
-        if (resultRead == -1) {
-            utils.espLog(esp.ESP_LOG_ERROR, tag, "Failed to read measurements from BMI270");
-        } else if (resultRead == -2) {
-            _ = c.printf("Data not ready\n");
-        }            
-        if (resultRead == 0) {
-            const time: f32 = @floatFromInt(@divTrunc(timestampMicros(), 1000) - self.initTime);
-            const measurement: clientContract.Measurement = .{ .time = time / 1_000.0, .heading = 100, .accelerationX = accel.x, .accelerationY = accel.y, .accelerationZ = accel.z};
-            try self.netServer.send(clientContract.Measurement, measurement);
-        }
+        try self.bmi.update();
+        const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
+        const measurement: clientContract.Measurement = .{
+            .time = time / 1_000.0,
+            .heading = self.bmi.heading,
+            .accelerationX = self.bmi.prevAccel.x,
+            .accelerationY = self.bmi.prevAccel.y,
+            .accelerationZ = self.bmi.prevAccel.z
+        };
+        try self.netServer.send(clientContract.Measurement, measurement);
     }
 
     pub fn handleCommand(self: *Self, command: []const u8) !void {

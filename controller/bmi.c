@@ -16,10 +16,10 @@
 #define GRAVITY_EARTH  (9.80665f)
 
 static const char *TAG = "BMI";
-static i2c_master_dev_handle_t *deviceHandle;
+static i2c_master_dev_handle_t deviceHandle;
 
 signed char bmiI2cRead(unsigned char reg_addr, unsigned char *reg_data, unsigned int len, void *intf) {
-    int err = i2c_master_transmit_receive(*deviceHandle, &reg_addr, 1, reg_data, len, 1000);
+    int err = i2c_master_transmit_receive(deviceHandle, &reg_addr, 1, reg_data, len, 1000);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "I2C read failed: %d", err);
         return -1;
@@ -37,7 +37,7 @@ signed char bmiI2cWrite(unsigned char reg_addr, const unsigned char *reg_data, u
     memcpy(writeBuffer + 1, reg_data, len);
 
     esp_err_t err = i2c_master_transmit(
-            *deviceHandle,
+            deviceHandle,
             writeBuffer,
             len + 1,
             1000);
@@ -352,7 +352,7 @@ static float lsb_to_dps(int16_t val, float dps, uint8_t bit_width)
 struct bmi2_dev bmi;
 
 int bmiInit(i2c_master_dev_handle_t *dHandle) {
-    deviceHandle = dHandle;
+    deviceHandle = *dHandle;
 
     bmi.intf = BMI2_I2C_INTF;
     bmi.intf_ptr = NULL;

@@ -12,6 +12,15 @@ void rtosTaskYield() {
 }
 
 
+void rtosVTaskDelayUntil(uint32_t *lastWake, uint32_t delay) {
+    vTaskDelayUntil(lastWake, delay);
+}
+
+uint32_t rtosXTaskGetTickCount() {
+    return xTaskGetTickCount();
+}
+
+
 void rtosXTaskCreate(void (*function)(void *), char *const name, const uint32_t stackSize, void *arguments, unsigned int priority) {
     xTaskCreate(function, name, stackSize, arguments, priority, NULL);
 }
