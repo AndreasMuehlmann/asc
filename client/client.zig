@@ -11,30 +11,12 @@ const rl = @import("raylib");
 const commandParserMod = @import("commandParser");
 const CommandParser = commandParserMod.CommandParser;
 
-
-const CommandsEnum = enum {
-    set,
-    restart,
-};
-
-const commands = union(CommandsEnum) {
-    set: set,
-    restart: restart,
-};
-
-const restart = struct {};
-
-const set = struct {
-    ssid: []const u8,
-    password: []const u8,
-};
-
 const descriptions: []const commandParserMod.FieldDescription = &.{
     .{ .fieldName = "ssid", .description = "The name of the wlan to connect to." },
     .{ .fieldName = "password", .description = "The passowrd for the wlan to connect to." },
 };
 
-const commandParserT: type = CommandParser(commands, descriptions);
+const commandParserT: type = CommandParser(serverContract.command, descriptions);
 
 pub const Client = struct {
     allocator: std.mem.Allocator,
@@ -81,6 +63,7 @@ pub const Client = struct {
                     }
                     continue;
                 };
+                try self.netClient.send(serverContract.command, command);
                 switch (command) {
                     .set => |s| {
                         std.debug.print("SSID: {s}\n", .{s.ssid});

@@ -83,11 +83,20 @@ pub const Controller = struct {
         try self.netServer.send(clientContract.Measurement, measurement);
     }
 
-    pub fn handleCommand(self: *Self, command: []const u8) !void {
+    pub fn handleCommand(self: *Self, command: serverContract.command) !void {
         var array: [250]u8 = undefined;
-        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{command}) catch unreachable;
-        _ = c.printf("%s\n", buffer.ptr);
-        self.allocator.free(command);
+
+        switch (command) {
+            .set => |s| {
+                const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.ssid}) catch unreachable;
+                _ = c.printf("ssid: %s\n", buffer.ptr);
+                self.allocator.free(s.ssid);
+                self.allocator.free(s.password);
+            },
+            .restart => |_| {
+                _ = c.printf("restart\n");
+            },
+        }
     }
 
     pub fn deinit(_: Self) void {}
