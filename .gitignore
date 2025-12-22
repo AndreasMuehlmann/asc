@@ -13,3 +13,4 @@ main/includeDirs.txt
 controller/credentials.h
 controller/icp/Book1.xlsx
 controller/icp/plot.py
+screenshot.png

@@ -8,6 +8,34 @@ const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 const rl = @import("raylib");
 
+const commandParserMod = @import("commandParser");
+const CommandParser = commandParserMod.CommandParser;
+
+
+const CommandsEnum = enum {
+    set,
+    restart,
+};
+
+const commands = union(CommandsEnum) {
+    set: set,
+    restart: restart,
+};
+
+const restart = struct {};
+
+const set = struct {
+    ssid: []const u8,
+    password: []const u8,
+};
+
+const descriptions: []const commandParserMod.FieldDescription = &.{
+    .{ .fieldName = "ssid", .description = "The name of the wlan to connect to." },
+    .{ .fieldName = "password", .description = "The passowrd for the wlan to connect to." },
+};
+
+const commandParserT: type = CommandParser(commands, descriptions);
+
 pub const Client = struct {
     allocator: std.mem.Allocator,
     netClient: NetClientT,
@@ -40,6 +68,29 @@ pub const Client = struct {
                 guiApi.GuiError.Quit => return,
                 else => return err,
             };
+
+            if (self.gui.getCommand()) |commandStr| {
+                defer self.gui.resetCommand();
+                var commandParser = commandParserT.init(self.allocator, commandStr);
+                defer commandParser.deinit();
+                const command = commandParser.parse() catch |err| {
+                    if (commandParser.message.len == 0) {
+                        std.debug.print("Error: {s}\n", .{@errorName(err)});
+                    } else {
+                        std.debug.print("{s}\n", .{commandParser.message});
+                    }
+                    continue;
+                };
+                switch (command) {
+                    .set => |s| {
+                        std.debug.print("SSID: {s}\n", .{s.ssid});
+                        std.debug.print("Password: {s}\n", .{s.password});
+                    },
+                    .restart => |_| {
+                        std.debug.print("Restart command\n", .{});
+                    },
+                }
+            }
         }
     }
 

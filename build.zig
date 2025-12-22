@@ -147,6 +147,7 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("serverContract", serverContractModule);
     clientExe.root_module.addImport("clientContract", clientContractModule);
     clientExe.root_module.addImport("clap", clap.module("clap"));
+    clientExe.root_module.addImport("commandParser", commandParserModule);
 
     b.installArtifact(clientExe);
 
