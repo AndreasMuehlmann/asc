@@ -12,6 +12,7 @@ const utilsZig = @import("utils.zig");
 const i2c = @cImport(@cInclude("i2c.h"));
 
 const Bmi = @import("bmi.zig").Bmi;
+const Config = @import("config.zig").Config;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -28,6 +29,13 @@ const esp = @cImport({
 });
 
 
+const ControllerState = @import("controllerState.zig").ControllerState;
+const MapTrack = @import("mapTrack.zig").MapTrack;
+const SelfDrive = @import("selfDrive.zig").SelfDrive;
+const UserDrive = @import("userDrive.zig").UserDrive;
+const Stop = @import("stop.zig").Stop;
+
+
 const tag = "controller";
 
 pub const Controller = struct {
@@ -39,6 +47,8 @@ pub const Controller = struct {
     initTime: i64,
     i2cBusHandle: esp.i2c_master_bus_handle_t,
     bmi: Bmi,
+    state: ControllerState,
+    config: Config,
 
     pub fn init(allocator: std.mem.Allocator, netServer: NetServerT) !Self {
         var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
@@ -51,6 +61,8 @@ pub const Controller = struct {
             .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
             .i2cBusHandle = i2cBusHandle,
             .bmi = bmi,
+            .state = Stop.init().controllerState,
+            .config = Config.init(),
         };
     }
 
@@ -69,8 +81,6 @@ pub const Controller = struct {
     }
 
     fn step(self: *Self) !void {
-        pwm.setDuty(500);
-
         try self.bmi.update();
         const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
         const measurement: clientContract.Measurement = .{
@@ -81,6 +91,9 @@ pub const Controller = struct {
             .accelerationZ = self.bmi.prevAccel.z
         };
         try self.netServer.send(clientContract.Measurement, measurement);
+
+        self.state.step(self);
+
     }
 
     pub fn handleCommand(self: *Self, command: serverContract.command) !void {
@@ -96,7 +109,10 @@ pub const Controller = struct {
             .restart => |_| {
                 _ = c.printf("restart\n");
             },
+            else => {},
         }
+
+        self.state.handleCommand(self, command);
     }
 
     pub fn deinit(_: Self) void {}

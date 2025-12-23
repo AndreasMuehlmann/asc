@@ -72,6 +72,9 @@ pub const Client = struct {
                     .restart => |_| {
                         std.debug.print("Restart command\n", .{});
                     },
+                    .setSpeed => |s| {
+                        std.debug.print("Setting speed to {d}\n", .{s.speed});
+                    },
                 }
             }
         }
