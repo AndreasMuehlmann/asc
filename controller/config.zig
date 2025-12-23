@@ -11,9 +11,9 @@ pub const Config = struct {
         return .{
             .maxPwm = 1000.0,
             .gyroBrakeMultiplier = 1.0,
-            .accelBrakeMultiplier = 0.25,
-            .iirFilterRiseCoefficient = 0.25,
-            .iirFilterFallCoefficient = 0.25,
+            .accelBrakeMultiplier = 0.0,
+            .iirFilterRiseCoefficient = 0.9,
+            .iirFilterFallCoefficient = 0.5,
         };
     }
 };

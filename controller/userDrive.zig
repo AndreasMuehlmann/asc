@@ -1,5 +1,7 @@
 const Controller = @import("controller.zig").Controller;
-const ControllerState = @import("controllerState.zig").ControllerState;
+const c = @import("controllerState.zig");
+const ControllerState = c.ControllerState;
+const ControllerStateError = c.ControllerStateError;
 const serverContract = @import("serverContract");
 const pwm = @cImport(@cInclude("pwm.h"));
 
@@ -16,12 +18,12 @@ pub const UserDrive = struct {
         };
     }
 
-    pub fn step(controllerState: *ControllerState, _: *Controller) void {
+    pub fn step(controllerState: *ControllerState, _: *Controller) ControllerStateError!void {
         const self: *UserDrive = @fieldParentPtr("controllerState", controllerState);
         pwm.setDuty(@intFromFloat(self.speed));
     }
 
-    pub fn handleCommand(controllerState: *ControllerState, _: *Controller, command: serverContract.command) void {
+    pub fn handleCommand(controllerState: *ControllerState, _: *Controller, command: serverContract.command) ControllerStateError!void {
         const self: *UserDrive = @fieldParentPtr("controllerState", controllerState);
         switch (command) {
             .setSpeed => |s| {

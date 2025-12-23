@@ -1,5 +1,7 @@
 const Controller = @import("controller.zig").Controller;
-const ControllerState = @import("controllerState.zig").ControllerState;
+const c = @import("controllerState.zig");
+const ControllerState = c.ControllerState;
+const ControllerStateError = c.ControllerStateError;
 const serverContract = @import("serverContract");
 
 
@@ -15,13 +17,13 @@ pub const MapTrack = struct {
         };
     }
 
-    pub fn step(controllerState: *ControllerState, controller: *Controller) void {
+    pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
         _ = self;
         _ = controller;
     }
 
-    pub fn handleCommand(controllerState: *ControllerState, controller: *Controller, command: serverContract.command) void {
+    pub fn handleCommand(controllerState: *ControllerState, controller: *Controller, command: serverContract.command) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
         _ = self;
         _ = controller;

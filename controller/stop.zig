@@ -1,5 +1,7 @@
 const Controller = @import("controller.zig").Controller;
-const ControllerState = @import("controllerState.zig").ControllerState;
+const c = @import("controllerState.zig");
+const ControllerState = c.ControllerState;
+const ControllerStateError = c.ControllerStateError;
 const serverContract = @import("serverContract");
 const pwm = @cImport(@cInclude("pwm.h"));
 
@@ -14,9 +16,9 @@ pub const Stop = struct {
         };
     }
 
-    pub fn step(_: *ControllerState, _: *Controller) void {
+    pub fn step(_: *ControllerState, _: *Controller) ControllerStateError!void {
         pwm.setDuty(0);
     }
 
-    pub fn handleCommand(_: *ControllerState, _: *Controller, _: serverContract.command) void {}
+    pub fn handleCommand(_: *ControllerState, _: *Controller, _: serverContract.command) ControllerStateError!void {}
 };
