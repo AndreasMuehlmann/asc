@@ -56,16 +56,16 @@ pub fn build(b: *std.Build) void {
 
     controllerLib.root_module.addImport("commandParser", commandParserModule);
 
-    controllerLib.addIncludePath(b.path("controller/"));
+    controllerLib.addIncludePath(b.path("controller/c/"));
     controllerLib.addIncludePath(b.path("lib/BMI270_SensorAPI/"));
     controllerLib.addCSourceFiles(.{ .files = &[_][]const u8{
-        "controller/utils.c",
-        "controller/rtos.c",
-        "controller/server.c",
-        "controller/wifi.c",
-        "controller/i2c.c",
-        "controller/bmi.c",
-        "controller/pwm.c",
+        "controller/c/utils.c",
+        "controller/c/rtos.c",
+        "controller/c/server.c",
+        "controller/c/wifi.c",
+        "controller/c/i2c.c",
+        "controller/c/bmi.c",
+        "controller/c/pwm.c",
     } });
 
         
