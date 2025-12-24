@@ -1,4 +1,4 @@
-const Controller = @import("controller.zig").Controller;
+const Controller = @import("../controller.zig").Controller;
 const c = @import("controllerState.zig");
 const ControllerState = c.ControllerState;
 const ControllerStateError = c.ControllerStateError;
@@ -13,10 +13,12 @@ pub const UserDrive = struct {
 
     pub fn init() Self {
         return .{
-            .controllerState = .{ .stepFn = step, .handleCommandFn = handleCommand },
+            .controllerState = .{ .startFn = start, .stepFn = step, .handleCommandFn = handleCommand, .resetFn = reset },
             .speed = 0.0,
         };
     }
+
+    pub fn start(_: *ControllerState, _: *Controller) ControllerStateError!void {}
 
     pub fn step(controllerState: *ControllerState, _: *Controller) ControllerStateError!void {
         const self: *UserDrive = @fieldParentPtr("controllerState", controllerState);
@@ -31,5 +33,10 @@ pub const UserDrive = struct {
             },
             else => {},
         }
+    }
+
+    pub fn reset(controllerState: *ControllerState, _: *Controller) ControllerStateError!void {
+        const self: *UserDrive = @fieldParentPtr("controllerState", controllerState);
+        self.speed = 0.0;
     }
 };

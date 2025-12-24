@@ -1,4 +1,4 @@
-const Controller = @import("controller.zig").Controller;
+const Controller = @import("../controller.zig").Controller;
 const c = @import("controllerState.zig");
 const ControllerState = c.ControllerState;
 const ControllerStateError = c.ControllerStateError;
@@ -6,7 +6,7 @@ const serverContract = @import("serverContract");
 const pwm = @cImport(@cInclude("pwm.h"));
 
 // TODO: remove
-const utilsZig = @import("utils.zig");
+const utilsZig = @import("../utils.zig");
 const clientContract = @import("clientContract");
 
 const cc = @cImport({
@@ -21,9 +21,14 @@ pub const SelfDrive = struct {
 
     pub fn init() Self {
         return .{
-            .controllerState = .{ .stepFn = step, .handleCommandFn = handleCommand },
+            .controllerState = .{ .startFn = start, .stepFn = step, .handleCommandFn = handleCommand, .resetFn = reset },
             .prevBrake = 1.0,
         };
+    }
+
+    pub fn start(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
+        _ = controllerState;
+        _ = controller;
     }
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
@@ -51,6 +56,11 @@ pub const SelfDrive = struct {
        //    .accelerationZ = 0,
        //};
        //controller.netServer.send(clientContract.Measurement, measurement) catch unreachable;
+    }
+
+    pub fn reset(controllerState: *ControllerState, _: *Controller) ControllerStateError!void {
+        const self: *SelfDrive = @fieldParentPtr("controllerState", controllerState);
+        self.prevBrake = 1.0;
     }
 
     pub fn handleCommand(_: *ControllerState, _: *Controller, _: serverContract.command) ControllerStateError!void {}

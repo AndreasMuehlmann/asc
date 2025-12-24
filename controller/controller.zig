@@ -29,11 +29,11 @@ const esp = @cImport({
 });
 
 
-const ControllerState = @import("controllerState.zig").ControllerState;
-const MapTrack = @import("mapTrack.zig").MapTrack;
-const SelfDrive = @import("selfDrive.zig").SelfDrive;
-const UserDrive = @import("userDrive.zig").UserDrive;
-const Stop = @import("stop.zig").Stop;
+const ControllerState = @import("controllerStates/controllerState.zig").ControllerState;
+const MapTrack = @import("controllerStates/mapTrack.zig").MapTrack;
+const SelfDrive = @import("controllerStates/selfDrive.zig").SelfDrive;
+const UserDrive = @import("controllerStates/userDrive.zig").UserDrive;
+const Stop = @import("controllerStates/stop.zig").Stop;
 
 
 const tag = "controller";
@@ -113,16 +113,16 @@ pub const Controller = struct {
             },
             .setMode => |s| {
                 if (std.mem.eql(u8, s.mode, "stop")) {
-                    self.state = &stop.controllerState;
+                    try self.changeState(&stop.controllerState);
                     _ = c.printf("Setting mode to \"stop\"\n");
                 } else if (std.mem.eql(u8, s.mode, "selfdrive")) {
-                    self.state = &selfDrive.controllerState;
+                    try self.changeState(&selfDrive.controllerState);
                     _ = c.printf("Setting mode to \"selfdrive\"\n");
                 } else if (std.mem.eql(u8, s.mode, "userdrive")) {
-                    self.state = &userDrive.controllerState;
+                    try self.changeState(&userDrive.controllerState);
                     _ = c.printf("Setting mode to \"userdrive\"\n");
                 } else if (std.mem.eql(u8, s.mode, "maptrack")) {
-                    self.state = &mapTrack.controllerState;
+                    try self.changeState(&mapTrack.controllerState);
                     _ = c.printf("Setting mode to \"maptrack\"\n");
                 } else {
                     const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.mode}) catch unreachable;
@@ -136,6 +136,12 @@ pub const Controller = struct {
         }
 
         try self.state.handleCommand(self, command);
+    }
+
+    pub fn changeState(self: *Self, newState: *ControllerState) !void {
+        try self.state.reset(self);
+        self.state = newState;
+        try self.state.start(self);
     }
 
     pub fn deinit(_: Self) void {}
