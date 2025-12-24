@@ -10,10 +10,10 @@ pub const Config = struct {
     pub fn init() Self {
         return .{
             .maxPwm = 1000.0,
-            .gyroBrakeMultiplier = 1.0,
-            .accelBrakeMultiplier = 0.0,
-            .iirFilterRiseCoefficient = 0.9,
-            .iirFilterFallCoefficient = 0.5,
+            .gyroBrakeMultiplier = 1.5,
+            .accelBrakeMultiplier = 0.01,
+            .iirFilterRiseCoefficient = 0.5,
+            .iirFilterFallCoefficient = 0.01,
         };
     }
 };

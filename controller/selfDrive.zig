@@ -13,12 +13,6 @@ const cc = @cImport({
     @cInclude("stdio.h");
 });
 
-const maxPwm: f32 = 1000.0;
-const gyroBrakeMultiplier: f32 = 1.0;
-const accelBrakeMultiplier: f32 = 0.0;
-const iirFilterRiseCoefficient: f32 = 0.8;
-const iirFilterFallCoefficient: f32 = 0.8;
-
 pub const SelfDrive = struct {
     const Self = @This();
 
@@ -33,35 +27,30 @@ pub const SelfDrive = struct {
     }
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
-        _ = controller.config;
         const self: *SelfDrive = @fieldParentPtr("controllerState", controllerState);
+        const conf = &controller.config;
 
-        const brake = @abs(controller.bmi.prevGyro.y) * gyroBrakeMultiplier + @abs(controller.bmi.prevAccel.y) * accelBrakeMultiplier;
-
-        const iirFilterCoefficient = if (brake > self.prevBrake) iirFilterRiseCoefficient else iirFilterFallCoefficient;
-        const filteredBrake = (1 - iirFilterCoefficient) * self.prevBrake + iirFilterCoefficient * brake;
-        const factor = if (filteredBrake > 100.0) 0.0 else 1 - (filteredBrake / 100.0);
+        const brake = @abs(controller.bmi.prevGyro.y) * conf.gyroBrakeMultiplier + @abs(controller.bmi.prevAccel.y) * conf.accelBrakeMultiplier;
+        const iirFilterCoefficient = if (brake > self.prevBrake) conf.iirFilterRiseCoefficient else conf.iirFilterFallCoefficient;
+        const filteredBrakeUncapped = (1 - iirFilterCoefficient) * self.prevBrake + iirFilterCoefficient * brake;
+        const filteredBrake = if (filteredBrakeUncapped > 100.0) 100.0 else filteredBrakeUncapped;
+        const factor = 1 - (filteredBrake / 100.0);
 
         self.prevBrake = filteredBrake;
 
-        
-        pwm.setDuty(@intFromFloat(maxPwm * factor));
-
-        _ = cc.printf("iirFilterCoefficient: %f\n", iirFilterCoefficient);
-        _ = cc.printf("factor: %f\n", factor);
-        _ = cc.printf("product: %f\n", maxPwm * factor);
+        pwm.setDuty(@intFromFloat(conf.maxPwm * factor));
 
         // TODO: remove
-        controller.bmi.update() catch unreachable;
-        const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - controller.initTime);
-        const measurement: clientContract.Measurement = .{
-            .time = time / 1_000.0,
-            .heading = controller.bmi.heading,
-            .accelerationX = factor,
-            .accelerationY = 0,
-            .accelerationZ = 0,
-        };
-        controller.netServer.send(clientContract.Measurement, measurement) catch unreachable;
+       //controller.bmi.update() catch unreachable;
+       //const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - controller.initTime);
+       //const measurement: clientContract.Measurement = .{
+       //    .time = time / 1_000.0,
+       //    .heading = conf.maxPwm * controller.bmi.heading,
+       //    .accelerationX = factor,
+       //    .accelerationY = 0,
+       //    .accelerationZ = 0,
+       //};
+       //controller.netServer.send(clientContract.Measurement, measurement) catch unreachable;
     }
 
     pub fn handleCommand(_: *ControllerState, _: *Controller, _: serverContract.command) ControllerStateError!void {}

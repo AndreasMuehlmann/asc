@@ -64,18 +64,6 @@ pub const Client = struct {
                     continue;
                 };
                 try self.netClient.send(serverContract.command, command);
-                switch (command) {
-                    .set => |s| {
-                        std.debug.print("SSID: {s}\n", .{s.ssid});
-                        std.debug.print("Password: {s}\n", .{s.password});
-                    },
-                    .restart => |_| {
-                        std.debug.print("Restart command\n", .{});
-                    },
-                    .setSpeed => |s| {
-                        std.debug.print("Setting speed to {d}\n", .{s.speed});
-                    },
-                }
             }
         }
     }
