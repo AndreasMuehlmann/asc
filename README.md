@@ -72,16 +72,17 @@ Vision:
 
 ## TODO
 
-- Fix compile errors for zig build test
-- PCB for esp
-- connect bno055 or other sensor (look into what problems existed there)
-- Icp
-- update documentation
+- Controller: Not only sending commands from client to sever but also from server to client to for example reset the track map
+- Client: Console with more features for example arrow up and ctrl backspace, better cursor.
+- Client: Output from command parser or responses from server or previous commands displayed in the console.
+- Client: Keybindings for userdrive and other stuff that are disabled when in the console.
+- Controller: Responses from server to client when client sends commands that lead to an error.
 
-- Fix error in command parser for quoted strings?? Not sure if this is even a problem
+- Use switch pro controller to get input for userdrive
 
-- Plotting more easily configurable
-- Sending commands from network connection with command parser
+
+- write documentation
+- Dont know if this is still a thing: Fix error in command parser for quoted strings?? Not sure if this is even a problem
 
 ### Visualize kdtree with graphviz
 
