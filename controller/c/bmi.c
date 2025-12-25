@@ -1,5 +1,6 @@
 #include "bmi.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
@@ -351,6 +352,19 @@ static float lsb_to_dps(int16_t val, float dps, uint8_t bit_width)
 
 struct bmi2_dev bmi;
 
+int bmiReadGyroAxesOffset(struct vec *offsetDps) {
+    struct bmi2_sens_axes_data gyr_off_comp_axes;
+    int8_t result = bmi2_read_gyro_offset_comp_axes(&gyr_off_comp_axes, &bmi);
+    bmi2_error_codes_print_result(result);
+    if (result != BMI2_OK) {
+        return -1;
+    }
+    offsetDps->x = (float)gyr_off_comp_axes.x * 0.061;
+    offsetDps->y = (float)gyr_off_comp_axes.y * 0.061;
+    offsetDps->z = (float)gyr_off_comp_axes.z * 0.061;
+    return 0;
+}
+
 int bmiInit(i2c_master_dev_handle_t *dHandle) {
     deviceHandle = *dHandle;
 
@@ -380,6 +394,23 @@ int bmiInit(i2c_master_dev_handle_t *dHandle) {
     if (result != BMI2_OK) {
         return -1;
     }
+
+    result = bmi2_set_gyro_offset_comp(BMI2_ENABLE, &bmi);
+    bmi2_error_codes_print_result(result);
+    if (result != BMI2_OK) {
+        return -1;
+    }
+
+    struct bmi2_sens_axes_data gyr_off_comp_axes;
+    gyr_off_comp_axes.x = 0;
+    gyr_off_comp_axes.y = 0;
+    gyr_off_comp_axes.z = 2;
+    result = bmi2_write_gyro_offset_comp_axes(&gyr_off_comp_axes, &bmi);
+    bmi2_error_codes_print_result(result);
+    if (result != BMI2_OK) {
+        return -1;
+    }
+
     return 0;
 }
 

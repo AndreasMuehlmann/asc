@@ -21,11 +21,10 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
         .target = clientTarget,
     });
-    const unitTestsMessageFormat = b.addTest(.{.root_module = testEncodeDecodeMod});
+    const unitTestsMessageFormat = b.addTest(.{ .root_module = testEncodeDecodeMod });
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
 
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
-
 
     const testCommandParser = b.addModule("testCommandParser", .{
         .root_source_file = b.path("shared/commandParser/commandParser.zig"),
@@ -37,7 +36,6 @@ pub fn build(b: *std.Build) void {
     const runUnitTestsCommandParser = b.addRunArtifact(unitTestsCommandParser);
 
     const clap = b.dependency("clap", .{});
-
 
     const controllerLibMod = b.addModule("asc", .{
         .root_source_file = b.path("controller/main.zig"),
@@ -58,18 +56,23 @@ pub fn build(b: *std.Build) void {
 
     controllerLib.addIncludePath(b.path("controller/c/"));
     controllerLib.addIncludePath(b.path("lib/BMI270_SensorAPI/"));
-    controllerLib.addCSourceFiles(.{ .files = &[_][]const u8{
-        "controller/c/utils.c",
-        "controller/c/rtos.c",
-        "controller/c/server.c",
-        "controller/c/wifi.c",
-        "controller/c/i2c.c",
-        "controller/c/bmi.c",
-        "controller/c/pwm.c",
-    } });
+    controllerLib.addCSourceFiles(
+        .{
+            .files = &[_][]const u8{
+                "controller/c/utils.c",
+                "controller/c/rtos.c",
+                "controller/c/server.c",
+                "controller/c/wifi.c",
+                "controller/c/i2c.c",
+                "controller/c/bmi.c",
+                "controller/c/pwm.c",
+            },
+            .flags = &.{
+                "-fno-sanitize=undefined",
+            },
+        },
+    );
 
-        
-        
     controllerLib.addCSourceFile(.{
         .file = b.path("lib/BMI270_SensorAPI/bmi270.c"),
         .flags = &[_][]const u8{
@@ -118,7 +121,6 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(controllerLib);
 
-
     const clientExeMod = b.addModule("client", .{
         .root_source_file = b.path("client/main.zig"),
         .target = clientTarget,
@@ -159,7 +161,6 @@ pub fn build(b: *std.Build) void {
 
     const runClientStep = b.step("runClient", "Run the client");
     runClientStep.dependOn(&runClientCmd.step);
-
 
     const unitTestsClientMod = b.addModule("unitTestsClient", .{
         .root_source_file = b.path("client/main.zig"),
