@@ -23,6 +23,8 @@ pub const Client = struct {
     netClient: NetClientT,
     gui: Gui,
     file: std.fs.File,
+    prevTrackPoint: ?clientContract.TrackPoint,
+    prevPosition: rl.Vector2,
 
     const Self = @This();
     const NetClientT = NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self, serverContract.ServerContract);
@@ -36,7 +38,14 @@ pub const Client = struct {
         try file.writeAll("time,yaw,accelerationX,accelerationY,accelerationZ\n");
         const gui = try Gui.init(allocator);
 
-        return .{ .allocator = allocator, .netClient = netClient, .gui = gui, .file = file };
+        return .{ 
+            .allocator = allocator,
+            .netClient = netClient,
+            .gui = gui,
+            .file = file,
+            .prevTrackPoint = null,
+            .prevPosition = rl.Vector2.init(0, 0),
+        };
     }
 
     pub fn run(self: *Self) !void {
@@ -63,6 +72,7 @@ pub const Client = struct {
                     }
                     continue;
                 };
+                // TODO: on setMode with maptrack reset the track plot
                 try self.netClient.send(serverContract.command, command);
             }
         }
@@ -97,7 +107,20 @@ pub const Client = struct {
     }
 
     pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
-        _ = self;
-        std.debug.print("at distance {d} heading {d}\n", trackPoint);
+        if (self.prevTrackPoint) |prevTrackPoint| {
+            const diffDistance = trackPoint.distance - prevTrackPoint.distance;
+            const averageHeading = (trackPoint.heading + prevTrackPoint.heading) / 2.0;
+
+            const currentPosition = rl.Vector2{
+                .x = self.prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
+                .y = self.prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
+            };
+            self.prevPosition = currentPosition;
+
+            const array = [_]rl.Vector2{currentPosition};
+            try self.gui.addPoints("Track", "Track", &array);
+        } 
+        self.prevTrackPoint = trackPoint; 
+
     }
 };

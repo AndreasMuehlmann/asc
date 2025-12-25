@@ -18,8 +18,8 @@ pub fn headingToPosition(points: *[]rl.Vector2, averageVelocity: f32) void {
 
         const adjustmentForCurve: f32 = std.math.pow(f32, std.math.e, -@abs(newHeading - prevHeading) / 35);
         points.*[i] = .{
-            .x = points.*[i - 1].x + -std.math.cos(prevHeading * std.math.pi / 180.0) * distance * adjustmentForCurve,
-            .y = points.*[i - 1].y + std.math.sin(prevHeading * std.math.pi / 180.0) * distance * adjustmentForCurve,
+            .x = points.*[i - 1].x + -std.math.cos(prevHeading * 180.0 / std.math.pi) * distance * adjustmentForCurve,
+            .y = points.*[i - 1].y + std.math.sin(prevHeading * 180.0 / std.math.pi) * distance * adjustmentForCurve,
         };
         prevHeading = newHeading;
     }

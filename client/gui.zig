@@ -44,9 +44,14 @@ pub const Gui = struct {
         dataSetsAcceleration[1] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Acceleration y", .color = rl.Color.gold, .lineWidth = 2.0 };
         dataSetsAcceleration[2] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Acceleration z", .color = rl.Color.red, .lineWidth = 2.0 };
 
-        var plots = try allocator.alloc(Plot, 2);
-        plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
-        plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+        var dataSetsTrack = try allocator.alloc(DataSet, 1);
+        dataSetsTrack[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Track", .color = rl.Color.pink, .lineWidth = 3.0 };
+
+        var plots = try allocator.alloc(Plot, 3);
+        plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        // Min coord doesnt make sense
+        plots[1] = Plot.init(allocator, "Track", "x in m", rl.Color.black, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-5.0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsTrack);
+        plots[2] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
 
         const console = try Console.init(allocator, rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0.5, 0.5), 20, windowWidthF, windowHeightF);
 

@@ -15,7 +15,7 @@ pub const DistanceMeter = struct {
     }
 
     pub fn getDistance(self: Self) f32 {
-        const timeDiffMicros: f32 = @floatFromInt(utilsZig.timestampMicros() * self.initTime);
+        const timeDiffMicros: f32 = @floatFromInt(utilsZig.timestampMicros() - self.initTime);
         return self.configAssumedVelocityMPerS.* * timeDiffMicros / 1_000_000;
     }
 
