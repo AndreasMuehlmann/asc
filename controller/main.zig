@@ -70,6 +70,7 @@ export fn app_main() callconv(.c) void {
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
         return;
     };
+    controller.afterInit();
     defer controller.deinit();
 
     controller.run() catch |err| {

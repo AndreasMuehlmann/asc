@@ -2,7 +2,10 @@ const Controller = @import("../controller.zig").Controller;
 const serverContract = @import("serverContract");
 
 
-pub const ControllerStateError = error{};
+pub const ControllerStateError = error{
+    OutOfMemory,
+    SendFailed,
+};
 
 
 pub const ControllerState = struct {

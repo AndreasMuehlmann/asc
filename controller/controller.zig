@@ -12,6 +12,7 @@ const utilsZig = @import("utils.zig");
 const i2c = @cImport(@cInclude("i2c.h"));
 
 const Bmi = @import("bmi.zig").Bmi;
+const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
 const Config = @import("config.zig").Config;
 
 const c = @cImport({
@@ -28,13 +29,13 @@ const esp = @cImport({
     @cInclude("driver/ledc.h");
 });
 
-
-const ControllerState = @import("controllerStates/controllerState.zig").ControllerState;
+const cont = @import("controllerStates/controllerState.zig");
+const ControllerStateError = cont.ControllerStateError;
+const ControllerState = cont.ControllerState;
 const MapTrack = @import("controllerStates/mapTrack.zig").MapTrack;
 const SelfDrive = @import("controllerStates/selfDrive.zig").SelfDrive;
 const UserDrive = @import("controllerStates/userDrive.zig").UserDrive;
 const Stop = @import("controllerStates/stop.zig").Stop;
-
 
 const tag = "controller";
 
@@ -42,33 +43,47 @@ pub const Controller = struct {
     const Self = @This();
     const NetServerT = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract);
 
-    var selfDrive = SelfDrive.init();
-    var userDrive = UserDrive.init();
-    var mapTrack = MapTrack.init();
-    var stop = Stop.init();
-
     allocator: std.mem.Allocator,
     netServer: NetServerT,
     initTime: i64,
     i2cBusHandle: esp.i2c_master_bus_handle_t,
     bmi: Bmi,
+    distanceMeter: DistanceMeter,
     state: *ControllerState,
     config: Config,
+    trackPoints: ?std.ArrayList(clientContract.TrackPoint),
+
+    selfDrive: SelfDrive,
+    userDrive: UserDrive,
+    mapTrack: MapTrack,
+    stop: Stop,
 
     pub fn init(allocator: std.mem.Allocator, netServer: NetServerT) !Self {
         var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
         i2c.i2c_bus_init(&i2cBusHandle);
         const bmi = try Bmi.init(&i2cBusHandle);
 
-        return .{ 
+        return .{
             .allocator = allocator,
             .netServer = netServer,
             .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
             .i2cBusHandle = i2cBusHandle,
             .bmi = bmi,
-            .state = &stop.controllerState,
+            .distanceMeter = undefined,
+            .state = undefined,
             .config = Config.init(),
+            .trackPoints = null,
+
+            .selfDrive = SelfDrive.init(),
+            .userDrive = UserDrive.init(),
+            .mapTrack = MapTrack.init(),
+            .stop = Stop.init(),
         };
+    }
+
+    pub fn afterInit(self: *Self) void {
+        self.state = &self.stop.controllerState;
+        self.distanceMeter = DistanceMeter.init(&self.config);
     }
 
     pub fn run(self: *Self) !void {
@@ -87,6 +102,9 @@ pub const Controller = struct {
 
     fn step(self: *Self) !void {
         try self.bmi.update();
+        try self.state.step(self);
+
+
         const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
         const measurement: clientContract.Measurement = .{
             .time = time / 1_000.0,
@@ -96,9 +114,6 @@ pub const Controller = struct {
             .accelerationZ = self.bmi.prevAccel.z,
         };
         try self.netServer.send(clientContract.Measurement, measurement);
-
-        try self.state.step(self);
-
     }
 
     pub fn handleCommand(self: *Self, command: serverContract.command) !void {
@@ -113,16 +128,16 @@ pub const Controller = struct {
             },
             .setMode => |s| {
                 if (std.mem.eql(u8, s.mode, "stop")) {
-                    try self.changeState(&stop.controllerState);
+                    try self.changeState(&self.stop.controllerState);
                     _ = c.printf("Setting mode to \"stop\"\n");
                 } else if (std.mem.eql(u8, s.mode, "selfdrive")) {
-                    try self.changeState(&selfDrive.controllerState);
+                    try self.changeState(&self.selfDrive.controllerState);
                     _ = c.printf("Setting mode to \"selfdrive\"\n");
                 } else if (std.mem.eql(u8, s.mode, "userdrive")) {
-                    try self.changeState(&userDrive.controllerState);
+                    try self.changeState(&self.userDrive.controllerState);
                     _ = c.printf("Setting mode to \"userdrive\"\n");
                 } else if (std.mem.eql(u8, s.mode, "maptrack")) {
-                    try self.changeState(&mapTrack.controllerState);
+                    try self.changeState(&self.mapTrack.controllerState);
                     _ = c.printf("Setting mode to \"maptrack\"\n");
                 } else {
                     const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.mode}) catch unreachable;
@@ -138,7 +153,7 @@ pub const Controller = struct {
         try self.state.handleCommand(self, command);
     }
 
-    pub fn changeState(self: *Self, newState: *ControllerState) !void {
+    pub fn changeState(self: *Self, newState: *ControllerState) ControllerStateError!void {
         try self.state.reset(self);
         self.state = newState;
         try self.state.start(self);

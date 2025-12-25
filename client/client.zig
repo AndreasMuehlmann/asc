@@ -95,4 +95,9 @@ pub const Client = struct {
         array[0] = rl.Vector2.init(measurement.time, measurement.accelerationZ);
         try self.gui.addPoints("Acceleration", "Acceleration z", &array);
     }
+
+    pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
+        _ = self;
+        std.debug.print("at distance {d} heading {d}\n", trackPoint);
+    }
 };
