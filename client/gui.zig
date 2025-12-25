@@ -48,10 +48,10 @@ pub const Gui = struct {
         dataSetsTrack[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Track", .color = rl.Color.pink, .lineWidth = 3.0 };
 
         var plots = try allocator.alloc(Plot, 3);
-        plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
         // Min coord doesnt make sense
-        plots[1] = Plot.init(allocator, "Track", "x in m", rl.Color.black, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-5.0, -5.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsTrack);
-        plots[2] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 5.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+        plots[1] = Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack);
+        plots[2] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
 
         const console = try Console.init(allocator, rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0.5, 0.5), 20, windowWidthF, windowHeightF);
 

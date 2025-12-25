@@ -18,6 +18,7 @@ pub const Plot = struct {
     name: [:0]const u8,
     nameXAxis: [:0]const u8,
     color: rl.Color,
+    moving: bool,
 
     relativeTopLeft: rl.Vector2,
     relativeSize: rl.Vector2,
@@ -48,12 +49,13 @@ pub const Plot = struct {
     const marginLineCoords: f32 = 5.0;
     var array: [20]u8 = undefined;
 
-    pub fn init(allocator: std.mem.Allocator, name: [:0]const u8, nameXAxis: [:0]const u8, color: rl.Color, relativeTopLeft: rl.Vector2, relativeSize: rl.Vector2, minCoord: rl.Vector2, maxCoord: rl.Vector2, margin: f32, windowWidth: f32, windowHeight: f32, dataSets: []DataSet) Self {
+    pub fn init(allocator: std.mem.Allocator, name: [:0]const u8, nameXAxis: [:0]const u8, color: rl.Color, moving: bool, relativeTopLeft: rl.Vector2, relativeSize: rl.Vector2, minCoord: rl.Vector2, maxCoord: rl.Vector2, margin: f32, windowWidth: f32, windowHeight: f32, dataSets: []DataSet) Self {
         var self: Self = .{
             .allocator = allocator,
             .name = name,
             .nameXAxis = nameXAxis,
             .color = color,
+            .moving = moving,
 
             .relativeTopLeft = relativeTopLeft,
             .relativeSize = relativeSize,
@@ -143,14 +145,16 @@ pub const Plot = struct {
             return;
         }
         var indexFirstPoint: usize = 0;
-        for (dataSet.points.items) |point| {
-            if (point.x >= self.minCoord.x) {
-                break;
+        if (self.moving) {
+            for (dataSet.points.items) |point| {
+                if (point.x >= self.minCoord.x) {
+                    break;
+                }
+                indexFirstPoint += 1;
             }
-            indexFirstPoint += 1;
-        }
-        if (indexFirstPoint >= dataSet.points.items.len) {
-            return;
+            if (indexFirstPoint >= dataSet.points.items.len) {
+                return;
+            }
         }
         var prevPoint = self.toGlobal(dataSet.points.items[indexFirstPoint]);
         for (indexFirstPoint + 1..dataSet.points.items.len) |i| {
@@ -165,22 +169,24 @@ pub const Plot = struct {
     }
 
     pub fn addPoints(self: *Self, dataSetName: []const u8, points: []const rl.Vector2) !void {
-        if (points[points.len - 1].x > self.maxCoord.x) {
-            self.minCoord.x += points[points.len - 1].x - self.maxCoord.x;
-            self.maxCoord.x = points[points.len - 1].x;
-        }
+        if (self.moving) {
+            if (points[points.len - 1].x > self.maxCoord.x) {
+                self.minCoord.x += points[points.len - 1].x - self.maxCoord.x;
+                self.maxCoord.x = points[points.len - 1].x;
+            }
 
-        var maxPointCount: usize = 0;
-        for (self.dataSets) |dataSet| {
-            maxPointCount = @max(maxPointCount, dataSet.points.items.len);
-        }
-        if (maxPointCount > 2000) {
-            const restoredPoints: usize = 500;
-            var buffer: [restoredPoints]rl.Vector2 = undefined;
-            for (0..self.dataSets.len) |i| {
-                @memcpy(&buffer, self.dataSets[i].points.items[self.dataSets[i].points.items.len - restoredPoints ..]);
-                self.dataSets[i].points.clearRetainingCapacity();
-                try self.dataSets[i].points.appendSlice(self.allocator, &buffer);
+            var maxPointCount: usize = 0;
+            for (self.dataSets) |dataSet| {
+                maxPointCount = @max(maxPointCount, dataSet.points.items.len);
+            }
+            if (maxPointCount > 2000) {
+                const restoredPoints: usize = 500;
+                var buffer: [restoredPoints]rl.Vector2 = undefined;
+                for (0..self.dataSets.len) |i| {
+                    @memcpy(&buffer, self.dataSets[i].points.items[self.dataSets[i].points.items.len - restoredPoints ..]);
+                    self.dataSets[i].points.clearRetainingCapacity();
+                    try self.dataSets[i].points.appendSlice(self.allocator, &buffer);
+                }
             }
         }
 
@@ -189,6 +195,11 @@ pub const Plot = struct {
                 self.maxCoord.y = point.y;
             } else if (point.y < self.minCoord.y) {
                 self.minCoord.y = point.y;
+            } 
+            if (!self.moving and point.x > self.maxCoord.x) {
+                self.maxCoord.x = point.x;
+            } else if (!self.moving and point.x < self.minCoord.x) {
+                self.minCoord.x = point.x;
             }
         }
 
