@@ -10,13 +10,11 @@ const esp = @cImport({
     @cInclude("esp_log.h");
 });
 
-
 const c = @cImport({
     @cInclude("stdio.h");
 });
 
 const tag = "bmi270";
-
 
 pub const Bmi = struct {
     const Self = @This();
@@ -40,8 +38,8 @@ pub const Bmi = struct {
         return .{
             .i2cDeviceHandle = i2cDeviceHandle,
             .prevMeasurementTime = utilsZig.timestampMicros(),
-            .prevGyro = .{.x = 0, .y = 0, .z = 0},
-            .prevAccel = .{.x = 0, .y = 0, .z = 0},
+            .prevGyro = .{ .x = 0, .y = 0, .z = 0 },
+            .prevAccel = .{ .x = 0, .y = 0, .z = 0 },
             .heading = 0,
         };
     }
@@ -55,11 +53,11 @@ pub const Bmi = struct {
             return error.BmiReadFailed;
         } else if (resultRead == -2) {
             return;
-        }            
+        }
 
         const currentTime = utilsZig.timestampMicros();
         const timeDiffMicro: f32 = @floatFromInt(currentTime - self.prevMeasurementTime);
-        
+
         self.heading = @mod(self.heading + 0.5 * (self.prevGyro.z + gyro.z) * timeDiffMicro / 1_000_000, 360.0);
         self.prevMeasurementTime = currentTime;
         self.prevGyro = gyro;

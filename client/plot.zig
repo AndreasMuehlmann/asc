@@ -6,7 +6,6 @@ pub const PlotError = error{
     UnkownDataSetName,
 };
 
-
 pub const DataSet = struct {
     points: std.ArrayList(rl.Vector2),
     color: rl.Color,
@@ -209,4 +208,3 @@ pub const Plot = struct {
         self.allocator.free(self.dataSets);
     }
 };
-

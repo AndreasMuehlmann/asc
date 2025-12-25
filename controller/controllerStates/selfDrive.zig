@@ -46,16 +46,16 @@ pub const SelfDrive = struct {
         pwm.setDuty(@intFromFloat(conf.maxPwm * factor));
 
         // TODO: remove
-       //controller.bmi.update() catch unreachable;
-       //const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - controller.initTime);
-       //const measurement: clientContract.Measurement = .{
-       //    .time = time / 1_000.0,
-       //    .heading = conf.maxPwm * controller.bmi.heading,
-       //    .accelerationX = factor,
-       //    .accelerationY = 0,
-       //    .accelerationZ = 0,
-       //};
-       //controller.netServer.send(clientContract.Measurement, measurement) catch unreachable;
+        //controller.bmi.update() catch unreachable;
+        //const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - controller.initTime);
+        //const measurement: clientContract.Measurement = .{
+        //    .time = time / 1_000.0,
+        //    .heading = conf.maxPwm * controller.bmi.heading,
+        //    .accelerationX = factor,
+        //    .accelerationY = 0,
+        //    .accelerationZ = 0,
+        //};
+        //controller.netServer.send(clientContract.Measurement, measurement) catch unreachable;
     }
 
     pub fn reset(controllerState: *ControllerState, _: *Controller) ControllerStateError!void {

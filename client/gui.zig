@@ -62,9 +62,9 @@ pub const Gui = struct {
         rl.beginDrawing();
         defer rl.endDrawing();
 
-       //if (rl.isKeyPressed(.s)) {
-       //    rl.takeScreenshot("screenshot.png");
-       //}
+        //if (rl.isKeyPressed(.s)) {
+        //    rl.takeScreenshot("screenshot.png");
+        //}
         rl.clearBackground(rl.Color.white);
 
         for (0..self.plots.len) |i| {

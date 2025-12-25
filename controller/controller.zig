@@ -104,7 +104,6 @@ pub const Controller = struct {
         try self.bmi.update();
         try self.state.step(self);
 
-
         const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
         const measurement: clientContract.Measurement = .{
             .time = time / 1_000.0,

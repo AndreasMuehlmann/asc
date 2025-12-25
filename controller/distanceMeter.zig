@@ -20,6 +20,6 @@ pub const DistanceMeter = struct {
     }
 
     pub fn reset(self: *Self) void {
-        self.distance = 0; 
+        self.distance = 0;
     }
 };

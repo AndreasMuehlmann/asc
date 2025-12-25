@@ -99,7 +99,6 @@ pub const UartConsole = struct {
                     message.appendSlice(std.heap.raw_c_allocator, @errorName(err)) catch unreachable;
                     message.append(std.heap.raw_c_allocator, '\n') catch unreachable;
                     message.append(std.heap.raw_c_allocator, 0) catch unreachable;
-                    
                 } else {
                     message.appendSlice(std.heap.raw_c_allocator, commandParser.message) catch unreachable;
                     message.append(std.heap.raw_c_allocator, '\n') catch unreachable;

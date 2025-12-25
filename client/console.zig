@@ -2,7 +2,6 @@ const std = @import("std");
 
 const rl = @import("raylib");
 
-
 pub const Console = struct {
     allocator: std.mem.Allocator,
     relativeTopLeft: rl.Vector2,
@@ -51,7 +50,6 @@ pub const Console = struct {
         const textBox = rl.Rectangle.init(self.topLeft.x, self.topLeft.y, self.size.x, self.size.y);
 
         const mouseOnText = rl.checkCollisionPointRec(rl.getMousePosition(), textBox);
-        
 
         if (mouseOnText) {
             rl.setMouseCursor(rl.MouseCursor.ibeam);
@@ -100,7 +98,7 @@ pub const Console = struct {
 
     pub fn getCommand(self: Self) ?[]const u8 {
         if (self.command) |command| {
-            return command[2 ..];
+            return command[2..];
         }
         return null;
     }

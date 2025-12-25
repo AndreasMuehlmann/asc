@@ -14,7 +14,6 @@ pub const command = union(CommandsEnum) {
     endMapping: endMapping,
 };
 
-
 const setWifi = struct {
     ssid: []const u8,
     password: []const u8,
@@ -38,4 +37,3 @@ pub const ServerContractEnum = enum(u8) {
 pub const ServerContract = union(ServerContractEnum) {
     command: command,
 };
-

@@ -7,18 +7,14 @@ const ControllerStateError = c.ControllerStateError;
 const serverContract = @import("serverContract");
 const TrackPoint = @import("clientContract").TrackPoint;
 
-
-
-
 pub const MapTrack = struct {
     const Self = @This();
 
     controllerState: ControllerState,
     trackPoints: std.ArrayList(TrackPoint),
 
-
     pub fn init() Self {
-        return .{ 
+        return .{
             .controllerState = .{ .startFn = start, .stepFn = step, .handleCommandFn = handleCommand, .resetFn = reset },
             .trackPoints = undefined,
         };
@@ -31,7 +27,6 @@ pub const MapTrack = struct {
         }
         self.trackPoints = std.ArrayList(TrackPoint).initCapacity(controller.allocator, 100) catch return ControllerStateError.OutOfMemory;
     }
-
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
@@ -55,7 +50,6 @@ pub const MapTrack = struct {
             },
             else => {},
         }
-
     }
 
     pub fn reset(_: *ControllerState, _: *Controller) ControllerStateError!void {}

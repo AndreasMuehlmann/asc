@@ -24,11 +24,9 @@ const esp = @cImport({
     @cInclude("driver/ledc.h");
 });
 
-
 const pwm = @cImport(@cInclude("pwm.h"));
 const tag = "app main";
 var array: [250]u8 = undefined;
-
 
 pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
     utils.espLog(esp.ESP_LOG_ERROR, "panic handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
@@ -37,7 +35,6 @@ pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize)
         asm volatile ("" ::: .{ .memory = true });
     }
 }
-
 
 export fn app_main() callconv(.c) void {
     const allocator = std.heap.raw_c_allocator;
