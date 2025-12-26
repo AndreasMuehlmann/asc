@@ -67,6 +67,7 @@ pub fn build(b: *std.Build) void {
                 "controller/c/bmi.c",
                 "controller/c/pwm.c",
                 "controller/c/pcntManual.c",
+                "controller/c/rmt.c",
             },
             .flags = &.{
                 "-fno-sanitize=undefined",

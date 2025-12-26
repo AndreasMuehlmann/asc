@@ -1,5 +1,5 @@
-#ifndef __BMI__
-#define __BMI__
+#ifndef __PCNT__
+#define __PCNT__
 
 void pcntInit();
 int pcntGetCount();

@@ -12,7 +12,7 @@ const pcnt = @cImport(@cInclude("pcnt.h"));
 const utilsZig = @import("utils.zig");
 
 const Bmi = @import("bmi.zig").Bmi;
-const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
+const DistanceMeter = @import("avgVelDistanceMeter.zig").DistanceMeter;
 const Config = @import("config.zig").Config;
 
 const c = @cImport({
