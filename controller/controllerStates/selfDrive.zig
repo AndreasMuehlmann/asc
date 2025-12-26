@@ -33,7 +33,7 @@ pub const SelfDrive = struct {
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *SelfDrive = @fieldParentPtr("controllerState", controllerState);
-        const conf = &controller.config;
+        const conf = controller.config;
 
         const brake = @abs(controller.bmi.prevGyro.y) * conf.gyroBrakeMultiplier + @abs(controller.bmi.prevAccel.y) * conf.accelBrakeMultiplier;
         const iirFilterCoefficient = if (brake > self.prevBrake) conf.iirFilterRiseCoefficient else conf.iirFilterFallCoefficient;

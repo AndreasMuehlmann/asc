@@ -5,10 +5,17 @@ const UartConsole = @import("uartConsole.zig").UartConsole;
 
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
+
+
+const Config = @import("config.zig").Config;
+const Bmi = @import("bmi.zig").Bmi;
+const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
 const NetServer = @import("netServer.zig").NetServer;
 
 const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
+const i2c = @cImport(@cInclude("i2c.h"));
+const pcnt = @cImport(@cInclude("pcnt.h"));
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -46,23 +53,43 @@ export fn app_main() callconv(.c) void {
 
     esp.wifi_init();
 
+    var config = Config.init();
+
     pwm.pwmInit();
     utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized motor control successfully");
+
+    pcnt.pcntInit();
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized pulse counter successfully");
+
+    var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
+    i2c.i2c_bus_init(&i2cBusHandle);
+    const bmi = Bmi.init(&i2cBusHandle) catch |err| {
+        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing bmi failed with error: %s", buffer.ptr);
+        return;
+    };
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized IMU successfully");
+
+    const distanceMeter = DistanceMeter.init(&config);
 
     var controller: Controller = undefined;
 
     const port: u16 = 8080;
 
-    utils.espLog(esp.ESP_LOG_INFO, tag, "Starting server...");
-    const netServer = try NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Waiting for connection...");
+    const netServer = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract).init(
         allocator,
         port,
         &controller,
-    );
+    ) catch |err| {
+        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
+        return;
+    };
     defer netServer.deinit();
     utils.espLog(esp.ESP_LOG_INFO, tag, "Client connected");
 
-    controller = Controller.init(allocator, netServer) catch |err| {
+    controller = Controller.init(allocator, &config, bmi, distanceMeter, netServer) catch |err| {
         const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
         return;

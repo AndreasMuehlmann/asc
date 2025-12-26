@@ -72,12 +72,15 @@ Vision:
 
 ## TODO
 
+- Controller: Endmapping fails
+- Controller: Better distance calculation
 - Controller: Not only sending commands from client to sever but also from server to client to for example reset the track map
 - Client: Console with more features for example arrow up and ctrl backspace, better cursor.
 - Client: Output from command parser or responses from server or previous commands displayed in the console.
 - Client: Keybindings for userdrive and other stuff that are disabled when in the console.
 - Controller: Responses from server to client when client sends commands that lead to an error.
 
+- new pcb with c6 instead of c3
 - Use switch pro controller to get input for userdrive
 
 

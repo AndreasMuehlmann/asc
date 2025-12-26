@@ -8,8 +8,8 @@ const NetServer = @import("netServer.zig").NetServer;
 const pwm = @cImport(@cInclude("pwm.h"));
 const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
+const pcnt = @cImport(@cInclude("pcnt.h"));
 const utilsZig = @import("utils.zig");
-const i2c = @cImport(@cInclude("i2c.h"));
 
 const Bmi = @import("bmi.zig").Bmi;
 const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
@@ -44,46 +44,47 @@ pub const Controller = struct {
     const NetServerT = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract);
 
     allocator: std.mem.Allocator,
-    netServer: NetServerT,
-    initTime: i64,
-    i2cBusHandle: esp.i2c_master_bus_handle_t,
+
+    config: *Config,
     bmi: Bmi,
     distanceMeter: DistanceMeter,
+    netServer: NetServerT,
+
     state: *ControllerState,
-    config: Config,
-    trackPoints: ?std.ArrayList(clientContract.TrackPoint),
 
     selfDrive: SelfDrive,
     userDrive: UserDrive,
     mapTrack: MapTrack,
     stop: Stop,
 
-    pub fn init(allocator: std.mem.Allocator, netServer: NetServerT) !Self {
-        var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
-        i2c.i2c_bus_init(&i2cBusHandle);
-        const bmi = try Bmi.init(&i2cBusHandle);
+    initTime: i64,
+    trackPoints: ?std.ArrayList(clientContract.TrackPoint),
 
+    pub fn init(allocator: std.mem.Allocator, config: *Config, bmi: Bmi, distanceMeter: DistanceMeter, netServer: NetServerT) !Self {
         return .{
             .allocator = allocator,
-            .netServer = netServer,
-            .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
-            .i2cBusHandle = i2cBusHandle,
+
+            .config = config,
             .bmi = bmi,
-            .distanceMeter = undefined,
+            .distanceMeter = distanceMeter,
+            .netServer = netServer,
+
             .state = undefined,
-            .config = Config.init(),
-            .trackPoints = null,
 
             .selfDrive = SelfDrive.init(),
             .userDrive = UserDrive.init(),
             .mapTrack = MapTrack.init(),
             .stop = Stop.init(),
+
+            .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
+            .trackPoints = null,
         };
     }
 
     pub fn afterInit(self: *Self) void {
         self.state = &self.stop.controllerState;
-        self.distanceMeter = DistanceMeter.init(&self.config);
+        pcnt.pcntReset();
+        pcnt.pcntStart();
     }
 
     pub fn run(self: *Self) !void {
@@ -102,15 +103,16 @@ pub const Controller = struct {
 
     fn step(self: *Self) !void {
         try self.bmi.update();
+        try self.distanceMeter.update();
         try self.state.step(self);
 
         const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
         const measurement: clientContract.Measurement = .{
             .time = time / 1_000.0,
             .heading = self.bmi.heading,
-            .accelerationX = self.bmi.prevAccel.x,
-            .accelerationY = self.bmi.prevAccel.y,
-            .accelerationZ = self.bmi.prevAccel.z,
+            .accelerationX = self.distanceMeter.distance,
+            .accelerationY = 0.0,
+            .accelerationZ = 0.0,
         };
         try self.netServer.send(clientContract.Measurement, measurement);
     }

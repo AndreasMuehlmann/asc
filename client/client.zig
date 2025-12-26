@@ -96,6 +96,7 @@ pub const Client = struct {
         var array = [_]rl.Vector2{rl.Vector2.init(measurement.time, measurement.heading)};
         try self.gui.addPoints("Yaw", "Heading", &array);
 
+        std.debug.print("distance: {d}\n", .{measurement.accelerationX});
         array[0] = rl.Vector2.init(measurement.time, measurement.accelerationX);
         try self.gui.addPoints("Acceleration", "Acceleration x", &array);
 
