@@ -8,11 +8,10 @@ const NetServer = @import("netServer.zig").NetServer;
 const pwm = @cImport(@cInclude("pwm.h"));
 const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
-const pcnt = @cImport(@cInclude("pcnt.h"));
 const utilsZig = @import("utils.zig");
 
 const Bmi = @import("bmi.zig").Bmi;
-const DistanceMeter = @import("avgVelDistanceMeter.zig").DistanceMeter;
+const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
 const Config = @import("config.zig").Config;
 
 const c = @cImport({
@@ -83,8 +82,6 @@ pub const Controller = struct {
 
     pub fn afterInit(self: *Self) void {
         self.state = &self.stop.controllerState;
-        pcnt.pcntReset();
-        pcnt.pcntStart();
     }
 
     pub fn run(self: *Self) !void {
@@ -144,6 +141,7 @@ pub const Controller = struct {
                     const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.mode}) catch unreachable;
                     utils.espLog(esp.ESP_LOG_WARN, tag, "Mode \"%s\"doesn't exist", buffer.ptr);
                 }
+                self.allocator.free(s.mode);
             },
             .restart => |_| {
                 _ = c.printf("restart\n");

@@ -9,10 +9,12 @@ pub const Config = struct {
     configAssumedVelocityMPerS: f32,
     pulsesPerRotation: f32,
     tireCircumferenceMm: f32,
+    userDriveMaxPwm: f32,
 
     pub fn init() Self {
         return .{
             .maxPwm = 1000.0,
+            .userDriveMaxPwm = 1000.0,
             .gyroBrakeMultiplier = 1.5,
             .accelBrakeMultiplier = 0.01,
             .iirFilterRiseCoefficient = 0.5,

@@ -1,6 +1,9 @@
 const utilsZig = @import("utils.zig");
-const pcnt = @cImport(@cInclude("pcnt.h"));
+const pt = @cImport(@cInclude("pt.h"));
 const Config = @import("config.zig").Config;
+const c = @cImport({
+    @cInclude("stdio.h");
+});
 
 pub const DistanceMeter = struct {
     const Self = @This();
@@ -22,13 +25,17 @@ pub const DistanceMeter = struct {
     }
 
     pub fn update(self: *Self) !void {
-        const pulseCount: f32 = @floatFromInt(pcnt.pcntGetCount());
-        pcnt.pcntReset();
-        pcnt.pcntStart();
-
         const timeDiffMicros: f32 = @floatFromInt(utilsZig.timestampMicros() - self.measurementTime);
-        self.degreesPerSecond = pulseCount / self.pulsesPerRotation.* * 360.0;
+        const period: f32 = pt.ptGetPeriod();
+        const periodF64: f32 = @floatCast(period);
+        _ = periodF64;
+        //_ = c.printf("period %f\n", periodF64);
+        if (period == 0.0) {
+            return;
+        }
+        self.degreesPerSecond = (360 / self.pulsesPerRotation.*) / period;
         self.distance += self.degreesPerSecond * timeDiffMicros / 1_000_000 / 360.0 * self.tireCircumferenceMm.* / 1_000;
+        self.distance = period;
     }
 
     pub fn reset(self: *Self) void {

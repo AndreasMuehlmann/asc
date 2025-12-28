@@ -51,6 +51,9 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                     }
                     return;
                 } else if (self.byteCount == 1) {
+                    if (bytes.len == 0) {
+                        return error.ByteCount1;
+                    }
                     internalBuffer[self.byteCount] = bytes[0];
                     try self.decodeMessageLength(internalBuffer);
                     self.byteCount = 0;
@@ -72,18 +75,30 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
             if (self.byteCount > 0) {
                 const bytesNeeded = self.messageLength.? - self.byteCount;
                 if (bytes.len < bytesNeeded) {
+                    if (self.byteCount + bytes.len >= internalBuffer.len) {
+                        return error.A;
+                    }
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytes.len], bytes);
                     self.byteCount += bytes.len;
                 } else if (bytes.len == bytesNeeded) {
+                    if (self.byteCount + bytesNeeded >= internalBuffer.len) {
+                        return error.B;
+                    }
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytesNeeded], bytes);
                     try self.decodeMessage(internalBuffer);
                 } else {
+                    if (self.byteCount + bytesNeeded >= internalBuffer.len) {
+                        return error.C;
+                    }
                     @memcpy(internalBuffer[self.byteCount .. self.byteCount + bytesNeeded], bytes[0..bytesNeeded]);
                     try self.decodeMessage(internalBuffer);
                     try self.decode(bytes[bytesNeeded..]);
                 }
             } else {
                 if (bytes.len < self.messageLength.?) {
+                    if (bytes.len >= internalBuffer.len) {
+                        return error.D;
+                    }
                     @memcpy(internalBuffer[0..bytes.len], bytes);
                     self.byteCount = bytes.len;
                 } else if (bytes.len == self.messageLength.?) {
@@ -138,6 +153,9 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 return decodeStruct;
             }
             if (typeInfo == .@"pointer" and typeInfo.@"pointer".size == .@"slice") {
+                if (index.* >= buffer.len) {
+                    return error.E;
+                }
                 const length: u8 = buffer[index.*];
                 index.* += 1;
                 const slice: []typeInfo.@"pointer".child = try self.allocator.alloc(typeInfo.@"pointer".child, length);
@@ -148,6 +166,9 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 return slice;
             }
             if (typeInfo == .@"union" and typeInfo.@"union".tag_type != null) {
+                if (index.* >= buffer.len) {
+                    return error.F;
+                }
                 const tag = buffer[index.*];
                 index.* += 1;
 
@@ -164,6 +185,9 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 return decodeUnion;
             }
             if (T == u8) {
+                if (index.* >= buffer.len) {
+                    return error.G;
+                }
                 const number = buffer[index.*];
                 index.* += 1;
                 return number;
@@ -172,6 +196,10 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 const byteSize = @sizeOf(T);
                 var bytes: [byteSize]u8 = undefined;
                 const bytesPtr: *[byteSize]u8 = &bytes;
+                const slice = buffer[index.* .. index.* + byteSize];
+                if (slice.len > bytesPtr.*.len) {
+                    return error.H;
+                }
                 @memcpy(bytesPtr, buffer[index.* .. index.* + byteSize]);
                 const number: *T = @ptrCast(@alignCast(bytesPtr));
                 index.* += byteSize;

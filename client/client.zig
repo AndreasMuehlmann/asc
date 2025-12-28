@@ -38,7 +38,7 @@ pub const Client = struct {
         try file.writeAll("time,yaw,accelerationX,accelerationY,accelerationZ\n");
         const gui = try Gui.init(allocator);
 
-        return .{ 
+        return .{
             .allocator = allocator,
             .netClient = netClient,
             .gui = gui,
@@ -72,8 +72,40 @@ pub const Client = struct {
                     }
                     continue;
                 };
-                // TODO: on setMode with maptrack reset the track plot
+
                 try self.netClient.send(serverContract.command, command);
+            }
+
+            const deadzone: f32 = 0.1;
+            if (rl.isGamepadAvailable(0)) {
+                var stick = .{
+                    .x = rl.getGamepadAxisMovement(0, rl.GamepadAxis.left_x),
+                    .y = rl.getGamepadAxisMovement(0, rl.GamepadAxis.left_y),
+                };
+                stick.y *= -1.0;
+
+                var magnitude = @sqrt(stick.x * stick.x + stick.y * stick.y);
+
+                if (magnitude < deadzone) {
+                    stick.x = 0.0;
+                    stick.y = 0.0;
+                    magnitude = 0.0;
+                } else {
+                    const scaled: f32 = (magnitude - deadzone) / (1.0 - deadzone);
+                    stick.x = (stick.x / magnitude) * scaled;
+                    stick.y = (stick.y / magnitude) * scaled;
+                    magnitude = scaled;
+                    stick.x = if (stick.x > 1.0) 1.0 else stick.x;
+                    stick.x = if (stick.x < -1.0) -1.0 else stick.x;
+                    stick.y = if (stick.y > 1.0) 1.0 else stick.y;
+                    stick.y = if (stick.y < -1.0) -1.0 else stick.y;
+
+                    const command: serverContract.command = serverContract.command{ .setSpeed = serverContract.setSpeed{
+                        .speed = (1.0 + 1.0) / 2.0,
+                    } };
+
+                    try self.netClient.send(serverContract.command, command);
+                }
             }
         }
     }
@@ -96,7 +128,7 @@ pub const Client = struct {
         var array = [_]rl.Vector2{rl.Vector2.init(measurement.time, measurement.heading)};
         try self.gui.addPoints("Yaw", "Heading", &array);
 
-        std.debug.print("distance: {d}\n", .{measurement.accelerationX});
+        // std.debug.print("distance: {d}\n", .{measurement.accelerationX});
         array[0] = rl.Vector2.init(measurement.time, measurement.accelerationX);
         try self.gui.addPoints("Acceleration", "Acceleration x", &array);
 
@@ -120,8 +152,7 @@ pub const Client = struct {
 
             const array = [_]rl.Vector2{currentPosition};
             try self.gui.addPoints("Track", "Track", &array);
-        } 
-        self.prevTrackPoint = trackPoint; 
-
+        }
+        self.prevTrackPoint = trackPoint;
     }
 };

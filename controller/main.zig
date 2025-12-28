@@ -9,13 +9,13 @@ const serverContract = @import("serverContract");
 
 const Config = @import("config.zig").Config;
 const Bmi = @import("bmi.zig").Bmi;
-const DistanceMeter = @import("avgVelDistanceMeter.zig").DistanceMeter;
+const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
 const NetServer = @import("netServer.zig").NetServer;
 
 const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
 const i2c = @cImport(@cInclude("i2c.h"));
-const pcnt = @cImport(@cInclude("pcnt.h"));
+const pt = @cImport(@cInclude("pt.h"));
 const rmt = @cImport(@cInclude("rmt.h"));
 
 const c = @cImport({
@@ -59,20 +59,8 @@ export fn app_main() callconv(.c) void {
     pwm.pwmInit();
     utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized motor control successfully");
 
-    rmt.rmt_rx_init();
-
-
-    var rmtName = [_]u8{ 'r', 'm', 't', 0 };
-    rtos.rtosXTaskCreate(
-        rmt.rmt_rx_task,
-        &rmtName,
-        4096,
-        null,
-        10,
-    );
-
-   //pcnt.pcntInit();
-   //utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized pulse counter successfully");
+    pt.ptInit();
+    utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized timer for measuring rotations successfully");
 
     var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
     i2c.i2c_bus_init(&i2cBusHandle);

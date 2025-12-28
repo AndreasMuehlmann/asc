@@ -4,14 +4,19 @@
 #include "esp_err.h"
 #include <stdio.h>
 
+#include "esp_rom_sys.h"
+
 static volatile uint64_t startPeriod = 0;
 static volatile uint64_t endPeriod = 0;
 gptimer_handle_t timerHandle;
+#include <inttypes.h>
+
 
 
 static void IRAM_ATTR pulse_isr(void *arg) {
     startPeriod = endPeriod;
     gptimer_get_raw_count(timerHandle, &endPeriod);
+    //esp_rom_printf("interrupt, count=%" PRIu64 "\n", endPeriod);
 }
 
 void ptInit() {
@@ -33,6 +38,7 @@ void ptInit() {
         .resolution_hz = 1 * 1000 * 1000,
     };
     ESP_ERROR_CHECK(gptimer_new_timer(&timerConfig, &timerHandle));
+    ESP_ERROR_CHECK(gptimer_enable(timerHandle));
     ESP_ERROR_CHECK(gptimer_start(timerHandle));
 }
 
