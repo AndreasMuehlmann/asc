@@ -66,17 +66,16 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             if (typeInfo == .@"union" and typeInfo.@"union".tag_type != null) {
                 return try self.parseTaggedUnion(T, token);
             }
-            if (typeInfo == .@"optional") {
-                return try self.parseType(typeInfo.@"optional".child, token);
+            if (typeInfo == .optional) {
+                return try self.parseType(typeInfo.optional.child, token);
             }
             return self.parsePrimitiveType(T, token);
         }
 
         fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
             const allocator = self.arena.allocator();
-            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, comptime commandParserUtils.typeBaseName(T))) {
 
-                self.message = "Command name at position {d} is invalid, expected ";
+            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, comptime commandParserUtils.typeBaseName(T))) {
                 self.message = try std.fmt.allocPrint(allocator, "Command name at position {d} is invalid, expected " ++ comptime commandParserUtils.typeBaseName(T) ++ ".", .{token.position});
                 return ParserError.CommandNameInvalid;
             }
@@ -93,7 +92,6 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 const tok = try self.handleErrorNextToken();
                 if (tok.type == lexerMod.TokenType.eof) {
                     if (previousOption != null) {
-                        self.message = "Expected value for option at position {d}, found end of string.";
                         self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found end of string.", .{tok.position});
                         return ParserError.OptionWithoutValue;
                     }
@@ -124,7 +122,6 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
 
                 if (previousOption != null) {
-                    self.message = "Expected value for option at position {d}, found another option.";
                     self.message = try std.fmt.allocPrint(allocator, "Expected value for option at position {d}, found another option.", .{tok.position});
                     return ParserError.OptionWithoutValue;
                 }
@@ -136,7 +133,6 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     if (isMatchingLongOption or isMatchingShortOption) {
                         matched = true;
                         if (found[i]) {
-                            self.message = "Option at position {d} was found before multiple occurences of the same option are not allowed.";
                             self.message = try std.fmt.allocPrint(allocator, "Option at position {d} was found before multiple occurences of the same option are not allowed.", .{tok.position});
                             return ParserError.MultipleSameOption;
                         }
@@ -153,7 +149,6 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     }
                 }
                 if (!matched) {
-                    self.message = "Option at position {} not found to match any of the expected options.";
                     self.message = try std.fmt.allocPrint(allocator, "Option at position {} not found to match any of the expected options.", .{tok.position});
                     return ParserError.UnknownOption;
                 }
@@ -161,11 +156,10 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
             inline for (0..typeInfo.@"struct".fields.len, typeInfo.@"struct".fields) |i, field| {
                 if (!found[i]) {
-                    if (@typeInfo(field.type) == .@"optional") {
+                    if (@typeInfo(field.type) == .optional) {
                         @field(parsedStruct, field.name) = null;
                     } else if (field.defaultValue()) |default_value| {
-                        const default_value_aligned: *align(field.alignment) const anyopaque = @alignCast(default_value);
-                        @field(parsedStruct, field.name) = @as(*const field.type, @ptrCast(default_value_aligned)).*;
+                        @field(parsedStruct, field.name) = @as(field.type, default_value);
                     } else if (field.type == bool) {
                         @field(parsedStruct, field.name) = false;
                     } else if (@typeInfo(field.type) == .@"union" and @typeInfo(field.type).@"union".tag_type != null) {} else {
@@ -194,7 +188,6 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                 }
             }
             if (!matched) {
-                self.message = "Unknown command at position {d} {s}.";
                 self.message = try std.fmt.allocPrint(self.arena.allocator(), "Unknown command at position {d} {s}.", .{ token.position, token.literal });
                 return ParserError.UnknownSubcommand;
             }
@@ -203,16 +196,16 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
 
         fn parsePrimitiveType(self: *Self, comptime T: type, token: lexerMod.Token) !T {
             const typeInfo = @typeInfo(T);
-            if (token.type == lexerMod.TokenType.string and typeInfo == .@"pointer" and
-                typeInfo.@"pointer".size == .@"slice" and typeInfo.@"pointer".child == u8)
+            if (token.type == lexerMod.TokenType.string and typeInfo == .pointer and
+                typeInfo.pointer.size == .slice and typeInfo.pointer.child == u8)
             {
                 return try self.parseString(token.literal);
             }
-            if (typeInfo == .@"float") {
+            if (typeInfo == .float) {
                 return try std.fmt.parseFloat(T, token.literal);
             }
-            if (typeInfo == .@"int") {
-                if (typeInfo.@"int".signedness == .signed) {
+            if (typeInfo == .int) {
+                if (typeInfo.int.signedness == .signed) {
                     return try std.fmt.parseInt(T, token.literal, 0);
                 }
                 return try std.fmt.parseUnsigned(T, token.literal, 0);
@@ -422,18 +415,26 @@ test "TestGenerateHelpMessage" {
         .{ .fieldName = "road", .description = "Some argument." },
     };
 
+    {
+        var commandParser = CommandParser(red, descriptions).init(
+            testing.allocator,
+            "red --help",
+        );
+        defer commandParser.deinit();
+        try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+    }
+
+    const expectHelpMessage =
+        \\    -h, --help
+        \\    -r, --red        A color.
+        \\    --road <?str>    Some argument.
+        \\
+    ;
     var commandParser = CommandParser(red, descriptions).init(
         testing.allocator,
         "red --help",
     );
     defer commandParser.deinit();
-    try testing.expectError(ParserError.HelpMessage, commandParser.parse());
-    const expectHelpMessage =
-        \\-h, --help
-        \\-r, --red        A color.
-        \\--road <?str>    Some argument.
-        \\
-    ;
     _ = commandParser.parse() catch {
         try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
     };
@@ -448,49 +449,72 @@ test "TestGenerateHelpMessageMultipleCommands" {
 
     const commandParserT = CommandParser(SubCommands, descriptions);
     {
+        {
+            var commandParser = commandParserT.init(
+                testing.allocator,
+                "blue --help",
+            );
+            defer commandParser.deinit();
+            try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+        }
+
+        const expectHelpMessage =
+            \\    -h, --help
+            \\    -b, --blue <str>    Another color.
+            \\
+        ;
         var commandParser = commandParserT.init(
             testing.allocator,
             "blue --help",
         );
         defer commandParser.deinit();
-        try testing.expectError(ParserError.HelpMessage, commandParser.parse());
-        const expectHelpMessage =
-            \\-h, --help
-            \\-b, --blue <str>    Another color.
-            \\
-        ;
         _ = commandParser.parse() catch {
             try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
         };
     }
+    {
+        var commandParser = commandParserT.init(
+            testing.allocator,
+            "help",
+        );
+        defer commandParser.deinit();
+        try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+    }
+    const expectHelpMessage =
+        \\    SubCommands: red, blue
+        \\
+    ;
     var commandParser = commandParserT.init(
         testing.allocator,
         "help",
     );
     defer commandParser.deinit();
-    try testing.expectError(ParserError.HelpMessage, commandParser.parse());
-    const expectHelpMessage =
-        \\SubCommands: red, blue
-        \\
-    ;
     _ = commandParser.parse() catch {
         try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
     };
 }
 
 test "TestGenerateHelpMessageSubcommands" {
+    {
+        var commandParser = CommandParser(testCommand, &.{}).init(
+            testing.allocator,
+            "testCommand --help",
+        );
+        defer commandParser.deinit();
+        try testing.expectError(ParserError.HelpMessage, commandParser.parse());
+    }
+
+    const expectHelpMessage =
+        \\    -h, --help
+        \\    -f, --flag
+        \\    SubCommands: red, blue
+        \\
+    ;
     var commandParser = CommandParser(testCommand, &.{}).init(
         testing.allocator,
         "testCommand --help",
     );
     defer commandParser.deinit();
-    try testing.expectError(ParserError.HelpMessage, commandParser.parse());
-    const expectHelpMessage =
-        \\-h, --help
-        \\-f, --flag
-        \\SubCommands: red, blue
-        \\
-    ;
     _ = commandParser.parse() catch {
         try testing.expectEqualStrings(expectHelpMessage, commandParser.message);
     };

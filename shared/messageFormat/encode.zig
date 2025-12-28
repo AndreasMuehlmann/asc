@@ -21,7 +21,7 @@ pub fn Encoder(contractT: type) type {
             const typeInfoMessage = @typeInfo(contractT);
             inline for (typeInfoMessage.@"union".fields) |field| {
                 if (T == field.type) {
-                    try Self.encodeType(contractT, @unionInit(contractT, field.name, value), &internalBuffer, &index);
+                    try Self.encodeType(contractT, @unionInit(contractT, field.name, value), internalBuffer, &index);
                     break;
                 }
             }
@@ -32,11 +32,11 @@ pub fn Encoder(contractT: type) type {
             }
             const messageLength: u16 = @intCast(index - 2);
             var lengthEncodingIndex: usize = 0;
-            try Self.encodeType(u16, messageLength, &internalBuffer, &lengthEncodingIndex);
+            try Self.encodeType(u16, messageLength, internalBuffer, &lengthEncodingIndex);
             return internalBuffer[0..index];
         }
 
-        pub fn encodeType(comptime T: type, value: T, buffer: *[]u8, index: *usize) !void {
+        pub fn encodeType(comptime T: type, value: T, buffer: []u8, index: *usize) !void {
             const typeInfo = @typeInfo(T);
             if (typeInfo == .@"struct") {
                 inline for (typeInfo.@"struct".fields) |field| {
@@ -48,28 +48,34 @@ pub fn Encoder(contractT: type) type {
                     return MessageFormatError.ListTooLong;
                 }
                 const length: u8 = @intCast(value.len);
-                buffer.*[index.*] = length;
+                buffer[index.*] = length;
                 index.* += 1;
                 for (value) |childValue| {
                     try encodeType(typeInfo.@"pointer".child, childValue, buffer, index);
                 }
             } else if (typeInfo == .@"union" and typeInfo.@"union".tag_type != null) {
-                const tag = @intFromEnum(@as(typeInfo.@"union".tag_type.?, value));
-                buffer.*[index.*] = tag;
+                const tagType = typeInfo.@"union".tag_type.?;
+                const tagTypeInfo = @typeInfo(tagType);
+                if (tagTypeInfo.@"enum".tag_type != u8) {
+                    @compileError("The underlying type of the tag " ++ @typeName(tagType) ++ " of the union " ++ @typeName(T) ++ "should be a u8");
+                }
+                const tag = @intFromEnum(@as(tagType, value));
+                buffer[index.*] = tag;
                 index.* += 1;
 
                 inline for (typeInfo.@"union".fields, 0..) |field, i| {
                     if (i == tag) {
                         try encodeType(field.type, @field(value, field.name), buffer, index);
                     }
+
                 }
             } else if (T == u8) {
-                buffer.*[index.*] = value;
+                buffer[index.*] = value;
                 index.* += 1;
             } else if (typeInfo == .@"float" or typeInfo == .@"int") {
                 const byteSize = @sizeOf(T);
                 const bytes: *const [byteSize]u8 = @ptrCast(&value);
-                @memcpy(buffer.*[index.* .. index.* + byteSize], bytes);
+                @memcpy(buffer[index.* .. index.* + byteSize], bytes);
                 index.* += byteSize;
             } else {
                 unreachable;

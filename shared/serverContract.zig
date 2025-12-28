@@ -1,4 +1,4 @@
-const CommandsEnum = enum {
+pub const CommandsEnum = enum(u8) {
     setWifi,
     setSpeed,
     setMode,
@@ -14,21 +14,21 @@ pub const command = union(CommandsEnum) {
     endMapping: endMapping,
 };
 
-const setWifi = struct {
+pub const setWifi = struct {
     ssid: []const u8,
     password: []const u8,
 };
 
-const setSpeed = struct {
+pub const setSpeed = struct {
     speed: f32,
 };
 
-const setMode = struct {
+pub const setMode = struct {
     mode: []const u8,
 };
 
-const restart = struct {};
-const endMapping = struct {};
+pub const restart = struct {};
+pub const endMapping = struct {};
 
 pub const ServerContractEnum = enum(u8) {
     command,

@@ -16,7 +16,7 @@ pub fn hasAbreviation(comptime T: type, comptime index: usize) bool {
 pub fn printableTypeName(comptime T: type) []const u8 {
     const typeInfo = @typeInfo(T);
     if (typeInfo == .@"optional") {
-        return "?" ++ printableTypeName(typeInfo.Optional.child);
+        return "?" ++ printableTypeName(typeInfo.optional.child);
     }
     if (typeInfo == .@"pointer" and typeInfo.@"pointer".size == .@"slice" and typeInfo.@"pointer".child == u8) {
         return "str";
