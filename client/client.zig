@@ -76,7 +76,7 @@ pub const Client = struct {
                 try self.netClient.send(serverContract.command, command);
             }
 
-            const deadzone: f32 = 0.1;
+            const deadzone: f32 = 0.05;
             if (rl.isGamepadAvailable(0)) {
                 var stick = .{
                     .x = rl.getGamepadAxisMovement(0, rl.GamepadAxis.left_x),
@@ -100,12 +100,12 @@ pub const Client = struct {
                     stick.y = if (stick.y > 1.0) 1.0 else stick.y;
                     stick.y = if (stick.y < -1.0) -1.0 else stick.y;
 
-                    const command: serverContract.command = serverContract.command{ .setSpeed = serverContract.setSpeed{
-                        .speed = (1.0 + 1.0) / 2.0,
-                    } };
 
-                    try self.netClient.send(serverContract.command, command);
                 }
+                const command: serverContract.command = serverContract.command{ .setSpeed = serverContract.setSpeed{
+                    .speed = (stick.y + 1.0) / 2.0,
+                } };
+                try self.netClient.send(serverContract.command, command);
             }
         }
     }

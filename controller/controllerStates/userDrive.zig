@@ -22,7 +22,8 @@ pub const UserDrive = struct {
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *UserDrive = @fieldParentPtr("controllerState", controllerState);
-        pwm.setDuty(@intFromFloat(controller.config.userDriveMaxPwm * self.speed));
+        const duty: u32 = @intFromFloat(controller.config.userDriveMaxPwm * self.speed);
+        pwm.setDuty(duty);
     }
 
     pub fn handleCommand(controllerState: *ControllerState, _: *Controller, command: serverContract.command) ControllerStateError!void {
