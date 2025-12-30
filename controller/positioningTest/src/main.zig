@@ -3,6 +3,7 @@ const std = @import("std");
 const t = @import("track.zig");
 const Track = t.Track;
 const TrackPoint = t.TrackPoint;
+const Simulation = @import("simulation.zig").Simulation;
 
 
 pub fn main() !void {
@@ -10,7 +11,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 720);
-    for (0..720) |i| {
+    for (0..360) |i| {
         const iF32: f32 = @floatFromInt(i);
         try trackPoints.append(allocator, .{
             .distance = iF32 * 0.01,
@@ -20,21 +21,18 @@ pub fn main() !void {
     var track = Track.init(allocator, trackPoints);
     defer track.deinit();
 
-    var distance: f32 = 3.595;
-    var estimatedHeading: f32 = track.distanceToHeading(distance);
-    std.debug.print("estimatedHeading for distance {d}: {d}\n", .{distance, estimatedHeading});
+    
+    var prng: std.Random.DefaultPrng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.posix.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    var rng: std.Random = prng.random();
 
-    distance = 0;
-    estimatedHeading = track.distanceToHeading(distance);
-    std.debug.print("estimatedHeading for distance {d}: {d}\n", .{distance, estimatedHeading});
-
-    var heading: f32 = 32.5;
-    var approximateDistance: f32 = 30.0;
-    var estimatedDistance: f32 = track.headingToDistance(heading, approximateDistance);
-    std.debug.print("estimatedDistance for heading {d} and approximateDistance {d}: {d}\n", .{heading, approximateDistance, estimatedDistance});
-
-    heading = 440.0 - 360.0;
-    approximateDistance = 450.0;
-    estimatedDistance = track.headingToDistance(heading, approximateDistance);
-    std.debug.print("estimatedDistance for heading {d} and approximateDistance {d}: {d}\n", .{heading, approximateDistance, estimatedDistance});
+    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.1, 0.1, 0.01, -0.01, &rng);
+    while (true) {
+        std.debug.print("time: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
+        simulation.update();
+        std.Thread.sleep(@intFromFloat(simulation.deltaTime * 1_000_000_000));
+    }
 }

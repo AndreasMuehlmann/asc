@@ -34,6 +34,10 @@ pub const Track = struct {
         };
     }
 
+    pub fn getTrackLength(self: Self) f32 {
+        return self.trackPoints.items[self.trackPoints.items.len - 1].distance;
+    }
+
     pub fn distanceToHeading(self: Self, distance: f32) f32 {
         const lastPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
         if (distance > lastPoint.distance) {
@@ -49,9 +53,8 @@ pub const Track = struct {
     }
 
     fn minDifferenceDistances(self: Self, a: f32, b: f32) f32 {
-        const assumedLength = self.trackPoints.items[self.trackPoints.items.len - 1].distance;
         const d = @abs(a - b);
-        return @min(d, @max(0, assumedLength - d));
+        return @min(d, @max(0, self.getTrackLength() - d));
     }
 
     fn angularDistance(a: f32, b: f32) f32 {
@@ -59,7 +62,7 @@ pub const Track = struct {
         return @min(d, 360.0 - d);
     }
 
-    fn angularDelta(from: f32, to: f32) f32 {
+    pub fn angularDelta(from: f32, to: f32) f32 {
         var d = @mod(to - from, 360.0);
         if (d >= 180.0) d -= 360.0;
         return d;
