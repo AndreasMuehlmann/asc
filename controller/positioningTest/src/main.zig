@@ -9,10 +9,13 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    var trackPoints: std.ArrayList(TrackPoint) = try std.ArrayList(TrackPoint).initCapacity(allocator, 360);
-    for (0..360) |i| {
+    var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 720);
+    for (0..720) |i| {
         const iF32: f32 = @floatFromInt(i);
-        try trackPoints.append(allocator, .{.distance =  iF32 * 0.01, .heading = iF32});
+        try trackPoints.append(allocator, .{
+            .distance = iF32 * 0.01,
+            .heading = @mod(iF32, 360),
+        });
     }
     var track = Track.init(allocator, trackPoints);
     defer track.deinit();
@@ -30,8 +33,8 @@ pub fn main() !void {
     var estimatedDistance: f32 = track.headingToDistance(heading, approximateDistance);
     std.debug.print("estimatedDistance for heading {d} and approximateDistance {d}: {d}\n", .{heading, approximateDistance, estimatedDistance});
 
-    heading = 359.5;
-    approximateDistance = 360.5;
+    heading = 440.0 - 360.0;
+    approximateDistance = 450.0;
     estimatedDistance = track.headingToDistance(heading, approximateDistance);
     std.debug.print("estimatedDistance for heading {d} and approximateDistance {d}: {d}\n", .{heading, approximateDistance, estimatedDistance});
 }
