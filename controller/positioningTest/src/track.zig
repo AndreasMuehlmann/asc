@@ -5,13 +5,24 @@ pub const TrackPoint = struct {
     heading: f32,
 };
 
+pub const Position = struct {
+    x: f32,
+    y: f32,
+};
+
+pub const DistancePosition = struct {
+    distance: f32,
+    position: Position,
+};
+
 pub const Track = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
     trackPoints: std.ArrayList(TrackPoint),
+    distancePositions: std.ArrayList(DistancePosition),
 
-    pub fn init(allocator: std.mem.Allocator, trackPoints: std.ArrayList(TrackPoint)) Self {
+    pub fn init(allocator: std.mem.Allocator, trackPoints: std.ArrayList(TrackPoint)) !Self {
         if (trackPoints.items.len < 2) {
             @panic("There must be at least two track points.");
         }
@@ -28,10 +39,29 @@ pub const Track = struct {
                 @panic("Heading must be in the interval [0;360).");
             }
         }
-        return .{
+        var self: Self = .{
             .allocator = allocator,
             .trackPoints = trackPoints,
+            .distancePositions = try std.ArrayList(DistancePosition).initCapacity(allocator, 720),
         };
+        try self.trackPointsToDistancePositions();
+        return self;
+    }
+
+    pub fn trackPointsToDistancePositions(self: *Self) !void {
+        var prevPosition: Position = .{.x = 0.0, .y = 0.0};
+        try self.distancePositions.append(self.allocator, .{.distance = 0.0, .position = prevPosition});
+        for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
+            const diffDistance = trackPoint.distance - prevTrackPoint.distance;
+            const averageHeading = (trackPoint.heading + prevTrackPoint.heading) / 2.0;
+
+            const currentPosition: Position = .{
+                .x = prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
+                .y = prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
+            };
+            try self.distancePositions.append(self.allocator, .{.distance = trackPoint.distance, .position = currentPosition});
+            prevPosition = currentPosition;
+        }
     }
 
     pub fn getTrackLength(self: Self) f32 {
@@ -50,6 +80,23 @@ pub const Track = struct {
             }
         }
         @panic("distance could not be converted to heading");
+    }
+
+    pub fn distanceToPosition(self: Self, distance: f32) Position {
+        const lastPoint = self.distancePositions.items[self.distancePositions.items.len - 1];
+        if (distance > lastPoint.distance) {
+            return lastPoint.position;
+        }
+        for (self.distancePositions.items[0..self.distancePositions.items.len - 1], self.distancePositions.items[1..]) |prevDistancePosition, distancePosition| {
+            if (prevDistancePosition.distance <= distance and distance <= distancePosition.distance) {
+                const t = (distance - prevDistancePosition.distance) / (distancePosition.distance - prevDistancePosition.distance);
+                return .{
+                    .x = std.math.lerp(prevDistancePosition.position.x, distancePosition.position.x, t),
+                    .y = std.math.lerp(prevDistancePosition.position.y, distancePosition.position.y, t),
+                };
+            }
+        }
+        @panic("distance could not be converted to position");
     }
 
     fn minDifferenceDistances(self: Self, a: f32, b: f32) f32 {
@@ -104,6 +151,7 @@ pub const Track = struct {
 
     pub fn deinit(self: *Self) void {
         self.trackPoints.deinit(self.allocator);
+        self.distancePositions.deinit(self.allocator);
     }
 };
 
