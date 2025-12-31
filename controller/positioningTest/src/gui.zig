@@ -13,7 +13,7 @@ pub const GuiError = error{
     Quit,
 };
 
-const PositionAndHeading = struct {
+pub const PositionAndHeading = struct {
     heading: f32,
     position: rl.Vector2,
 };
@@ -25,6 +25,8 @@ pub const Gui = struct {
     plots: []Plot,
     trackMapPlot: TrackMapPlot,
     carPositionAndHeading: ?PositionAndHeading,
+    // only simulation
+    actualCarPositionAndHeading: ?PositionAndHeading,
 
     pub fn init(allocator: std.mem.Allocator) !Self {
         const windowWidth = rl.getScreenWidth();
@@ -56,7 +58,7 @@ pub const Gui = struct {
 
         const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
-        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null };
+        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null};
     }
 
     pub fn update(self: *Self) !void {
@@ -77,8 +79,58 @@ pub const Gui = struct {
             try self.trackMapPlot.draw();
             if (self.carPositionAndHeading) |carPositionAndHeading| {
                 self.trackMapPlot.drawCar(carPositionAndHeading.heading, carPositionAndHeading.position);
-
             }
+            // only simulation
+            if (self.actualCarPositionAndHeading) |carPositionAndHeading| {
+                const positionInPlot = self.trackMapPlot.plot.toGlobal(carPositionAndHeading.position);
+                drawOrientedRectOutline(
+                    positionInPlot,
+                    39.0,
+                    49.0,
+                    .{ .x = 39.0 / 2.0, .y = 0.0 },
+                    carPositionAndHeading.heading - 90.0,
+                    rl.Color.red,
+                );
+            }
+        }
+    }
+    // only simulation
+    pub fn drawOrientedRectOutline(
+        position: rl.Vector2,
+        width: f32,
+        height: f32,
+        origin: rl.Vector2,
+        rotationDeg: f32,
+        color: rl.Color,
+    ) void {
+        const angle = std.math.degreesToRadians(rotationDeg);
+
+        const local = [_]rl.Vector2{
+            .{ .x = -origin.x,           .y = -origin.y },           // top-left
+            .{ .x = width - origin.x,    .y = -origin.y },           // top-right
+            .{ .x = width - origin.x,    .y = height - origin.y },   // bottom-right
+            .{ .x = -origin.x,           .y = height - origin.y },   // bottom-left
+        };
+
+        var world: [4]rl.Vector2 = undefined;
+
+        for (local, 0..) |po, i| {
+            const x = po.x;
+            const y = po.y;
+
+            world[i] = .{
+                .x = position.x + x * @cos(angle) - y * @sin(angle),
+                .y = position.y + x * @sin(angle) + y * @cos(angle),
+            };
+        }
+
+        // Draw rectangle frame
+        inline for (0..4) |i| {
+            rl.drawLineV(
+                world[i],
+                world[(i + 1) % 4],
+                color,
+            );
         }
     }
 
