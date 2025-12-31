@@ -25,9 +25,23 @@ pub fn main() !void {
         const iF32: f32 = @floatFromInt(i);
         try trackPoints.append(allocator, .{
             .distance = iF32 * 0.01,
-            .heading = @mod(iF32, 360),
+            .heading = @mod(std.math.sin(iF32 / 360 * 2 * std.math.pi) * 150 + 360, 360),
         });
     }
+   //for (0..181) |i| {
+   //    const iF32: f32 = @floatFromInt(i);
+   //    try trackPoints.append(allocator, .{
+   //        .distance = iF32 * 0.01,
+   //        .heading = @mod(quadraticEaseOut(iF32), 360),
+   //    });
+   //}
+   //for (0..181) |i| {
+   //    const iF32: f32 = @floatFromInt(i);
+   //    try trackPoints.append(allocator, .{
+   //        .distance =  1.81 + iF32 * 0.01,
+   //        .heading = @mod(trackPoints.items[i].heading + 180, 360),
+   //    });
+   //}
     var track = try Track.init(allocator, trackPoints);
     defer track.deinit();
 
@@ -51,11 +65,9 @@ pub fn main() !void {
     var controller: Controller = Controller.init(&simulation, &track);
 
     while (true) {
-        std.debug.print("update\n", .{});
         simulation.update();
         controller.update();
-        std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{track.getTrackLength(), controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
-        std.debug.print("end\n", .{});
+        //std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
 
         const actualCarPosition: Position = track.distanceToPosition(simulation.distance);
         gui.actualCarPositionAndHeading = .{.heading = simulation.heading, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};

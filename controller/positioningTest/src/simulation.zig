@@ -44,7 +44,6 @@ pub const Simulation = struct {
         self.time += self.deltaTime;
         self.distance = @mod(self.distance + self.velocity * self.deltaTime, self.track.getTrackLength());
         const newHeading = self.track.distanceToHeading(self.distance);
-        std.debug.print("newHeading: {d}, self.heading: {d}\n", .{newHeading, self.heading});
         self.angularRate = Track.angularDelta(self.heading, newHeading) / self.deltaTime;
         self.heading = newHeading;
         self.measuredAngularRate = self.addNoise(self.angularRate, self.angularRateBias, self.angularRateNoise);

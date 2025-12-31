@@ -118,8 +118,6 @@ pub const Controller = struct {
     pub fn stateVectorToMeasurements(self: *Self, xVecPred: [2]f32) [2]f32 {
         // measurement vector z = [angularRate, velocity]
         const heading = self.track.distanceToHeading(xVecPred[0]);
-        std.debug.print("heading at prediction: {d}, estimated angularRate: {d}\n", .{heading, Track.angularDelta(self.heading, heading) / self.simulation.deltaTime});
-        std.debug.print("angularDelta: {d}\n", .{Track.angularDelta(self.heading, heading)});
         return [2]f32{Track.angularDelta(self.heading, heading) / self.simulation.deltaTime, xVecPred[1]};
     }
 
@@ -128,8 +126,6 @@ pub const Controller = struct {
         var xVecPred: [2]f32 = matVecMul(2, 2, self.fMat, prevXVec);
         xVecPred[0] = @mod(xVecPred[0], self.track.getTrackLength());
         const pMatPrediction: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, matMul(2, 2, 2, self.fMat, self.pMat), mat2Transpose(self.fMat)), self.qMat);
-
-        std.debug.print("predicition: {d}, {d}\n", .{xVecPred[0], xVecPred[1]});
 
         const hMat: [2][2]f32 = .{
             .{self.track.distanceToHeadingDerivative(xVecPred[0]), 0},
@@ -143,7 +139,6 @@ pub const Controller = struct {
         const yVec: [2]f32 = [2]f32{self.simulation.measuredAngularRate - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1]};
 
         const adjustedYVec = matVecMul(2, 2, kMat, yVec);
-        std.debug.print("adjustedYVec: {d}, yVec: {d}\n", .{adjustedYVec[0], yVec[0]});
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 
