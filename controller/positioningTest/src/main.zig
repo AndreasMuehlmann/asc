@@ -21,7 +21,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 720);
-    for (0..360) |i| {
+    for (0..361) |i| {
         const iF32: f32 = @floatFromInt(i);
         try trackPoints.append(allocator, .{
             .distance = iF32 * 0.01,
@@ -51,9 +51,11 @@ pub fn main() !void {
     var controller: Controller = Controller.init(&simulation, &track);
 
     while (true) {
+        std.debug.print("update\n", .{});
         simulation.update();
         controller.update();
-        std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
+        std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{track.getTrackLength(), controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
+        std.debug.print("end\n", .{});
 
         const actualCarPosition: Position = track.distanceToPosition(simulation.distance);
         gui.actualCarPositionAndHeading = .{.heading = simulation.heading, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};

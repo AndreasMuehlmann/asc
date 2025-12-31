@@ -52,11 +52,11 @@ pub const Gui = struct {
         var dataSetsTrack = try allocator.alloc(DataSet, 1);
         dataSetsTrack[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Track", .color = rl.Color.pink, .lineWidth = 3.0 };
 
-        var plots = try allocator.alloc(Plot, 2);
-        plots[0] = Plot.init(allocator, "Heading", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
-        plots[1] = Plot.init(allocator, "Velocity", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsVelocity);
+        const plots = try allocator.alloc(Plot, 2);
+       //plots[0] = Plot.init(allocator, "Heading", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+       //plots[1] = Plot.init(allocator, "Velocity", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsVelocity);
 
-        const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
+        const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
         return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null };
     }
@@ -72,26 +72,27 @@ pub const Gui = struct {
 
         rl.clearBackground(rl.Color.white);
 
-        for (0..self.plots.len) |i| {
-            self.plots[i].resize(windowWidth, windowHeight);
-            try self.plots[i].draw();
-            self.trackMapPlot.resize(windowWidth, windowHeight);
-            try self.trackMapPlot.draw();
-            if (self.carPositionAndHeading) |carPositionAndHeading| {
-                self.trackMapPlot.drawCar(carPositionAndHeading.heading, carPositionAndHeading.position);
-            }
-            // only simulation
-            if (self.actualCarPositionAndHeading) |carPositionAndHeading| {
-                const positionInPlot = self.trackMapPlot.plot.toGlobal(carPositionAndHeading.position);
-                drawOrientedRectOutline(
-                    positionInPlot,
-                    39.0,
-                    49.0,
-                    .{ .x = 39.0 / 2.0, .y = 0.0 },
-                    carPositionAndHeading.heading - 90.0,
-                    rl.Color.red,
-                );
-            }
+       //for (0..self.plots.len) |i| {
+       //    self.plots[i].resize(windowWidth, windowHeight);
+       //    try self.plots[i].draw();
+       //}
+
+        self.trackMapPlot.resize(windowWidth, windowHeight);
+        try self.trackMapPlot.draw();
+        if (self.carPositionAndHeading) |carPositionAndHeading| {
+            self.trackMapPlot.drawCar(carPositionAndHeading.heading, carPositionAndHeading.position);
+        }
+        // only simulation
+        if (self.actualCarPositionAndHeading) |carPositionAndHeading| {
+            const positionInPlot = self.trackMapPlot.plot.toGlobal(carPositionAndHeading.position);
+            drawOrientedRectOutline(
+                positionInPlot,
+                39.0,
+                49.0,
+                .{ .x = 39.0 / 2.0, .y = 0.0 },
+                carPositionAndHeading.heading - 90.0,
+                rl.Color.red,
+            );
         }
     }
     // only simulation

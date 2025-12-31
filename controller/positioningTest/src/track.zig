@@ -77,7 +77,7 @@ pub const Track = struct {
         }
         for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
             if (prevTrackPoint.distance <= distance and distance <= trackPoint.distance) {
-                return std.math.lerp(prevTrackPoint.heading, trackPoint.heading, (distance - prevTrackPoint.distance) / (trackPoint.distance - prevTrackPoint.distance));
+                return prevTrackPoint.heading + angularDelta(prevTrackPoint.heading, trackPoint.heading) * (distance - prevTrackPoint.distance) / (trackPoint.distance - prevTrackPoint.distance);
             }
         }
         @panic("distance could not be converted to heading");
@@ -173,7 +173,7 @@ test "distanceToHeading" {
     const allocator = std.testing.allocator;
 
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 360);
-    for (0..360) |i| {
+    for (0..361) |i| {
         const iF32: f32 = @floatFromInt(i);
         try trackPoints.append(allocator, .{
             .distance = iF32 * 0.01,
@@ -194,6 +194,11 @@ test "distanceToHeading" {
         const distance: f32 = 0.0;
         const heading = track.distanceToHeading(distance);
         try std.testing.expectApproxEqAbs(0.0, heading, 1e-6);
+    }
+    {
+        const distance: f32 = 3.5939434;
+        const heading = track.distanceToHeading(distance);
+        try std.testing.expectApproxEqAbs(3.59, heading, 1e-6);
     }
 }
 
