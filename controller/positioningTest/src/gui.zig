@@ -58,7 +58,7 @@ pub const Gui = struct {
 
         const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
-        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null};
+        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null };
     }
 
     pub fn update(self: *Self) !void {
@@ -106,10 +106,10 @@ pub const Gui = struct {
         const angle = std.math.degreesToRadians(rotationDeg);
 
         const local = [_]rl.Vector2{
-            .{ .x = -origin.x,           .y = -origin.y },           // top-left
-            .{ .x = width - origin.x,    .y = -origin.y },           // top-right
-            .{ .x = width - origin.x,    .y = height - origin.y },   // bottom-right
-            .{ .x = -origin.x,           .y = height - origin.y },   // bottom-left
+            .{ .x = -origin.x, .y = -origin.y }, // top-left
+            .{ .x = width - origin.x, .y = -origin.y }, // top-right
+            .{ .x = width - origin.x, .y = height - origin.y }, // bottom-right
+            .{ .x = -origin.x, .y = height - origin.y }, // bottom-left
         };
 
         var world: [4]rl.Vector2 = undefined;
@@ -124,7 +124,6 @@ pub const Gui = struct {
             };
         }
 
-        // Draw rectangle frame
         inline for (0..4) |i| {
             rl.drawLineV(
                 world[i],
@@ -149,7 +148,7 @@ pub const Gui = struct {
     }
 
     pub fn setCarPositionAndHeading(self: *Self, heading: f32, position: rl.Vector2) void {
-        self.carPositionAndHeading = .{.heading = heading, .position = position};
+        self.carPositionAndHeading = .{ .heading = heading, .position = position };
     }
 
     pub fn deinit(self: *Self) void {

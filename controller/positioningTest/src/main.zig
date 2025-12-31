@@ -5,6 +5,7 @@ const Track = t.Track;
 const TrackPoint = t.TrackPoint;
 const Position = t.Position;
 const Simulation = @import("simulation.zig").Simulation;
+const Controller = @import("controller.zig").Controller;
 
 const guiApi = @import("gui.zig");
 const Gui = guiApi.Gui;
@@ -38,7 +39,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.1, 0.1, 0.01, -0.01, &rng);
+    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.1, 0.0, 0.01, 0.0, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);
@@ -47,17 +48,22 @@ pub fn main() !void {
     }
     try gui.addPoints("Track", "Track", positions);
 
-    while (true) {
+    var controller: Controller = Controller.init(&simulation, &track);
 
+    while (true) {
+        simulation.update();
+        controller.update();
+        std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
+
+        const actualCarPosition: Position = track.distanceToPosition(simulation.distance);
+        gui.actualCarPositionAndHeading = .{.heading = simulation.heading, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};
+
+        const measuredCarPosition: Position = track.distanceToPosition(controller.distance);
+        gui.setCarPositionAndHeading(controller.heading, rl.Vector2.init(measuredCarPosition.x, measuredCarPosition.y));
         gui.update() catch |err| switch (err) {
             guiApi.GuiError.Quit => return,
             else => return err,
         };
-        const actualCarPosition: Position = track.distanceToPosition(simulation.distance);
-        gui.actualCarPositionAndHeading = .{.heading = simulation.heading, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};
-        gui.setCarPositionAndHeading(simulation.heading, rl.Vector2.init(actualCarPosition.x, actualCarPosition.y));
-        std.debug.print("time: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
-        simulation.update();
         std.Thread.sleep(@intFromFloat(simulation.deltaTime * 1_000_000_000));
     }
 }

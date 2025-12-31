@@ -71,12 +71,26 @@ pub const Track = struct {
     pub fn distanceToHeading(self: Self, distance: f32) f32 {
         const lastPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
         if (distance > lastPoint.distance) {
-            const heading: f32 = lastPoint.heading * distance / lastPoint.distance;
-            return @mod(heading, 360.0);
+            @panic("distance can never be greater than last point");
+           //const heading: f32 = lastPoint.heading * distance / lastPoint.distance;
+           //return @mod(heading, 360.0);
         }
         for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
             if (prevTrackPoint.distance <= distance and distance <= trackPoint.distance) {
                 return std.math.lerp(prevTrackPoint.heading, trackPoint.heading, (distance - prevTrackPoint.distance) / (trackPoint.distance - prevTrackPoint.distance));
+            }
+        }
+        @panic("distance could not be converted to heading");
+    }
+
+    pub fn distanceToHeadingDerivative(self: Self, distance: f32) f32 {
+        const lastPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
+        if (distance > lastPoint.distance) {
+            @panic("distance can never be greater than last point");
+        }
+        for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
+            if (prevTrackPoint.distance <= distance and distance <= trackPoint.distance) {
+                return angularDelta(prevTrackPoint.heading, trackPoint.heading) / (trackPoint.distance - prevTrackPoint.distance);
             }
         }
         @panic("distance could not be converted to heading");
