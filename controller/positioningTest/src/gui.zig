@@ -13,12 +13,18 @@ pub const GuiError = error{
     Quit,
 };
 
+const PositionAndHeading = struct {
+    heading: f32,
+    position: rl.Vector2,
+};
+
 pub const Gui = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
     plots: []Plot,
     trackMapPlot: TrackMapPlot,
+    carPositionAndHeading: ?PositionAndHeading,
 
     pub fn init(allocator: std.mem.Allocator) !Self {
         const windowWidth = rl.getScreenWidth();
@@ -50,7 +56,7 @@ pub const Gui = struct {
 
         const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
-        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot };
+        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null };
     }
 
     pub fn update(self: *Self) !void {
@@ -69,8 +75,11 @@ pub const Gui = struct {
             try self.plots[i].draw();
             self.trackMapPlot.resize(windowWidth, windowHeight);
             try self.trackMapPlot.draw();
-        }
+            if (self.carPositionAndHeading) |carPositionAndHeading| {
+                self.trackMapPlot.drawCar(carPositionAndHeading.heading, carPositionAndHeading.position);
 
+            }
+        }
     }
 
     pub fn addPoints(self: *Self, plotName: []const u8, dataSetName: []const u8, points: []const rl.Vector2) !void {
@@ -87,8 +96,8 @@ pub const Gui = struct {
         return GuiError.UnkownPlotName;
     }
 
-    pub fn drawCar(self: *Self, heading: f32, position: rl.Vector2) void {
-        self.trackMapPlot.drawCar(heading, position);
+    pub fn setCarPositionAndHeading(self: *Self, heading: f32, position: rl.Vector2) void {
+        self.carPositionAndHeading = .{.heading = heading, .position = position};
     }
 
     pub fn deinit(self: *Self) void {

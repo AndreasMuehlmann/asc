@@ -48,12 +48,13 @@ pub fn main() !void {
     try gui.addPoints("Track", "Track", positions);
 
     while (true) {
+
         gui.update() catch |err| switch (err) {
             guiApi.GuiError.Quit => return,
             else => return err,
         };
         const carPosition: Position = track.distanceToPosition(simulation.distance);
-        gui.drawCar(simulation.heading, rl.Vector2.init(carPosition.x, carPosition.y));
+        gui.setCarPositionAndHeading(simulation.heading, rl.Vector2.init(carPosition.x, carPosition.y));
         std.debug.print("time: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
         simulation.update();
         std.Thread.sleep(@intFromFloat(simulation.deltaTime * 1_000_000_000));
