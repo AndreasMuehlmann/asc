@@ -53,7 +53,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.1, 0.0, 0.01, 0.0, &rng);
+    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 1.0, 1.2, 0.1, 0.2, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);
@@ -65,9 +65,10 @@ pub fn main() !void {
     var controller: Controller = Controller.init(&simulation, &track);
 
     while (true) {
+        std.debug.print("update\n", .{});
         simulation.update();
         controller.update();
-        //std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
+        std.debug.print("time: {d:.2}, controller: distance: {d:.2}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
 
         const actualCarPosition: Position = track.distanceToPosition(simulation.distance);
         gui.actualCarPositionAndHeading = .{.heading = simulation.heading, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};
@@ -78,6 +79,7 @@ pub fn main() !void {
             guiApi.GuiError.Quit => return,
             else => return err,
         };
+        std.debug.print("end\n", .{});
         std.Thread.sleep(@intFromFloat(simulation.deltaTime * 1_000_000_000));
     }
 }

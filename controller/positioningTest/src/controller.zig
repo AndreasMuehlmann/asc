@@ -96,8 +96,8 @@ pub const Controller = struct {
             .velocity = simulation.velocity,
             .heading = simulation.heading,
             .pMat = [_][2]f32{
-                .{ 0.000001, 0.0 },
-                .{ 0.0, 0.000001 },
+                .{ 0.01, 0.0 },
+                .{ 0.0, 0.01 },
             },
             // with acceleration F = [1, dt, 1/2 dt*dt; 0, 1, dt]
             .fMat = [_][2]f32{
@@ -105,8 +105,8 @@ pub const Controller = struct {
                 .{ 0.0, 1.0 },
             },
             .qMat = [_][2]f32{
-                .{ 0.000005, 0.0 },
-                .{ 0.0, 0.00001 },
+                .{ 0.005, 0.0 },
+                .{ 0.0, 0.01 },
             },
             .rMat = [_][2]f32{
                 .{ simulation.angularRateNoise * simulation.angularRateNoise, 0.0 },
@@ -127,9 +127,10 @@ pub const Controller = struct {
         xVecPred[0] = @mod(xVecPred[0], self.track.getTrackLength());
         const pMatPrediction: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, matMul(2, 2, 2, self.fMat, self.pMat), mat2Transpose(self.fMat)), self.qMat);
 
+        const headingDerivative = self.track.distanceToHeadingDerivative(xVecPred[0]);
         const hMat: [2][2]f32 = .{
-            .{self.track.distanceToHeadingDerivative(xVecPred[0]), 0},
-            .{0, 1},
+            .{ headingDerivative / self.simulation.deltaTime, headingDerivative },
+            .{ 0.0,            1.0      },
         };
 
         const sMat: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, hMat, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat))), self.rMat);
@@ -139,6 +140,8 @@ pub const Controller = struct {
         const yVec: [2]f32 = [2]f32{self.simulation.measuredAngularRate - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1]};
 
         const adjustedYVec = matVecMul(2, 2, kMat, yVec);
+
+        std.debug.print("predictedMeasurements: {d}, {d}; predicted x: {d}, {d}; adjustedYVec: {d}, {d}; yVec: {d}, {d}\n", .{predictedMeasurements[0], predictedMeasurements[1], xVecPred[0], xVecPred[1], adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1]});
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 
