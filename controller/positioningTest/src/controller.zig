@@ -68,10 +68,37 @@ fn mat2Transpose(a: [2][2]f32) [2][2]f32 {
 }
 
 fn mat2Inv(a: [2][2]f32) [2][2]f32 {
-    const det = a[0][0]*a[1][1] - a[0][1]*a[1][0];
+    const det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
     return .{
-        .{  a[1][1]/det, -a[0][1]/det },
-        .{ -a[1][0]/det,  a[0][0]/det },
+        .{ a[1][1] / det, -a[0][1] / det },
+        .{ -a[1][0] / det, a[0][0] / det },
+    };
+}
+
+fn mat3Inv(a: [3][3]f32) [3][3]f32 {
+    const det =
+        a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) -
+        a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +
+        a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
+
+    const invDet = 1.0 / det;
+
+    return .{
+        .{
+            (a[1][1] * a[2][2] - a[1][2] * a[2][1]) * invDet,
+            (a[0][2] * a[2][1] - a[0][1] * a[2][2]) * invDet,
+            (a[0][1] * a[1][2] - a[0][2] * a[1][1]) * invDet,
+        },
+        .{
+            (a[1][2] * a[2][0] - a[1][0] * a[2][2]) * invDet,
+            (a[0][0] * a[2][2] - a[0][2] * a[2][0]) * invDet,
+            (a[0][2] * a[1][0] - a[0][0] * a[1][2]) * invDet,
+        },
+        .{
+            (a[1][0] * a[2][1] - a[1][1] * a[2][0]) * invDet,
+            (a[0][1] * a[2][0] - a[0][0] * a[2][1]) * invDet,
+            (a[0][0] * a[1][1] - a[0][1] * a[1][0]) * invDet,
+        },
     };
 }
 
@@ -86,7 +113,7 @@ pub const Controller = struct {
     pMat: [2][2]f32,
     fMat: [2][2]f32,
     qMat: [2][2]f32,
-    rMat: [2][2]f32,
+    rMat: [3][3]f32,
 
     pub fn init(simulation: *Simulation, track: *Track) Self {
         return .{
@@ -108,48 +135,60 @@ pub const Controller = struct {
                 .{ 0.005, 0.0 },
                 .{ 0.0, 0.01 },
             },
-            .rMat = [_][2]f32{
-                .{ simulation.angularRateNoise * simulation.angularRateNoise, 0.0 },
-                .{ 0.0, simulation.velocityNoise * simulation.velocityNoise},
+            .rMat = [_][3]f32{
+                .{ simulation.angularRateNoise * simulation.angularRateNoise, 0.0, 0.0 },
+                .{ 0.0, simulation.velocityNoise * simulation.velocityNoise, 0.0 },
+                .{ 0.0, 0.0, 0.01 },
             },
         };
     }
 
-    pub fn stateVectorToMeasurements(self: *Self, xVecPred: [2]f32) [2]f32 {
+    pub fn stateVectorToMeasurements(self: *Self, xVecPred: [2]f32) [3]f32 {
         // measurement vector z = [angularRate, velocity]
         const heading = self.track.distanceToHeading(xVecPred[0]);
-        return [2]f32{Track.angularDelta(self.heading, heading) / self.simulation.deltaTime, xVecPred[1]};
+        return [3]f32{ Track.angularDelta(self.heading, heading) / self.simulation.deltaTime, xVecPred[1], xVecPred[0] };
     }
 
     pub fn update(self: *Self) void {
-        const prevXVec: [2]f32 = [2]f32{self.distance, self.velocity};
+        const prevXVec: [2]f32 = [2]f32{ self.distance, self.velocity };
         var xVecPred: [2]f32 = matVecMul(2, 2, self.fMat, prevXVec);
         xVecPred[0] = @mod(xVecPred[0], self.track.getTrackLength());
         const pMatPrediction: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, matMul(2, 2, 2, self.fMat, self.pMat), mat2Transpose(self.fMat)), self.qMat);
 
         const headingDerivative = self.track.distanceToHeadingDerivative(xVecPred[0]);
-        const hMat: [2][2]f32 = .{
+        const hMat: [3][2]f32 = .{
             .{ headingDerivative / self.simulation.deltaTime, headingDerivative },
-            .{ 0.0,            1.0      },
+            .{ 0.0, 1.0 },
+            .{ 1.0, self.simulation.deltaTime },
         };
 
-        const sMat: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, hMat, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat))), self.rMat);
-        const kMat = matMul(2, 2, 2, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat)), mat2Inv(sMat));
-        
-        const predictedMeasurements: [2]f32 = self.stateVectorToMeasurements(xVecPred);
-        const yVec: [2]f32 = [2]f32{self.simulation.measuredAngularRate - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1]};
+        const hMatTranspose: [2][3]f32 = .{
+            .{ headingDerivative / self.simulation.deltaTime, 0.0, 1.0 },
+            .{ headingDerivative, 1.0, self.simulation.deltaTime },
+        };
 
-        const adjustedYVec = matVecMul(2, 2, kMat, yVec);
+        const sMat: [3][3]f32 = matAddWithCoefficients(3, 3, 1, 1, matMul(3, 2, 3, hMat, matMul(2, 2, 3, pMatPrediction, hMatTranspose)), self.rMat);
+        const kMat = matMul(2, 3, 3, matMul(2, 2, 3, pMatPrediction, hMatTranspose), mat3Inv(sMat));
 
-        std.debug.print("predictedMeasurements: {d}, {d}; predicted x: {d}, {d}; adjustedYVec: {d}, {d}; yVec: {d}, {d}\n", .{predictedMeasurements[0], predictedMeasurements[1], xVecPred[0], xVecPred[1], adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1]});
+        const predictedMeasurements: [3]f32 = self.stateVectorToMeasurements(xVecPred);
+        const pseudoMeasurementDistance = self.distance + self.simulation.measuredVelocity * self.simulation.deltaTime + 0.1;
+
+        const deadzone = 0;
+        const measuredAngularRateWithDeadzone = if (@abs(self.simulation.measuredAngularRate) < deadzone) 0 else @abs(self.simulation.measuredAngularRate) - deadzone;
+        const trustInAngularRateCorrection = 1 - std.math.exp(-measuredAngularRateWithDeadzone / 20);
+
+        const yVec: [3]f32 = [3]f32{ trustInAngularRateCorrection * (self.simulation.measuredAngularRate - predictedMeasurements[0]), self.simulation.measuredVelocity - predictedMeasurements[1], pseudoMeasurementDistance - predictedMeasurements[2] };
+        const adjustedYVec = matVecMul(2, 3, kMat, yVec);
+
+        std.debug.print("predictedMeasurements: {d}, {d}; predicted x: {d}, {d}; adjustedYVec: {d}, {d}; yVec: {d}, {d}, {d}\n", .{ predictedMeasurements[0], predictedMeasurements[1], xVecPred[0], xVecPred[1], adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1], yVec[2] });
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 
         const identity: [2][2]f32 = [2][2]f32{
-            .{1.0, 0.0},
-            .{0.0, 1.0},
+            .{ 1.0, 0.0 },
+            .{ 0.0, 1.0 },
         };
-        self.pMat = matMul(2, 2, 2, matAddWithCoefficients(2, 2, 1, -1, identity, matMul(2, 2, 2, kMat, hMat)), pMatPrediction);
+        self.pMat = matMul(2, 2, 2, matAddWithCoefficients(2, 2, 1, -1, identity, matMul(2, 3, 2, kMat, hMat)), pMatPrediction);
         self.heading = self.track.distanceToHeading(self.distance);
     }
 };
