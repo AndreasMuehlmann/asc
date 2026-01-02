@@ -185,7 +185,7 @@ pub const Controller = struct {
        //        self.pMat[1][0], self.pMat[1][1],
        //    },
        //);
-        std.debug.print("adjustedYVec: {d:.2}, {d:.2}; yVec: {d:.6}, {d:.2}\n", .{ adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
+        //std.debug.print("adjustedYVec: {d:.2}, {d:.2}; yVec: {d:.6}, {d:.2}\n", .{ adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 

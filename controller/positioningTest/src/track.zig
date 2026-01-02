@@ -46,8 +46,8 @@ pub const Track = struct {
     kdTree: KdTree,
 
     pub fn init(allocator: std.mem.Allocator, trackPoints: std.ArrayList(TrackPoint)) !Self {
-        if (trackPoints.items.len < 2) {
-            @panic("There must be at least two track points.");
+        if (trackPoints.items.len < 3) {
+            @panic("There must be at least three track points.");
         }
         if (trackPoints.items[0].distance != 0 or trackPoints.items[0].heading != 0) {
             @panic("The first track point must be (0, 0).");
@@ -80,7 +80,12 @@ pub const Track = struct {
     pub fn trackPointsToDistancePositions(self: *Self) !void {
         var prevPosition: Position = .{.x = 0.0, .y = 0.0};
         try self.distancePositions.append(self.allocator, .{.distance = 0.0, .position = prevPosition});
-        for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
+
+
+        const countPointsNeedingSeperateHandling = (self.trackPoints.items.len - 1) % 2;
+        if (countPointsNeedingSeperateHandling != 0) {
+            const prevTrackPoint = self.trackPoints.items[0];
+            const trackPoint = self.trackPoints.items[1];
             const diffDistance = trackPoint.distance - prevTrackPoint.distance;
             const averageHeading = (trackPoint.heading + prevTrackPoint.heading) / 2.0;
 
@@ -89,6 +94,27 @@ pub const Track = struct {
                 .y = prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
             };
             try self.distancePositions.append(self.allocator, .{.distance = trackPoint.distance, .position = currentPosition});
+            prevPosition = currentPosition;
+        }
+
+        for (countPointsNeedingSeperateHandling..self.trackPoints.items.len - 2) |i| {
+            const diffDistance = self.trackPoints.items[i + 2].distance - self.trackPoints.items[i].distance;
+            
+            const xFa = -std.math.cos(self.trackPoints.items[i].heading * std.math.pi / 180.0);
+            const xFab = -std.math.cos(self.trackPoints.items[i + 1].heading * std.math.pi / 180.0);
+            const xFb = -std.math.cos(self.trackPoints.items[i + 2].heading * std.math.pi / 180.0);
+            const xDiff = diffDistance / 6.0 * (xFa + 4 * xFab + xFb);
+
+            const yFa = std.math.sin(self.trackPoints.items[i].heading * std.math.pi / 180.0);
+            const yFab = std.math.sin(self.trackPoints.items[i + 1].heading * std.math.pi / 180.0);
+            const yFb = std.math.sin(self.trackPoints.items[i + 2].heading * std.math.pi / 180.0);
+            const yDiff = diffDistance / 6.0 * (yFa + 4 * yFab + yFb);
+
+            const currentPosition: Position = .{
+                .x = prevPosition.x + xDiff,
+                .y = prevPosition.y + yDiff,
+            };
+            try self.distancePositions.append(self.allocator, .{.distance = self.trackPoints.items[i + 2].distance, .position = currentPosition});
             prevPosition = currentPosition;
         }
     }
