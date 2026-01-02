@@ -21,7 +21,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 720);
-    for (0..361) |i| {
+    for (0..721) |i| {
         const iF32: f32 = @floatFromInt(i);
         try trackPoints.append(allocator, .{
             .distance = iF32 * 0.01,
@@ -53,7 +53,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 1.0, 0.1, 0.05, 0.0001, &rng);
+    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 1.0, 0.1, 0.5, 0.01, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);

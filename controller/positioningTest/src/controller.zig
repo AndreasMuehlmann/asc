@@ -132,7 +132,7 @@ pub const Controller = struct {
                 .{ 0.0, 1.0 },
             },
             .qMat = [_][2]f32{
-                .{ 0.005, 0.0 },
+                .{ 0.01, 0.0 },
                 .{ 0.0, 0.01 },
             },
             .rMat = [_][2]f32{
@@ -166,14 +166,22 @@ pub const Controller = struct {
         const predictedMeasurements: [2]f32 = self.stateVectorToMeasurements(xVecPred);
 
         // TODO: make this configurable
-        const deadzone = 0;
+        const deadzone = 10;
+        //const deadzone = 30;
         const measuredAngularRateWithDeadzone = if (@abs(self.simulation.measuredAngularRate) < deadzone) 0 else @abs(self.simulation.measuredAngularRate) - deadzone;
-        const trustInAngularRateCorrection = 1 - std.math.exp(-measuredAngularRateWithDeadzone / 40);
+        const trustInAngularRateCorrection = 1 - std.math.exp(-measuredAngularRateWithDeadzone / 20);
 
         const yVec: [2]f32 = [2]f32{ trustInAngularRateCorrection * (self.simulation.measuredAngularRate - predictedMeasurements[0]), self.simulation.measuredVelocity - predictedMeasurements[1] };
         const adjustedYVec = matVecMul(2, 2, kMat, yVec);
 
-        std.debug.print("predictedMeasurements: {d}, {d}; predicted x: {d}, {d}; adjustedYVec: {d}, {d}; yVec: {d}, {d}\n", .{ predictedMeasurements[0], predictedMeasurements[1], xVecPred[0], xVecPred[1], adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
+        std.debug.print(
+            "pMat:\n  [{d}, {d}]\n  [{d}, {d}]\n",
+            .{
+                self.pMat[0][0], self.pMat[0][1],
+                self.pMat[1][0], self.pMat[1][1],
+            },
+        );
+        std.debug.print("adjustedYVec: {d:.2}, {d:.2}; yVec: {d:.2}, {d:.2}\n", .{ adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 
