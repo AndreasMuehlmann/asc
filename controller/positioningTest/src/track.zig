@@ -99,14 +99,29 @@ pub const Track = struct {
 
         for (countPointsNeedingSeperateHandling..self.trackPoints.items.len - 2) |i| {
             const diffDistance = self.trackPoints.items[i + 2].distance - self.trackPoints.items[i].distance;
+
+            const midDistance = self.trackPoints.items[i].distance + self.minDifferenceDistances(self.trackPoints.items[i + 2].distance, self.trackPoints.items[i].distance) / 2;
+
+            var beforeMid: TrackPoint = undefined;
+            var afterMid: TrackPoint = undefined;
+            if (self.trackPoints.items[i].distance <= midDistance and midDistance <= self.trackPoints.items[i + 1].distance) {
+                beforeMid = self.trackPoints.items[i];
+                afterMid = self.trackPoints.items[i + 1];
+
+            } else {
+                beforeMid = self.trackPoints.items[i + 1];
+                afterMid = self.trackPoints.items[i + 2];
+            }
+
+            const midHeading = beforeMid.heading + angularDelta(beforeMid.heading, afterMid.heading) * self.minDifferenceDistances(midDistance, beforeMid.distance) / self.minDifferenceDistances(afterMid.distance, beforeMid.distance);
             
             const xFa = -std.math.cos(self.trackPoints.items[i].heading * std.math.pi / 180.0);
-            const xFab = -std.math.cos(self.trackPoints.items[i + 1].heading * std.math.pi / 180.0);
+            const xFab = -std.math.cos(midHeading * std.math.pi / 180.0);
             const xFb = -std.math.cos(self.trackPoints.items[i + 2].heading * std.math.pi / 180.0);
             const xDiff = diffDistance / 6.0 * (xFa + 4 * xFab + xFb);
 
             const yFa = std.math.sin(self.trackPoints.items[i].heading * std.math.pi / 180.0);
-            const yFab = std.math.sin(self.trackPoints.items[i + 1].heading * std.math.pi / 180.0);
+            const yFab = std.math.sin(midHeading * std.math.pi / 180.0);
             const yFb = std.math.sin(self.trackPoints.items[i + 2].heading * std.math.pi / 180.0);
             const yDiff = diffDistance / 6.0 * (yFa + 4 * yFab + yFb);
 
@@ -127,12 +142,10 @@ pub const Track = struct {
         const lastPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
         if (distance > lastPoint.distance) {
             @panic("distance can never be greater than last point");
-           //const heading: f32 = lastPoint.heading * distance / lastPoint.distance;
-           //return @mod(heading, 360.0);
         }
         for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
             if (prevTrackPoint.distance <= distance and distance <= trackPoint.distance) {
-                return prevTrackPoint.heading + angularDelta(prevTrackPoint.heading, trackPoint.heading) * (distance - prevTrackPoint.distance) / (trackPoint.distance - prevTrackPoint.distance);
+                return prevTrackPoint.heading + angularDelta(prevTrackPoint.heading, trackPoint.heading) * self.minDifferenceDistances(distance, prevTrackPoint.distance) / self.minDifferenceDistances(trackPoint.distance, prevTrackPoint.distance);
             }
         }
         @panic("distance could not be converted to heading");
@@ -145,7 +158,7 @@ pub const Track = struct {
         }
         for (self.trackPoints.items[0..self.trackPoints.items.len - 1], self.trackPoints.items[1..]) |prevTrackPoint, trackPoint| {
             if (prevTrackPoint.distance <= distance and distance <= trackPoint.distance) {
-                return angularDelta(prevTrackPoint.heading, trackPoint.heading) / (trackPoint.distance - prevTrackPoint.distance);
+                return angularDelta(prevTrackPoint.heading, trackPoint.heading) / self.minDifferenceDistances(trackPoint.distance, prevTrackPoint.distance);
             }
         }
         @panic("distance could not be converted to heading");
@@ -158,7 +171,7 @@ pub const Track = struct {
         }
         for (self.distancePositions.items[0..self.distancePositions.items.len - 1], self.distancePositions.items[1..]) |prevDistancePosition, distancePosition| {
             if (prevDistancePosition.distance <= distance and distance <= distancePosition.distance) {
-                const t = (distance - prevDistancePosition.distance) / (distancePosition.distance - prevDistancePosition.distance);
+                const t = self.minDifferenceDistances(distance, prevDistancePosition.distance) / self.minDifferenceDistances(distancePosition.distance, prevDistancePosition.distance);
                 return .{
                     .x = std.math.lerp(prevDistancePosition.position.x, distancePosition.position.x, t),
                     .y = std.math.lerp(prevDistancePosition.position.y, distancePosition.position.y, t),
