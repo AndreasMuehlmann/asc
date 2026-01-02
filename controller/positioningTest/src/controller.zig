@@ -2,109 +2,12 @@ const std = @import("std");
 const Simulation = @import("simulation.zig").Simulation;
 const Track = @import("track.zig").Track;
 const TrackPoint = @import("track.zig").TrackPoint;
+const mat = @import("matrixUtils.zig");
 
-fn matVecMul(
-    comptime R: usize,
-    comptime C: usize,
-    a: [R][C]f32,
-    x: [C]f32,
-) [R]f32 {
-    var y: [R]f32 = undefined;
-
-    for (0..R) |i| {
-        var sum: f32 = 0.0;
-        for (0..C) |j| {
-            sum += a[i][j] * x[j];
-        }
-        y[i] = sum;
-    }
-    return y;
-}
-
-fn matMul(
-    comptime R: usize,
-    comptime M: usize,
-    comptime C: usize,
-    a: [R][M]f32,
-    b: [M][C]f32,
-) [R][C]f32 {
-    var result: [R][C]f32 = undefined;
-
-    for (0..R) |i| {
-        for (0..C) |j| {
-            var sum: f32 = 0.0;
-            for (0..M) |k| {
-                sum += a[i][k] * b[k][j];
-            }
-            result[i][j] = sum;
-        }
-    }
-    return result;
-}
-
-fn matAddWithCoefficients(
-    comptime R: usize,
-    comptime C: usize,
-    aCoefficient: f32,
-    bCoefficient: f32,
-    a: [R][C]f32,
-    b: [R][C]f32,
-) [R][C]f32 {
-    var result: [R][C]f32 = undefined;
-
-    for (0..R) |i| {
-        for (0..C) |j| {
-            result[i][j] = aCoefficient * a[i][j] + bCoefficient * b[i][j];
-        }
-    }
-
-    return result;
-}
-
-fn mat2Transpose(a: [2][2]f32) [2][2]f32 {
-    return .{
-        .{ a[0][0], a[1][0] },
-        .{ a[0][1], a[1][1] },
-    };
-}
-
-fn mat2Inv(a: [2][2]f32) [2][2]f32 {
-    const det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
-    return .{
-        .{ a[1][1] / det, -a[0][1] / det },
-        .{ -a[1][0] / det, a[0][0] / det },
-    };
-}
-
-fn mat3Inv(a: [3][3]f32) [3][3]f32 {
-    const det =
-        a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) -
-        a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +
-        a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
-
-    const invDet = 1.0 / det;
-
-    return .{
-        .{
-            (a[1][1] * a[2][2] - a[1][2] * a[2][1]) * invDet,
-            (a[0][2] * a[2][1] - a[0][1] * a[2][2]) * invDet,
-            (a[0][1] * a[1][2] - a[0][2] * a[1][1]) * invDet,
-        },
-        .{
-            (a[1][2] * a[2][0] - a[1][0] * a[2][2]) * invDet,
-            (a[0][0] * a[2][2] - a[0][2] * a[2][0]) * invDet,
-            (a[0][2] * a[1][0] - a[0][0] * a[1][2]) * invDet,
-        },
-        .{
-            (a[1][0] * a[2][1] - a[1][1] * a[2][0]) * invDet,
-            (a[0][1] * a[2][0] - a[0][0] * a[2][1]) * invDet,
-            (a[0][0] * a[1][1] - a[0][1] * a[1][0]) * invDet,
-        },
-    };
-}
 
 pub const Controller = struct {
     const Self = @This();
+    const icpPointCount: usize = 10;
 
     simulation: *Simulation,
     track: *Track,
@@ -152,9 +55,9 @@ pub const Controller = struct {
 
     pub fn update(self: *Self) void {
         const prevXVec: [2]f32 = [2]f32{ self.distance, self.velocity };
-        var xVecPred: [2]f32 = matVecMul(2, 2, self.fMat, prevXVec);
+        var xVecPred: [2]f32 = mat.vectorMultiply(2, 2, self.fMat, prevXVec);
         xVecPred[0] = @mod(xVecPred[0], self.track.getTrackLength());
-        const pMatPrediction: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, matMul(2, 2, 2, self.fMat, self.pMat), mat2Transpose(self.fMat)), self.qMat);
+        const pMatPrediction: [2][2]f32 = mat.addWithCoefficients(2, 2, 1, 1, mat.multiply(2, 2, 2, mat.multiply(2, 2, 2, self.fMat, self.pMat), mat.transpose2D(self.fMat)), self.qMat);
 
         // const headingDerivative = self.track.distanceToHeadingDerivative(xVecPred[0]);
         const hMat: [2][2]f32 = .{
@@ -162,8 +65,8 @@ pub const Controller = struct {
             .{ 0.0, 1.0 },
         };
 
-        const sMat: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, hMat, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat))), self.rMat);
-        const kMat = matMul(2, 2, 2, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat)), mat2Inv(sMat));
+        const sMat: [2][2]f32 = mat.addWithCoefficients(2, 2, 1, 1, mat.multiply(2, 2, 2, hMat, mat.multiply(2, 2, 2, pMatPrediction, mat.transpose2D(hMat))), self.rMat);
+        const kMat = mat.multiply(2, 2, 2, mat.multiply(2, 2, 2, pMatPrediction, mat.transpose2D(hMat)), mat.inverse2D(sMat));
 
         const predictedMeasurements: [2]f32 = xVecPred;
 
@@ -176,7 +79,7 @@ pub const Controller = struct {
         //const yVec: [2]f32 = [2]f32{ trustInAngularRateCorrection * (self.simulation.measuredAngularRate - predictedMeasurements[0]), self.simulation.measuredVelocity - predictedMeasurements[1] };
         
         const yVec: [2]f32 = [2]f32{ self.distanceMeasurementThroughHeading(xVecPred) - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1] };
-        const adjustedYVec = matVecMul(2, 2, kMat, yVec);
+        const adjustedYVec = mat.vectorMultiply(2, 2, kMat, yVec);
 
        //std.debug.print(
        //    "pMat:\n  [{d}, {d}]\n  [{d}, {d}]\n",
@@ -193,7 +96,7 @@ pub const Controller = struct {
             .{ 1.0, 0.0 },
             .{ 0.0, 1.0 },
         };
-        self.pMat = matMul(2, 2, 2, matAddWithCoefficients(2, 2, 1, -1, identity, matMul(2, 2, 2, kMat, hMat)), pMatPrediction);
+        self.pMat = mat.multiply(2, 2, 2, mat.addWithCoefficients(2, 2, 1, -1, identity, mat.multiply(2, 2, 2, kMat, hMat)), pMatPrediction);
         self.heading = self.track.distanceToHeading(self.distance);
     }
 };
