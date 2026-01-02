@@ -53,7 +53,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 1.0, 0.1, 0.1, 0.1, &rng);
+    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 1.0, 0.1, 0.05, 0.0001, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);
