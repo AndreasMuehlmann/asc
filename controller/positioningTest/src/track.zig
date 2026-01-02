@@ -163,6 +163,27 @@ pub const Track = struct {
         return closest.?;
     }
 
+
+    fn euclideanDistance2D(a: TrackPoint, b: TrackPoint) f32 {
+        const diffDistance = a.distance - b.distance;
+        const diffHeading = a.heading - b.heading;
+        return @sqrt(diffDistance * diffDistance + diffHeading * diffHeading);
+    }
+
+    pub fn getClosestPoint(self: Self, point: TrackPoint) TrackPoint {
+        var closest: TrackPoint = self.trackPoints.items[0];
+        for (self.trackPoints.items[1..]) |trackPoint| {
+            const scaling: f32 = 100.0;
+            const pointScaled: TrackPoint = .{.distance = point.distance * scaling, .heading = point.heading};
+            const closestScaled: TrackPoint = .{.distance = closest.distance * scaling, .heading = closest.heading};
+            const trackPointScaled: TrackPoint = .{.distance = trackPoint.distance * scaling, .heading = trackPoint.heading};
+            if (euclideanDistance2D(pointScaled, closestScaled) > euclideanDistance2D(pointScaled, trackPointScaled)) {
+                closest = trackPoint;
+            }
+        }
+        return closest;
+    }
+
     pub fn deinit(self: *Self) void {
         self.trackPoints.deinit(self.allocator);
         self.distancePositions.deinit(self.allocator);

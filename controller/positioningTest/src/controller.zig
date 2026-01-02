@@ -1,6 +1,7 @@
 const std = @import("std");
 const Simulation = @import("simulation.zig").Simulation;
 const Track = @import("track.zig").Track;
+const TrackPoint = @import("track.zig").TrackPoint;
 
 fn matVecMul(
     comptime R: usize,
@@ -132,7 +133,7 @@ pub const Controller = struct {
                 .{ 0.0, 1.0 },
             },
             .qMat = [_][2]f32{
-                .{ 0.01, 0.0 },
+                .{ 0.1, 0.0 },
                 .{ 0.0, 0.01 },
             },
             .rMat = [_][2]f32{
@@ -142,10 +143,11 @@ pub const Controller = struct {
         };
     }
 
-    pub fn stateVectorToMeasurements(self: *Self, xVecPred: [2]f32) [2]f32 {
-        // measurement vector z = [angularRate, velocity]
-        const heading = self.track.distanceToHeading(xVecPred[0]);
-        return [2]f32{ Track.angularDelta(self.heading, heading) / self.simulation.deltaTime, xVecPred[1] };
+    fn distanceMeasurementThroughHeading(self: Self, xVecPred: [2]f32) f32 {
+        const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
+        const closest: TrackPoint = self.track.getClosestPoint(.{.distance = xVecPred[0], .heading = measuredHeading});
+        std.debug.print("cloest point distance: {d}\n", .{closest.distance});
+        return closest.distance;
     }
 
     pub fn update(self: *Self) void {
@@ -154,34 +156,36 @@ pub const Controller = struct {
         xVecPred[0] = @mod(xVecPred[0], self.track.getTrackLength());
         const pMatPrediction: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, matMul(2, 2, 2, self.fMat, self.pMat), mat2Transpose(self.fMat)), self.qMat);
 
-        const headingDerivative = self.track.distanceToHeadingDerivative(xVecPred[0]);
+        // const headingDerivative = self.track.distanceToHeadingDerivative(xVecPred[0]);
         const hMat: [2][2]f32 = .{
-            .{ headingDerivative / self.simulation.deltaTime, headingDerivative },
+            .{ 1.0, 0.0 },
             .{ 0.0, 1.0 },
         };
 
         const sMat: [2][2]f32 = matAddWithCoefficients(2, 2, 1, 1, matMul(2, 2, 2, hMat, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat))), self.rMat);
         const kMat = matMul(2, 2, 2, matMul(2, 2, 2, pMatPrediction, mat2Transpose(hMat)), mat2Inv(sMat));
 
-        const predictedMeasurements: [2]f32 = self.stateVectorToMeasurements(xVecPred);
+        const predictedMeasurements: [2]f32 = xVecPred;
 
         // TODO: make this configurable
-        const deadzone = 10;
+        //const deadzone = 0;
         //const deadzone = 30;
-        const measuredAngularRateWithDeadzone = if (@abs(self.simulation.measuredAngularRate) < deadzone) 0 else @abs(self.simulation.measuredAngularRate) - deadzone;
-        const trustInAngularRateCorrection = 1 - std.math.exp(-measuredAngularRateWithDeadzone / 20);
+        //const measuredAngularRateWithDeadzone = if (@abs(self.simulation.measuredAngularRate) < deadzone) 0 else @abs(self.simulation.measuredAngularRate) - deadzone;
+        //const trustInAngularRateCorrection = 1 - std.math.exp(-measuredAngularRateWithDeadzone / 20);
 
-        const yVec: [2]f32 = [2]f32{ trustInAngularRateCorrection * (self.simulation.measuredAngularRate - predictedMeasurements[0]), self.simulation.measuredVelocity - predictedMeasurements[1] };
+        //const yVec: [2]f32 = [2]f32{ trustInAngularRateCorrection * (self.simulation.measuredAngularRate - predictedMeasurements[0]), self.simulation.measuredVelocity - predictedMeasurements[1] };
+        
+        const yVec: [2]f32 = [2]f32{ self.distanceMeasurementThroughHeading(xVecPred) - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1] };
         const adjustedYVec = matVecMul(2, 2, kMat, yVec);
 
-        std.debug.print(
-            "pMat:\n  [{d}, {d}]\n  [{d}, {d}]\n",
-            .{
-                self.pMat[0][0], self.pMat[0][1],
-                self.pMat[1][0], self.pMat[1][1],
-            },
-        );
-        std.debug.print("adjustedYVec: {d:.2}, {d:.2}; yVec: {d:.2}, {d:.2}\n", .{ adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
+       //std.debug.print(
+       //    "pMat:\n  [{d}, {d}]\n  [{d}, {d}]\n",
+       //    .{
+       //        self.pMat[0][0], self.pMat[0][1],
+       //        self.pMat[1][0], self.pMat[1][1],
+       //    },
+       //);
+        std.debug.print("adjustedYVec: {d:.2}, {d:.2}; yVec: {d:.6}, {d:.2}\n", .{ adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 
