@@ -65,7 +65,7 @@ pub const Track = struct {
         var self: Self = .{
             .allocator = allocator,
             .trackPoints = trackPoints,
-            .distancePositions = try std.ArrayList(DistancePosition).initCapacity(allocator, trackPoints.items.len),
+            .distancePositions = try std.ArrayList(DistancePosition).initCapacity(allocator, @divTrunc(trackPoints.items.len, 2) + 5),
             .kdTree = try KdTree.init(allocator, trackPoints.items)
         };
         std.mem.sort(TrackPoint, trackPoints.items, {},  struct {
