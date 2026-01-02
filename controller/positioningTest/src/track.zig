@@ -1,9 +1,31 @@
 const std = @import("std");
+const kdTreeMod = @import("kdTree");
+
 
 pub const TrackPoint = struct {
     distance: f32,
     heading: f32,
+
+    const Self = @This();
+
+    pub fn distanceNoRoot(self: Self, point: Self) f64 {
+        const distanceDiff = point.distance - self.distance;
+        var headingDiff = Track.angularDistance(point.heading, self.heading);
+        headingDiff *= 0.1;
+        return distanceDiff * distanceDiff + headingDiff * headingDiff;
+    }
+
+    pub fn getDimension(self: Self, dimension: usize) f64 {
+        if (dimension == 0) {
+            return self.distance;
+        } else if (dimension == 1) {
+            return self.heading;
+        }
+        unreachable;
+    }
 };
+
+const KdTree = kdTreeMod.KdTree(TrackPoint, 2);
 
 pub const Position = struct {
     x: f32,
@@ -21,6 +43,7 @@ pub const Track = struct {
     allocator: std.mem.Allocator,
     trackPoints: std.ArrayList(TrackPoint),
     distancePositions: std.ArrayList(DistancePosition),
+    kdTree: KdTree,
 
     pub fn init(allocator: std.mem.Allocator, trackPoints: std.ArrayList(TrackPoint)) !Self {
         if (trackPoints.items.len < 2) {
@@ -42,8 +65,14 @@ pub const Track = struct {
         var self: Self = .{
             .allocator = allocator,
             .trackPoints = trackPoints,
-            .distancePositions = try std.ArrayList(DistancePosition).initCapacity(allocator, 720),
+            .distancePositions = try std.ArrayList(DistancePosition).initCapacity(allocator, trackPoints.items.len),
+            .kdTree = try KdTree.init(allocator, trackPoints.items)
         };
+        std.mem.sort(TrackPoint, trackPoints.items, {},  struct {
+            fn lessThan(_: void, a: TrackPoint, b: TrackPoint) bool {
+                return a.distance < b.distance;
+            }
+        }.lessThan);
         try self.trackPointsToDistancePositions();
         return self;
     }
@@ -163,25 +192,8 @@ pub const Track = struct {
         return closest.?;
     }
 
-
-    fn euclideanDistance2D(a: TrackPoint, b: TrackPoint) f32 {
-        const diffDistance = a.distance - b.distance;
-        const diffHeading = a.heading - b.heading;
-        return @sqrt(diffDistance * diffDistance + diffHeading * diffHeading);
-    }
-
     pub fn getClosestPoint(self: Self, point: TrackPoint) TrackPoint {
-        var closest: TrackPoint = self.trackPoints.items[0];
-        for (self.trackPoints.items[1..]) |trackPoint| {
-            const scaling: f32 = 100.0;
-            const pointScaled: TrackPoint = .{.distance = point.distance * scaling, .heading = point.heading};
-            const closestScaled: TrackPoint = .{.distance = closest.distance * scaling, .heading = closest.heading};
-            const trackPointScaled: TrackPoint = .{.distance = trackPoint.distance * scaling, .heading = trackPoint.heading};
-            if (euclideanDistance2D(pointScaled, closestScaled) > euclideanDistance2D(pointScaled, trackPointScaled)) {
-                closest = trackPoint;
-            }
-        }
-        return closest;
+        return self.kdTree.nearestNeighbor(point).?;
     }
 
     pub fn deinit(self: *Self) void {

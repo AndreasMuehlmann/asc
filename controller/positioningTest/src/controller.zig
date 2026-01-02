@@ -145,8 +145,8 @@ pub const Controller = struct {
 
     fn distanceMeasurementThroughHeading(self: Self, xVecPred: [2]f32) f32 {
         const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
-        const closest: TrackPoint = self.track.getClosestPoint(.{.distance = xVecPred[0], .heading = measuredHeading});
-        std.debug.print("cloest point distance: {d}\n", .{closest.distance});
+        const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
+        const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
         return closest.distance;
     }
 
