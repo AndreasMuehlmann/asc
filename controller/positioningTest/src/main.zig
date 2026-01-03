@@ -30,20 +30,6 @@ pub fn main() !void {
             .heading = @mod(std.math.sin(iF32 / density / 360 * 2 * std.math.pi) * 150 + 360, 360),
         });
     }
-   //for (0..181) |i| {
-   //    const iF32: f32 = @floatFromInt(i);
-   //    try trackPoints.append(allocator, .{
-   //        .distance = iF32 * 0.01,
-   //        .heading = @mod(quadraticEaseOut(iF32), 360),
-   //    });
-   //}
-   //for (0..181) |i| {
-   //    const iF32: f32 = @floatFromInt(i);
-   //    try trackPoints.append(allocator, .{
-   //        .distance =  1.81 + iF32 * 0.01,
-   //        .heading = @mod(trackPoints.items[i].heading + 180, 360),
-   //    });
-   //}
     var track = try Track.init(allocator, trackPoints);
     defer track.deinit();
 
@@ -81,6 +67,9 @@ pub fn main() !void {
     var distanceWithHeadings = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10);
     defer distanceWithHeadings.deinit(allocator);
 
+   //var movedTrackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 10);
+   //defer movedTrackPoints.deinit(allocator);
+
     while (true) {
         std.debug.print("trackLength: {d}\n", .{track.getTrackLength()});
         gui.update() catch |err| switch (err) {
@@ -112,6 +101,19 @@ pub fn main() !void {
             try distanceWithHeadings.append(allocator, rl.Vector2.init(trackPoint.distance + controller.icpOffset, trackPoint.heading));
         }
         gui.prevPointsIcp = distanceWithHeadings.items;
+        
+        //Raw ICP test
+       //movedTrackPoints.clearRetainingCapacity();
+       //for (track.trackPoints.items) |trackPoint| {
+       //    try movedTrackPoints.append(allocator, .{ .distance = trackPoint.distance + 10.0, .heading = trackPoint.heading });
+       //}
+       //const offset = track.getOffsetIcp(movedTrackPoints.items);
+       //
+       //distanceWithHeadings.clearRetainingCapacity();
+       //for (movedTrackPoints.items) |trackPoint| {
+       //    try distanceWithHeadings.append(allocator, rl.Vector2.init(trackPoint.distance + offset, trackPoint.heading));
+       //}
+       //gui.prevPointsIcp = distanceWithHeadings.items;
         
         //std.debug.print("time: {d:.2}, controller: distance: {d}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
 

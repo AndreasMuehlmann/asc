@@ -72,8 +72,6 @@ Vision:
 
 ## TODO
 
-
-- Simulation icp: not even sure about icpOffset sign
 - Use Vec2D every where
 - Controller: Endmapping fails
 - Controller: Not only sending commands from client to sever but also from server to client to for example reset the track map

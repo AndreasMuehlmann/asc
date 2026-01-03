@@ -65,16 +65,17 @@ pub const Controller = struct {
     }
 
     fn updateIcpSource(self: *Self, distancePrediction: f32) void {
-        // dont take an old distance and go forward because that causes delay, use the current distance and go backwards
         var prevHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
+        var prevAngularRate = self.simulation.measuredAngularRate;
         self.icpSource[self.prevDistances.len] = .{ .distance = distancePrediction, .heading = prevHeading };
         for (0..self.prevDistances.len) |i| {
             const reverseIndex = self.prevDistances.len - i - 1;
             const distance = self.prevDistances.get(reverseIndex);
             const angularRate = self.prevAngularRates.get(reverseIndex);
-            const heading = @mod(prevHeading + -angularRate * self.simulation.deltaTime, 360);
+            const heading = @mod(prevHeading + -(angularRate + prevAngularRate) / 2 * self.simulation.deltaTime, 360);
             self.icpSource[reverseIndex] = .{.distance = distance, .heading = heading};
             prevHeading = heading;
+            prevAngularRate = angularRate;
         }
         self.icpSourceLen = self.prevDistances.len + 1;
        //std.debug.print("TrackPoints: ", .{});
@@ -90,7 +91,7 @@ pub const Controller = struct {
     }
 
     fn distanceMeasurementThroughHeading(self: *Self, xVecPred: [2]f32) f32 {
-        self.icpOffset = -self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
+        self.icpOffset = self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
         const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
         const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
