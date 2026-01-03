@@ -18,7 +18,7 @@ pub const Controller = struct {
     icpSourceLen: usize,
     icpOffset: f32,
     prevDistances: RingBuffer(f32),
-    prevAngularRates: RingBuffer(f32),
+    prevHeadings: RingBuffer(f32),
     distance: f32,
     velocity: f32,
     heading: f32,
@@ -30,8 +30,8 @@ pub const Controller = struct {
     pub fn init(allocator: std.mem.Allocator, simulation: *Simulation, track: *Track) !Self {
         var prevDistances = try RingBuffer(f32).init(allocator, icpPointCount - 1);
         prevDistances.append(0.0);
-        var prevAngularRates = try RingBuffer(f32).init(allocator, icpPointCount - 1);
-        prevAngularRates.append(simulation.angularRate);
+        var prevHeadings = try RingBuffer(f32).init(allocator, icpPointCount - 1);
+        prevHeadings.append(0.0);
         return .{
             .allocator = allocator,
             .simulation = simulation,
@@ -40,7 +40,7 @@ pub const Controller = struct {
             .icpSourceLen = 0,
             .icpOffset = 0.0,
             .prevDistances = prevDistances,
-            .prevAngularRates = prevAngularRates,
+            .prevHeadings = prevHeadings,
             .distance = simulation.distance,
             .velocity = simulation.velocity,
             .heading = simulation.heading,
@@ -65,17 +65,10 @@ pub const Controller = struct {
     }
 
     fn updateIcpSource(self: *Self, distancePrediction: f32) void {
-        var prevHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
-        var prevAngularRate = self.simulation.measuredAngularRate;
-        self.icpSource[self.prevDistances.len] = .{ .distance = distancePrediction, .heading = prevHeading };
+        const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
+        self.icpSource[self.prevDistances.len] = .{ .distance = distancePrediction, .heading = measuredHeading };
         for (0..self.prevDistances.len) |i| {
-            const reverseIndex = self.prevDistances.len - i - 1;
-            const distance = self.prevDistances.get(reverseIndex);
-            const angularRate = self.prevAngularRates.get(reverseIndex);
-            const heading = @mod(prevHeading + -(angularRate + prevAngularRate) / 2 * self.simulation.deltaTime, 360);
-            self.icpSource[reverseIndex] = .{.distance = distance, .heading = heading};
-            prevHeading = heading;
-            prevAngularRate = angularRate;
+            self.icpSource[i] = .{.distance = self.prevDistances.get(i), .heading = self.prevHeadings.get(i)};
         }
         self.icpSourceLen = self.prevDistances.len + 1;
        //std.debug.print("TrackPoints: ", .{});
@@ -87,7 +80,7 @@ pub const Controller = struct {
 
     fn updateRingBuffers(self: *Self) void {
         self.prevDistances.append(self.distance);
-        self.prevAngularRates.append(self.simulation.measuredAngularRate);
+        self.prevHeadings.append(self.heading);
     }
 
     fn distanceMeasurementThroughHeading(self: *Self, xVecPred: [2]f32) f32 {
@@ -98,7 +91,7 @@ pub const Controller = struct {
         const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
         std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, closest.distance - icpDistanceGuess});
         if (self.prevDistances.len == self.prevDistances.capacity) {
-            return 0.5 * icpDistanceGuess + 0.5 * closest.distance;
+            return 0.0 * icpDistanceGuess + 1.0 * closest.distance;
         }
         return closest.distance;
     }
