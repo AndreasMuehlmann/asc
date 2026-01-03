@@ -1,31 +1,9 @@
 const std = @import("std");
+const TrackPoint = @import("trackPoint.zig").TrackPoint;
 const kdTreeMod = @import("kdTree");
-
-
-pub const TrackPoint = struct {
-    distance: f32,
-    heading: f32,
-
-    const Self = @This();
-
-    pub fn distanceNoRoot(self: Self, point: Self) f64 {
-        const distanceDiff = point.distance - self.distance;
-        var headingDiff = Track.angularDistance(point.heading, self.heading);
-        headingDiff *= 0.1;
-        return distanceDiff * distanceDiff + headingDiff * headingDiff;
-    }
-
-    pub fn getDimension(self: Self, dimension: usize) f64 {
-        if (dimension == 0) {
-            return self.distance;
-        } else if (dimension == 1) {
-            return self.heading;
-        }
-        unreachable;
-    }
-};
-
 const KdTree = kdTreeMod.KdTree(TrackPoint, 2);
+const icpMod = @import("icp");
+const Icp = icpMod.Icp(TrackPoint);
 
 pub const Position = struct {
     x: f32,
@@ -66,7 +44,7 @@ pub const Track = struct {
             .allocator = allocator,
             .trackPoints = trackPoints,
             .distancePositions = try std.ArrayList(DistancePosition).initCapacity(allocator, @divTrunc(trackPoints.items.len, 2) + 5),
-            .kdTree = try KdTree.init(allocator, trackPoints.items)
+            .kdTree = try KdTree.init(allocator, trackPoints.items),
         };
         std.mem.sort(TrackPoint, trackPoints.items, {},  struct {
             fn lessThan(_: void, a: TrackPoint, b: TrackPoint) bool {
@@ -138,6 +116,7 @@ pub const Track = struct {
         return self.trackPoints.items[self.trackPoints.items.len - 1].distance;
     }
 
+    // TODO: maybe use binary search
     pub fn distanceToHeading(self: Self, distance: f32) f32 {
         const lastPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
         if (distance > lastPoint.distance) {
@@ -181,12 +160,12 @@ pub const Track = struct {
         @panic("distance could not be converted to position");
     }
 
-    fn minDifferenceDistances(self: Self, a: f32, b: f32) f32 {
+    pub fn minDifferenceDistances(self: Self, a: f32, b: f32) f32 {
         const d = @abs(a - b);
         return @min(d, @max(0, self.getTrackLength() - d));
     }
 
-    fn angularDistance(a: f32, b: f32) f32 {
+    pub fn angularDistance(a: f32, b: f32) f32 {
         const d = @abs(a - b);
         return @min(d, 360.0 - d);
     }
@@ -233,6 +212,11 @@ pub const Track = struct {
 
     pub fn getClosestPoint(self: Self, point: TrackPoint) TrackPoint {
         return self.kdTree.nearestNeighbor(point).?;
+    }
+
+    pub fn getOffsetIcp(self: Self, points: []TrackPoint) f32 {
+        const icp = Icp.init(points, &self.kdTree, 10);
+        return @floatCast(icp.icp());
     }
 
     pub fn deinit(self: *Self) void {

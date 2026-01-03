@@ -28,7 +28,7 @@ pub fn Icp(comptime pointT: type) type {
 
         const Self = @This();
 
-        pub fn init(source: []const pointT, destination: *const KdTree, iterations: usize) !Self {
+        pub fn init(source: []const pointT, destination: *const KdTree, iterations: usize) Self {
             return .{
                 .source = source,
                 .destination = destination,

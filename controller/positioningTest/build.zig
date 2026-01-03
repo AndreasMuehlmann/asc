@@ -16,6 +16,7 @@ pub fn build(b: *std.Build) void {
     const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("../kdTree/kdTree.zig") });
     exe.root_module.addImport("kdTree", kdTreeModule);
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("../icp/icp.zig") });
+    icpModule.addImport("kdTree", kdTreeModule);
     exe.root_module.addImport("icp", icpModule);
 
     const run_step = b.step("run", "Run the app");

@@ -1,9 +1,8 @@
 const std = @import("std");
 
-const t = @import("track.zig");
-const Track = t.Track;
-const TrackPoint = t.TrackPoint;
-const Position = t.Position;
+const Track = @import("track.zig").Track;
+const TrackPoint = @import("trackPoint.zig").TrackPoint;
+const Position = @import("track.zig").Position;
 const Simulation = @import("simulation.zig").Simulation;
 const Controller = @import("controller.zig").Controller;
 
@@ -21,7 +20,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const pointCount: usize = 721;
-    const density: f32 = 10.0;
+    const density: f32 = 1.0;
     const densityUsize: usize = @intFromFloat(density);
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
     for (0..pointCount * densityUsize + 1) |i| {
@@ -56,7 +55,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.01, 0.01, 0.001, 0.001, &rng);
+    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.01, 0.01, 0.001, 0.1, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);
@@ -65,7 +64,7 @@ pub fn main() !void {
     }
     try gui.addPoints("Track", "Track", positions);
 
-    var controller: Controller = Controller.init(&simulation, &track);
+    var controller: Controller = try Controller.init(allocator, &simulation, &track);
 
     while (true) {
         //std.debug.print("update\n", .{});
