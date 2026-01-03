@@ -24,6 +24,8 @@ pub const Gui = struct {
     allocator: std.mem.Allocator,
     plots: []Plot,
     trackMapPlot: TrackMapPlot,
+    tangents: []PositionAndHeading,
+    tangentsIcp: []PositionAndHeading,
     carPositionAndHeading: ?PositionAndHeading,
     // only simulation
     actualCarPositionAndHeading: ?PositionAndHeading,
@@ -58,7 +60,7 @@ pub const Gui = struct {
 
         const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
-        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null };
+        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null, .tangents = &.{}, .tangentsIcp = &.{} };
     }
 
     pub fn update(self: *Self) !void {
@@ -92,6 +94,42 @@ pub const Gui = struct {
                 .{ .x = 39.0 / 2.0, .y = 0.0 },
                 carPositionAndHeading.heading - 90.0,
                 rl.Color.red,
+            );
+        }
+
+        for (self.tangents) |tangent| {
+            const direction = rl.Vector2.init(@cos(std.math.degreesToRadians(tangent.heading)), @sin(std.math.degreesToRadians(tangent.heading)));
+            const positionInPlot = self.trackMapPlot.plot.toGlobal(tangent.position);
+            const factor = 50.0;
+
+            rl.drawLineV(
+                positionInPlot.subtract(direction.scale(factor)),
+                positionInPlot.add(direction.scale(factor)),
+                rl.Color.red,
+            );
+        }
+        for (self.tangentsIcp) |tangent| {
+            const direction = rl.Vector2.init(@cos(std.math.degreesToRadians(tangent.heading)), @sin(std.math.degreesToRadians(tangent.heading)));
+            const positionInPlot = self.trackMapPlot.plot.toGlobal(tangent.position);
+            const factor = 50.0;
+
+            rl.drawLineV(
+                positionInPlot.subtract(direction.scale(factor)),
+                positionInPlot.add(direction.scale(factor)),
+                rl.Color.blue,
+            );
+        }
+
+        if (self.tangentsIcp.len != 0) {
+            const tangent = self.tangentsIcp[self.tangentsIcp.len - 1];
+            const positionInPlot = self.trackMapPlot.plot.toGlobal(tangent.position);
+            drawOrientedRectOutline(
+                positionInPlot,
+                39.0,
+                49.0,
+                .{ .x = 39.0 / 2.0, .y = 0.0 },
+                tangent.heading - 90.0,
+                rl.Color.dark_blue,
             );
         }
     }

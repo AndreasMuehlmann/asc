@@ -215,7 +215,7 @@ pub const Track = struct {
     }
 
     pub fn getOffsetIcp(self: Self, points: []TrackPoint) f32 {
-        const icp = Icp.init(points, &self.kdTree, 10);
+        const icp = Icp.init(points, &self.kdTree, 3);
         return @floatCast(icp.icp());
     }
 

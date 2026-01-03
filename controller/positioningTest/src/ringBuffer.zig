@@ -1,35 +1,42 @@
-pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
+const std = @import("std");
+
+pub fn RingBuffer(comptime T: type) type {
     return struct {
-        var array: [capacity]T = undefined;
         const Self = @This();
 
         start: usize,
-        items: []T,
+        len: usize,
         capacity: usize,
+        buffer: []T,
 
-        pub fn init() Self {
+        pub fn init(allocator: std.mem.Allocator, capacity: usize) !Self {
             return .{
                 .start = 0,
-                .items = array[0..0],
+                .len = 0,
                 .capacity = capacity,
+                .buffer = try allocator.alloc(T, capacity),
             }; 
         }
         
         pub fn append(self: *Self, element: T) void {
-            if (self.items.len >= capacity) {
-                self.items[self.start] = element;
-                self.start = (self.start + 1) % capacity;
+            if (self.len >= self.capacity) {
+                self.buffer[self.start] = element;
+                self.start = (self.start + 1) % self.capacity;
                 return;
             }
-            self.items = array[0..self.items.len + 1];
-            self.items[self.items.len - 1] = element;
+            self.buffer[(self.start + self.len) % self.capacity] = element;
+            self.len += 1;
         }
 
         pub fn get(self: *Self, index: usize) T {
-            if (index >= self.items.len) {
+            if (index >= self.len) {
                 @panic("Index out of bounds");
             }
-            return self.items[(self.start + index) % self.capacity];
+            return self.buffer[(self.start + index) % self.capacity];
+        }
+
+        pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+            allocator.free(self.buffer);
         }
     };
 }

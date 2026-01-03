@@ -20,7 +20,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const pointCount: usize = 721;
-    const density: f32 = 1.0;
+    const density: f32 = 10.0;
     const densityUsize: usize = @intFromFloat(density);
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
     for (0..pointCount * densityUsize + 1) |i| {
@@ -66,10 +66,30 @@ pub fn main() !void {
 
     var controller: Controller = try Controller.init(allocator, &simulation, &track);
 
+    var positionsWithHeadings = try std.ArrayList(guiApi.PositionAndHeading).initCapacity(allocator, 10);
+    defer positionsWithHeadings.deinit(allocator);
+
+    var positionsWithHeadingsIcp = try std.ArrayList(guiApi.PositionAndHeading).initCapacity(allocator, 10);
+    defer positionsWithHeadingsIcp.deinit(allocator);
+
     while (true) {
         //std.debug.print("update\n", .{});
         simulation.update();
         controller.update();
+        positionsWithHeadings.clearRetainingCapacity();
+        for (controller.icpSource[0..controller.icpSourceLen]) |trackPoint| {
+            const position = track.distanceToPosition(trackPoint.distance);
+            try positionsWithHeadings.append(allocator, .{ .position = rl.Vector2.init(position.x, position.y), .heading = trackPoint.heading });
+        }
+        gui.tangents = positionsWithHeadings.items;
+
+        positionsWithHeadingsIcp.clearRetainingCapacity();
+        for (controller.icpSource[0..controller.icpSourceLen]) |trackPoint| {
+            const position = track.distanceToPosition(@mod(trackPoint.distance + controller.icpOffset, track.getTrackLength()));
+            try positionsWithHeadingsIcp.append(allocator, .{ .position = rl.Vector2.init(position.x, position.y), .heading = trackPoint.heading });
+        }
+        gui.tangentsIcp = positionsWithHeadingsIcp.items;
+        
         //std.debug.print("time: {d:.2}, controller: distance: {d}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
 
         const actualCarPosition: Position = track.distanceToPosition(simulation.distance);

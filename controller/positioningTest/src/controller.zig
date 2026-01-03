@@ -11,11 +11,14 @@ pub const Controller = struct {
     const Self = @This();
     const icpPointCount: usize = 100;
 
+    allocator: std.mem.Allocator,
     simulation: *Simulation,
     track: *Track,
-    icpSource: std.ArrayListUnmanaged(TrackPoint),
-    prevDistances: RingBuffer(f32, icpPointCount),
-    prevAngularRates: RingBuffer(f32, icpPointCount - 1),
+    icpSource: []TrackPoint,
+    icpSourceLen: usize,
+    icpOffset: f32,
+    prevDistances: RingBuffer(f32),
+    prevAngularRates: RingBuffer(f32),
     distance: f32,
     velocity: f32,
     heading: f32,
@@ -25,16 +28,17 @@ pub const Controller = struct {
     rMat: [2][2]f32,
 
     pub fn init(allocator: std.mem.Allocator, simulation: *Simulation, track: *Track) !Self {
-        var prevDistances = RingBuffer(f32, icpPointCount).init();
+        var prevDistances = try RingBuffer(f32).init(allocator, icpPointCount - 1);
         prevDistances.append(0.0);
-        const prevAngularRates = RingBuffer(f32, icpPointCount - 1).init();
-
-        var icpSource = try std.ArrayListUnmanaged(TrackPoint).initCapacity(allocator, icpPointCount);
-        icpSource.appendAssumeCapacity(track.trackPoints.items[0]);
+        var prevAngularRates = try RingBuffer(f32).init(allocator, icpPointCount - 1);
+        prevAngularRates.append(simulation.angularRate);
         return .{
+            .allocator = allocator,
             .simulation = simulation,
             .track = track,
-            .icpSource = try std.ArrayListUnmanaged(TrackPoint).initCapacity(allocator, icpPointCount),
+            .icpSource = try allocator.alloc(TrackPoint, icpPointCount),
+            .icpSourceLen = 0,
+            .icpOffset = 0.0,
             .prevDistances = prevDistances,
             .prevAngularRates = prevAngularRates,
             .distance = simulation.distance,
@@ -62,16 +66,17 @@ pub const Controller = struct {
 
     fn updateIcpSource(self: *Self, distancePrediction: f32) void {
         // dont take an old distance and go forward because that causes delay, use the current distance and go backwards
-        self.icpSource.clearRetainingCapacity();
-        var prevHeading = self.track.distanceToHeading(self.prevDistances.get(0));
-        for (0..self.prevDistances.items.len - 1) |i| {
-            const distance = self.prevDistances.get(i + 1);
-            const angularRate = self.prevAngularRates.get(i);
-            const heading = prevHeading + angularRate * self.simulation.deltaTime;
-            self.icpSource.appendAssumeCapacity(.{.distance = distance, .heading = heading});
+        var prevHeading = self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime;
+        self.icpSource[self.prevDistances.len] = .{ .distance = distancePrediction, .heading = prevHeading };
+        for (0..self.prevDistances.len) |i| {
+            const reverseIndex = self.prevDistances.len - i - 1;
+            const distance = self.prevDistances.get(reverseIndex);
+            const angularRate = self.prevAngularRates.get(reverseIndex);
+            const heading = prevHeading + -angularRate * self.simulation.deltaTime;
+            self.icpSource[reverseIndex] = .{.distance = distance, .heading = heading};
             prevHeading = heading;
         }
-        self.icpSource.appendAssumeCapacity(.{ .distance = distancePrediction, .heading = prevHeading + self.simulation.measuredAngularRate * self.simulation.deltaTime });
+        self.icpSourceLen = self.prevDistances.len + 1;
        //std.debug.print("TrackPoints: ", .{});
        //for (self.icpSource.items) |trackPoint| {
        //    std.debug.print("d {d:.2}, h {d:.2}; ", .{trackPoint.distance, trackPoint.heading});
@@ -84,14 +89,14 @@ pub const Controller = struct {
         self.prevAngularRates.append(self.simulation.measuredAngularRate);
     }
 
-    fn distanceMeasurementThroughHeading(self: Self, xVecPred: [2]f32) f32 {
-        const icpOffset = self.track.getOffsetIcp(self.icpSource.items);
-        const icpDistanceGuess = xVecPred[0] + icpOffset;
+    fn distanceMeasurementThroughHeading(self: *Self, xVecPred: [2]f32) f32 {
+        self.icpOffset = self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
         const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
         const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
-        std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{icpOffset, icpDistanceGuess, closest.distance, @abs(closest.distance - icpDistanceGuess)});
-       //if (self.prevDistances.items.len == self.prevDistances.capacity) {
+       //const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
+       //std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, @abs(closest.distance - icpDistanceGuess)});
+       //if (self.prevDistances.len == self.prevDistances.capacity) {
        //    return icpDistanceGuess;
        //}
         return closest.distance;
@@ -136,5 +141,11 @@ pub const Controller = struct {
         self.heading = self.track.distanceToHeading(self.distance);
 
         self.updateRingBuffers();
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.allocator.free(self.icpSource);
+        self.prevDistances.deinit(self.allocator);
+        self.prevAngularRates.deinit(self.allocator);
     }
 };
