@@ -53,7 +53,7 @@ pub const TrackMapPlot = struct {
             src,
             dst,
             origin,
-            heading - 90.0,
+            self.plot.headingToGlobal(heading - 90.0),
             rl.Color.white,
         );
     }

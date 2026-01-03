@@ -21,8 +21,15 @@ pub const TrackPoint = struct {
         return @floatCast(self.heading);
     }
 
+
+    // TODO: distanceNoRoot has to know the trackLength
+    pub fn minDifferenceDistances(a: f32, b: f32) f32 {
+        const d = @abs(a - b);
+        return @min(d, @max(0, 7.21 - d));
+    }
+
     pub fn distanceNoRoot(self: Self, point: Self) f64 {
-        const distanceDiff = point.distance - self.distance;
+        const distanceDiff = minDifferenceDistances(point.distance, self.distance);
         var headingDiff = Track.angularDistance(point.heading, self.heading);
         headingDiff *= 0.1;
         return distanceDiff * distanceDiff + headingDiff * headingDiff;

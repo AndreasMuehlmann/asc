@@ -88,6 +88,12 @@ pub const Plot = struct {
         self.scaling = .{ .x = self.sizePlot.x / (self.maxCoord.x - self.minCoord.x), .y = self.sizePlot.y / (self.maxCoord.y - self.minCoord.y) };
     }
 
+    pub fn headingToGlobal(self: Self, heading: f32) f32 {
+        const dx = std.math.cos(std.math.degreesToRadians(heading)) / self.scaling.x;
+        const dy = std.math.sin(std.math.degreesToRadians(heading)) / self.scaling.y;
+        return std.math.radiansToDegrees(std.math.atan2(dy, dx));
+    }
+
     pub fn toGlobal(self: Self, point: rl.Vector2) rl.Vector2 {
         return .{
             .x = self.topLeftPlot.x + (point.x - self.minCoord.x) * self.scaling.x,

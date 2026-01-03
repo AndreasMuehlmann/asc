@@ -66,13 +66,13 @@ pub const Controller = struct {
 
     fn updateIcpSource(self: *Self, distancePrediction: f32) void {
         // dont take an old distance and go forward because that causes delay, use the current distance and go backwards
-        var prevHeading = self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime;
+        var prevHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
         self.icpSource[self.prevDistances.len] = .{ .distance = distancePrediction, .heading = prevHeading };
         for (0..self.prevDistances.len) |i| {
             const reverseIndex = self.prevDistances.len - i - 1;
             const distance = self.prevDistances.get(reverseIndex);
             const angularRate = self.prevAngularRates.get(reverseIndex);
-            const heading = prevHeading + -angularRate * self.simulation.deltaTime;
+            const heading = @mod(prevHeading + -angularRate * self.simulation.deltaTime, 360);
             self.icpSource[reverseIndex] = .{.distance = distance, .heading = heading};
             prevHeading = heading;
         }
@@ -90,15 +90,15 @@ pub const Controller = struct {
     }
 
     fn distanceMeasurementThroughHeading(self: *Self, xVecPred: [2]f32) f32 {
-        self.icpOffset = self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
+        self.icpOffset = -self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
         const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
         const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
-       //const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
-       //std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, @abs(closest.distance - icpDistanceGuess)});
-       //if (self.prevDistances.len == self.prevDistances.capacity) {
-       //    return icpDistanceGuess;
-       //}
+        const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
+        std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, closest.distance - icpDistanceGuess});
+        if (self.prevDistances.len == self.prevDistances.capacity) {
+            return 0.5 * icpDistanceGuess + 0.5 * closest.distance;
+        }
         return closest.distance;
     }
 

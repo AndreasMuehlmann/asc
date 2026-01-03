@@ -24,10 +24,14 @@ pub const Gui = struct {
     allocator: std.mem.Allocator,
     plots: []Plot,
     trackMapPlot: TrackMapPlot,
+    carDistanceAndHeading: ?rl.Vector2,
+    prevPointsIcp: []rl.Vector2,
+    carPositionAndHeading: ?PositionAndHeading,
+
+    // only simulation
+    paused: bool,
     tangents: []PositionAndHeading,
     tangentsIcp: []PositionAndHeading,
-    carPositionAndHeading: ?PositionAndHeading,
-    // only simulation
     actualCarPositionAndHeading: ?PositionAndHeading,
 
     pub fn init(allocator: std.mem.Allocator) !Self {
@@ -45,22 +49,22 @@ pub const Gui = struct {
         rl.setTargetFPS(60);
         rl.setWindowMinSize(800, 800);
 
-        var dataSetsYaw = try allocator.alloc(DataSet, 1);
-        dataSetsYaw[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Heading", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
+        var dataSetsTrackDistance = try allocator.alloc(DataSet, 1);
+        dataSetsTrackDistance[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "TrackDistance", .color = rl.Color.dark_blue, .lineWidth = 3.0 };
 
-        var dataSetsVelocity = try allocator.alloc(DataSet, 1);
-        dataSetsVelocity[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Velocity", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
+       //var dataSetsVelocity = try allocator.alloc(DataSet, 1);
+       //dataSetsVelocity[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Velocity", .color = rl.Color.dark_purple, .lineWidth = 2.0 };
 
         var dataSetsTrack = try allocator.alloc(DataSet, 1);
         dataSetsTrack[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Track", .color = rl.Color.pink, .lineWidth = 3.0 };
 
-        const plots = try allocator.alloc(Plot, 2);
-       //plots[0] = Plot.init(allocator, "Heading", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
+        const plots = try allocator.alloc(Plot, 1);
+        plots[0] = Plot.init(allocator, "TrackDistance", "Distance in m", rl.Color.black, false, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrackDistance);
        //plots[1] = Plot.init(allocator, "Velocity", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsVelocity);
 
-        const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 1.0), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
+        const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(1.0, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
-        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null, .tangents = &.{}, .tangentsIcp = &.{} };
+        return .{ .allocator = allocator, .plots = plots, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null, .actualCarPositionAndHeading = null, .carDistanceAndHeading = null, .prevPointsIcp = &.{}, .tangents = &.{}, .tangentsIcp = &.{}, .paused = false, };
     }
 
     pub fn update(self: *Self) !void {
@@ -69,15 +73,18 @@ pub const Gui = struct {
         if (rl.windowShouldClose()) {
             return GuiError.Quit;
         }
+        if (rl.isKeyPressed(.p)) {
+            self.paused = !self.paused;
+        }
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.white);
 
-       //for (0..self.plots.len) |i| {
-       //    self.plots[i].resize(windowWidth, windowHeight);
-       //    try self.plots[i].draw();
-       //}
+        for (0..self.plots.len) |i| {
+            self.plots[i].resize(windowWidth, windowHeight);
+            try self.plots[i].draw();
+        }
 
         self.trackMapPlot.resize(windowWidth, windowHeight);
         try self.trackMapPlot.draw();
@@ -92,30 +99,32 @@ pub const Gui = struct {
                 39.0,
                 49.0,
                 .{ .x = 39.0 / 2.0, .y = 0.0 },
-                carPositionAndHeading.heading - 90.0,
+                self.trackMapPlot.plot.headingToGlobal(carPositionAndHeading.heading - 90.0),
                 rl.Color.red,
             );
         }
 
         for (self.tangents) |tangent| {
-            const direction = rl.Vector2.init(@cos(std.math.degreesToRadians(tangent.heading)), @sin(std.math.degreesToRadians(tangent.heading)));
-            const positionInPlot = self.trackMapPlot.plot.toGlobal(tangent.position);
-            const factor = 50.0;
+            const direction = rl.Vector2.init(-@cos(std.math.degreesToRadians(tangent.heading)), @sin(std.math.degreesToRadians(tangent.heading)));
+            const factor = 0.1;
+            const fromInPlot = self.trackMapPlot.plot.toGlobal(tangent.position.subtract(direction.scale(factor)));
+            const toInPlot = self.trackMapPlot.plot.toGlobal(tangent.position.add(direction.scale(factor)));
 
             rl.drawLineV(
-                positionInPlot.subtract(direction.scale(factor)),
-                positionInPlot.add(direction.scale(factor)),
+                fromInPlot,
+                toInPlot,
                 rl.Color.red,
             );
         }
         for (self.tangentsIcp) |tangent| {
-            const direction = rl.Vector2.init(@cos(std.math.degreesToRadians(tangent.heading)), @sin(std.math.degreesToRadians(tangent.heading)));
-            const positionInPlot = self.trackMapPlot.plot.toGlobal(tangent.position);
-            const factor = 50.0;
+            const direction = rl.Vector2.init(-@cos(std.math.degreesToRadians(tangent.heading)), @sin(std.math.degreesToRadians(tangent.heading)));
+            const factor = 0.1;
+            const fromInPlot = self.trackMapPlot.plot.toGlobal(tangent.position.subtract(direction.scale(factor)));
+            const toInPlot = self.trackMapPlot.plot.toGlobal(tangent.position.add(direction.scale(factor)));
 
             rl.drawLineV(
-                positionInPlot.subtract(direction.scale(factor)),
-                positionInPlot.add(direction.scale(factor)),
+                fromInPlot,
+                toInPlot,
                 rl.Color.blue,
             );
         }
@@ -128,9 +137,19 @@ pub const Gui = struct {
                 39.0,
                 49.0,
                 .{ .x = 39.0 / 2.0, .y = 0.0 },
-                tangent.heading - 90.0,
+                self.trackMapPlot.plot.headingToGlobal(tangent.heading - 90.0),
                 rl.Color.dark_blue,
             );
+        }
+
+        if (self.carDistanceAndHeading) |distanceAndHeading| {
+            const positionInPlot = self.plots[0].toGlobal(distanceAndHeading);
+            rl.drawCircleV(positionInPlot, 5.0, rl.Color.red);
+        }
+
+        for (self.prevPointsIcp) |point| {
+            const positionInPlot = self.plots[0].toGlobal(point);
+            rl.drawCircleV(positionInPlot, 3.0, rl.Color.purple);
         }
     }
     // only simulation
