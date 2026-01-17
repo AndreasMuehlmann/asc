@@ -41,7 +41,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 0.5, 0.01, 0.01, 0.01, 0.001, 0.1, &rng);
+    var simulation = Simulation.init(&track, 0.0, 1.0, 0.01, 0.01, 0.01, 0.001, 0.1, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);
@@ -58,20 +58,12 @@ pub fn main() !void {
 
     var controller: Controller = try Controller.init(allocator, &simulation, &track);
 
-    var positionsWithHeadings = try std.ArrayList(guiApi.PositionAndHeading).initCapacity(allocator, 10);
-    defer positionsWithHeadings.deinit(allocator);
-
-    var positionsWithHeadingsIcp = try std.ArrayList(guiApi.PositionAndHeading).initCapacity(allocator, 10);
-    defer positionsWithHeadingsIcp.deinit(allocator);
-
     var distanceWithHeadings = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10);
     defer distanceWithHeadings.deinit(allocator);
 
-   //var movedTrackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 10);
-   //defer movedTrackPoints.deinit(allocator);
+    var headingError: f32 = 0.0;
 
     while (true) {
-        std.debug.print("trackLength: {d}\n", .{track.getTrackLength()});
         gui.update() catch |err| switch (err) {
             guiApi.GuiError.Quit => return,
             else => return err,
@@ -80,50 +72,25 @@ pub fn main() !void {
             std.Thread.sleep(@intFromFloat(simulation.deltaTime * 1_000_000_000));
             continue;
         }
+        const prevHeading = simulation.heading;
         simulation.update();
         controller.update();
-        positionsWithHeadings.clearRetainingCapacity();
-        for (controller.icpSource[0..controller.icpSourceLen]) |trackPoint| {
-            const position = track.distanceToPosition(trackPoint.distance);
-            try positionsWithHeadings.append(allocator, .{ .position = rl.Vector2.init(position.x, position.y), .heading = trackPoint.heading });
-        }
-        gui.tangents = positionsWithHeadings.items;
 
-        positionsWithHeadingsIcp.clearRetainingCapacity();
-        for (controller.icpSource[0..controller.icpSourceLen]) |trackPoint| {
-            const position = track.distanceToPosition(@mod(trackPoint.distance + controller.icpOffset, track.getTrackLength()));
-            try positionsWithHeadingsIcp.append(allocator, .{ .position = rl.Vector2.init(position.x, position.y), .heading = trackPoint.heading });
-        }
-        gui.tangentsIcp = positionsWithHeadingsIcp.items;
-
+        //const decay = 1 - (factor1 * velocity / (10 * maxVelocity) + factor2 * pwm / (10 * maxPwm)) + factor3
+        const decay = 0.95;
+        headingError = (headingError + Track.angularDelta(prevHeading, simulation.heading)) * decay;
         distanceWithHeadings.clearRetainingCapacity();
         for (controller.icpSource[0..controller.icpSourceLen]) |trackPoint| {
-            try distanceWithHeadings.append(allocator, rl.Vector2.init(trackPoint.distance + controller.icpOffset, trackPoint.heading));
+            try distanceWithHeadings.append(allocator, rl.Vector2.init(trackPoint.distance, trackPoint.heading));
         }
         gui.prevPointsIcp = distanceWithHeadings.items;
         
-        //Raw ICP test
-       //movedTrackPoints.clearRetainingCapacity();
-       //for (track.trackPoints.items) |trackPoint| {
-       //    try movedTrackPoints.append(allocator, .{ .distance = trackPoint.distance + 10.0, .heading = trackPoint.heading });
-       //}
-       //const offset = track.getOffsetIcp(movedTrackPoints.items);
-       //
-       //distanceWithHeadings.clearRetainingCapacity();
-       //for (movedTrackPoints.items) |trackPoint| {
-       //    try distanceWithHeadings.append(allocator, rl.Vector2.init(trackPoint.distance + offset, trackPoint.heading));
-       //}
-       //gui.prevPointsIcp = distanceWithHeadings.items;
-        
-        //std.debug.print("time: {d:.2}, controller: distance: {d}, velocity: {d:.2}, heading: {d:.2}, distance: {d:.2}, heading: {d:.2}, measuredAngularRate: {d:.2}, measuredVelocity: {d:.2}\n", .{simulation.time, controller.distance, controller.velocity, controller.heading, simulation.distance, simulation.heading, simulation.measuredAngularRate, simulation.measuredVelocity});
-
         const actualCarPosition: Position = track.distanceToPosition(simulation.distance);
-        gui.actualCarPositionAndHeading = .{ .heading = simulation.heading, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};
+        gui.actualCarPositionAndHeading = .{ .heading = simulation.heading + headingError, .position = rl.Vector2.init(actualCarPosition.x, actualCarPosition.y)};
 
         gui.carDistanceAndHeading = .{ .x =  controller.distance, .y = controller.heading };
         const measuredCarPosition: Position = track.distanceToPosition(controller.distance);
         gui.setCarPositionAndHeading(controller.heading, rl.Vector2.init(measuredCarPosition.x, measuredCarPosition.y));
-        //std.debug.print("end\n", .{});
         std.Thread.sleep(@intFromFloat(simulation.deltaTime * 1_000_000_000));
     }
 }

@@ -89,7 +89,7 @@ pub const Controller = struct {
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
         const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
         const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
-        std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, closest.distance - icpDistanceGuess});
+        //std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, closest.distance - icpDistanceGuess});
         if (self.prevDistances.len == self.prevDistances.capacity) {
             return 0.0 * icpDistanceGuess + 1.0 * closest.distance;
         }

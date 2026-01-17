@@ -72,6 +72,11 @@ Vision:
 
 ## TODO
 
+- Go to track after fixing distance measurement
+- Positioning
+- Collect data in user drive
+- try to fit model in positioningTest
+
 - Use Vec2D every where
 - Controller: Endmapping fails
 - Controller: Not only sending commands from client to sever but also from server to client to for example reset the track map
