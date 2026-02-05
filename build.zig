@@ -29,6 +29,7 @@ pub fn build(b: *std.Build) void {
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("shared/icp/icp.zig") });
     const trackModule = b.addModule("track", .{ .root_source_file = b.path("shared/track/track.zig") });
     const configModule = b.addModule("config", .{ .root_source_file = b.path("shared/config/config.zig") });
+    serverContractModule.addImport("config", configModule);
 
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
 

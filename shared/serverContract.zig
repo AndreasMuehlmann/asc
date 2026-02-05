@@ -1,9 +1,12 @@
+const configMod = @import("config");
+
 pub const CommandsEnum = enum(u8) {
     setWifi,
     setSpeed,
     setMode,
     restart,
     endMapping,
+    config,
 };
 
 pub const command = union(CommandsEnum) {
@@ -12,6 +15,7 @@ pub const command = union(CommandsEnum) {
     setMode: setMode,
     restart: restart,
     endMapping: endMapping,
+    config: configMod.configCommand(),
 };
 
 pub const setWifi = struct {
