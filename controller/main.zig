@@ -7,7 +7,7 @@ const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 
 
-const Config = @import("config.zig").Config;
+const Config = @import("config").Config;
 const Bmi = @import("bmi.zig").Bmi;
 const Tacho = @import("tacho.zig").Tacho;
 const NetServer = @import("netServer.zig").NetServer;

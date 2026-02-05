@@ -1,5 +1,5 @@
 const utilsZig = @import("utils.zig");
-const Config = @import("config.zig").Config;
+const Config = @import("config").Config;
 
 pub const Tacho = struct {
     const Self = @This();

@@ -12,7 +12,7 @@ const utilsZig = @import("utils.zig");
 
 const Bmi = @import("bmi.zig").Bmi;
 const Tacho = @import("tacho.zig").Tacho;
-const Config = @import("config.zig").Config;
+const Config = @import("config").Config;
 
 const c = @cImport({
     @cInclude("stdio.h");

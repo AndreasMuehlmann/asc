@@ -1,6 +1,6 @@
 const utilsZig = @import("utils.zig");
 const pt = @cImport(@cInclude("pt.h"));
-const Config = @import("config.zig").Config;
+const Config = @import("config").Config;
 const c = @cImport({
     @cInclude("stdio.h");
 });

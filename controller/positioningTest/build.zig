@@ -13,9 +13,9 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
-    const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("../kdTree/kdTree.zig") });
+    const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("../../shared/kdTree/kdTree.zig") });
     exe.root_module.addImport("kdTree", kdTreeModule);
-    const icpModule = b.addModule("icp", .{ .root_source_file = b.path("../icp/icp.zig") });
+    const icpModule = b.addModule("icp", .{ .root_source_file = b.path("../../shared/icp/icp.zig") });
     icpModule.addImport("kdTree", kdTreeModule);
     exe.root_module.addImport("icp", icpModule);
 

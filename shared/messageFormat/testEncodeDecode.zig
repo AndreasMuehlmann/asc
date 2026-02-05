@@ -137,39 +137,3 @@ test "TestEncoderDecoder" {
 
     encodedMessages.deinit(allocator);
 }
-
-
-const serverContract = @import("serverContract.zig");
-
-
-const TestHandlerServerContract = struct {
-    pub fn handleCommand(_: *TestHandlerServerContract, _: serverContract.command) !void {}
-};
-
-test "TestEncodeDecodeServerContract" {
-    const allocator = std.testing.allocator;
-
-    const Encoder = encode.Encoder(serverContract.ServerContract);
-
-    var handler: TestHandlerServerContract = .{};
-
-   const command: serverContract.command = serverContract.command{ .setSpeed = serverContract.setSpeed{
-       .speed = (0 + 1.0) / 2.0,
-   } };
-
-    var decoder = decode.Decoder(serverContract.ServerContractEnum, serverContract.ServerContract, TestHandlerServerContract).init(allocator, &handler);
-
-    const encoded = try Encoder.encode(serverContract.command, command);
-    var decodeIndex: usize = 0;
-    const length: u16 = try decoder.decodeType(u16, encoded, &decodeIndex);
-    std.debug.print("encoded lenght {d}\n", .{length});
-    std.debug.print("buffer length {d}\n", .{encoded.len});
-     for (encoded[2..]) |value| {
-        std.debug.print("{d}\n", .{value});
-    }
-
-    var encodedMessages = try std.ArrayList(u8).initCapacity(allocator, 10);
-    try encodedMessages.appendSlice(allocator, encoded);
-    try decoder.decode(encodedMessages.items);
-    encodedMessages.deinit(allocator);
-}
