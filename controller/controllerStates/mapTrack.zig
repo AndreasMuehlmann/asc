@@ -31,7 +31,7 @@ pub const MapTrack = struct {
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
         const trackPoint = TrackPoint{
-            .distance = controller.distanceMeter.distance,
+            .distance = controller.tacho.distance,
             .heading = controller.bmi.heading,
         };
         self.trackPoints.append(

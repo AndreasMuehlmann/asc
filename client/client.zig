@@ -35,7 +35,7 @@ pub const Client = struct {
             .{},
         );
 
-        try file.writeAll("time,yaw,accelerationX,accelerationY,accelerationZ\n");
+        try file.writeAll("time,heading,accelerationX,accelerationY,accelerationZ,velocity,distance\n");
         const gui = try Gui.init(allocator);
 
         return .{
@@ -119,8 +119,8 @@ pub const Client = struct {
     pub fn handleMeasurement(self: *Self, measurement: clientContract.Measurement) !void {
         const buffer = try std.fmt.allocPrint(
             self.allocator,
-            "{d},{d},{d},{d},{d}\n",
-            .{ measurement.time, measurement.heading, measurement.accelerationX, measurement.accelerationY, measurement.accelerationZ },
+            "{d},{d},{d},{d},{d},{d},{d}\n",
+            .{ measurement.time, measurement.heading, measurement.accelerationX, measurement.accelerationY, measurement.accelerationZ, measurement.velocity, measurement.distance },
         );
         try self.file.writeAll(buffer);
         self.allocator.free(buffer);

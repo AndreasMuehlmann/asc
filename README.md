@@ -74,13 +74,11 @@ Vision:
 
 
 
-- Store all data
 - Console
 - Config 
 - Track on client and controller
 - Sending messages with arbitrary size (to for exmaple send the whole track back to the controlleer)
 - Add point after every milimeter
-- DistanceMeter -> TachoMeter
 
 - Go to track after fixing distance measurement
 - Positioning

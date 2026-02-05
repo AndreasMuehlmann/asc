@@ -4,6 +4,8 @@ pub const Measurement = struct {
     accelerationX: f32,
     accelerationY: f32,
     accelerationZ: f32,
+    distance: f32,
+    velocity: f32,
 };
 
 pub const TrackPoint = struct {

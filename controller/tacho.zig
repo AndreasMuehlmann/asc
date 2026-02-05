@@ -5,13 +5,13 @@ const c = @cImport({
     @cInclude("stdio.h");
 });
 
-pub const DistanceMeter = struct {
+pub const Tacho = struct {
     const Self = @This();
 
     pulsesPerRotation: *f32,
     tireCircumferenceMm: *f32,
     measurementTime: i64,
-    degreesPerSecond: f32,
+    velocity: f32,
     distance: f32,
 
     pub fn init(config: *Config) Self {
@@ -19,7 +19,7 @@ pub const DistanceMeter = struct {
             .pulsesPerRotation = &config.pulsesPerRotation,
             .tireCircumferenceMm = &config.tireCircumferenceMm,
             .measurementTime = utilsZig.timestampMicros(),
-            .degreesPerSecond = 0.0,
+            .velocity = 0.0,
             .distance = 0.0,
         };
     }
@@ -36,8 +36,9 @@ pub const DistanceMeter = struct {
         if (period == 0.0) {
             return;
         }
-        self.degreesPerSecond = (360 / self.pulsesPerRotation.*) / period;
-        self.distance += self.degreesPerSecond * timeDiffMicros / 1_000_000 / 360.0 * self.tireCircumferenceMm.* / 1_000;
+        const degreesPerSecond = (360 / self.pulsesPerRotation.*) / period;
+        self.velocity = degreesPerSecond / 360.0 * self.tireCircumferenceMm.* / 1_000.0;
+        self.distance += self.velocity * timeDiffMicros / 1_000_000.0;
     }
 
     pub fn reset(self: *Self) void {

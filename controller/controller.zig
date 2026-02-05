@@ -11,7 +11,7 @@ const utils = @cImport(@cInclude("utils.h"));
 const utilsZig = @import("utils.zig");
 
 const Bmi = @import("bmi.zig").Bmi;
-const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
+const Tacho = @import("tacho.zig").Tacho;
 const Config = @import("config.zig").Config;
 
 const c = @cImport({
@@ -46,7 +46,7 @@ pub const Controller = struct {
 
     config: *Config,
     bmi: Bmi,
-    distanceMeter: DistanceMeter,
+    tacho: Tacho,
     netServer: NetServerT,
 
     state: *ControllerState,
@@ -59,13 +59,13 @@ pub const Controller = struct {
     initTime: i64,
     trackPoints: ?std.ArrayList(clientContract.TrackPoint),
 
-    pub fn init(allocator: std.mem.Allocator, config: *Config, bmi: Bmi, distanceMeter: DistanceMeter, netServer: NetServerT) !Self {
+    pub fn init(allocator: std.mem.Allocator, config: *Config, bmi: Bmi, tacho: Tacho, netServer: NetServerT) !Self {
         return .{
             .allocator = allocator,
 
             .config = config,
             .bmi = bmi,
-            .distanceMeter = distanceMeter,
+            .tacho = tacho,
             .netServer = netServer,
 
             .state = undefined,
@@ -100,16 +100,18 @@ pub const Controller = struct {
 
     fn step(self: *Self) !void {
         try self.bmi.update();
-        try self.distanceMeter.update();
+        try self.tacho.update();
         try self.state.step(self);
 
         const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
         const measurement: clientContract.Measurement = .{
             .time = time / 1_000.0,
             .heading = self.bmi.heading,
-            .accelerationX = self.distanceMeter.distance,
-            .accelerationY = 0.0,
-            .accelerationZ = 0.0,
+            .accelerationX = self.bmi.prevAccel.x,
+            .accelerationY = self.bmi.prevAccel.y,
+            .accelerationZ = self.bmi.prevAccel.z,
+            .velocity = self.tacho.velocity,
+            .distance = self.tacho.distance,
         };
         try self.netServer.send(clientContract.Measurement, measurement);
     }

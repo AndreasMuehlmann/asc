@@ -9,7 +9,7 @@ const serverContract = @import("serverContract");
 
 const Config = @import("config.zig").Config;
 const Bmi = @import("bmi.zig").Bmi;
-const DistanceMeter = @import("distanceMeter.zig").DistanceMeter;
+const Tacho = @import("tacho.zig").Tacho;
 const NetServer = @import("netServer.zig").NetServer;
 
 const rtos = @cImport(@cInclude("rtos.h"));
@@ -70,7 +70,7 @@ export fn app_main() callconv(.c) void {
     };
     utils.espLog(esp.ESP_LOG_INFO, tag, "Initialized IMU successfully");
 
-    const distanceMeter = DistanceMeter.init(&config);
+    const tacho = Tacho.init(&config);
 
     var controller: Controller = undefined;
 
@@ -89,7 +89,7 @@ export fn app_main() callconv(.c) void {
     defer netServer.deinit();
     utils.espLog(esp.ESP_LOG_INFO, tag, "Client connected");
 
-    controller = Controller.init(allocator, &config, bmi, distanceMeter, netServer) catch |err| {
+    controller = Controller.init(allocator, &config, bmi, tacho, netServer) catch |err| {
         const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
         return;
