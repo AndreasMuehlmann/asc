@@ -12,7 +12,8 @@ const utilsZig = @import("utils.zig");
 
 const Bmi = @import("bmi.zig").Bmi;
 const Tacho = @import("tacho.zig").Tacho;
-const Config = @import("config").Config;
+const configMod = @import("config");
+const Config = configMod.Config;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -147,6 +148,13 @@ pub const Controller = struct {
             },
             .restart => |_| {
                 _ = c.printf("restart\n");
+            },
+            .config => |configCommand| {
+                switch (configCommand.configCommands) {
+                    else => {
+                        self.config.handleConfigCommands(configCommand.configCommands);
+                    },
+                }
             },
             else => {},
         }

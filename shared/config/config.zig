@@ -26,13 +26,30 @@ pub const Config = struct {
             .tireCircumferenceMm = 74.01,
         };
     }
+
+    pub fn handleConfigCommands(self: *Self, configCommands: @typeInfo(configCommand()).@"struct".fields[0].type) void {
+        const tagName = @tagName(configCommands);
+        // TODO: send response for getters
+        if (std.mem.eql(u8, "get ", tagName[0..3])) {
+            return;
+        }
+        const typeInfo = @typeInfo(Config);
+        inline for (typeInfo.@"struct".fields) |field| {
+            const upperFirst: [1]u8 = comptime .{ std.ascii.toUpper(field.name[0]) };
+            const setterName = "set" ++ upperFirst ++ field.name[1..];
+            if (std.mem.eql(u8, tagName, setterName)) {
+                @field(self, field.name) = @field(@field(configCommands, setterName), field.name);
+                break;
+            }
+        }
+    }
 };
 
 pub fn configCommand() type {
     const typeInfo = @typeInfo(Config).@"struct";
 
-    var unionFields:  [2 * typeInfo.fields.len]std.builtin.Type.UnionField = undefined;
-    var enumFields:   [2 * typeInfo.fields.len]std.builtin.Type.EnumField  = undefined;
+    var unionFields: [2 * typeInfo.fields.len]std.builtin.Type.UnionField = undefined;
+    var enumFields: [2 * typeInfo.fields.len]std.builtin.Type.EnumField  = undefined;
 
     inline for (typeInfo.fields, 0..) |field, i| {
         const upperFirst: [1]u8 = .{ std.ascii.toUpper(field.name[0]) };
