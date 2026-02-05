@@ -72,13 +72,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             return self.parsePrimitiveType(T, token);
         }
 
-        fn parseStruct(self: *Self, comptime T: type, token: lexerMod.Token) !T {
+        fn parseStruct(self: *Self, comptime T: type, _: lexerMod.Token) !T {
             const allocator = self.arena.allocator();
-
-            if (token.type != lexerMod.TokenType.string or !std.mem.eql(u8, token.literal, comptime commandParserUtils.typeBaseName(T))) {
-                self.message = try std.fmt.allocPrint(allocator, "Command name at position {d} is invalid, expected " ++ comptime commandParserUtils.typeBaseName(T) ++ ".", .{token.position});
-                return ParserError.CommandNameInvalid;
-            }
 
             const typeInfo = @typeInfo(T);
             var parsedStruct: T = undefined;
@@ -242,7 +237,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             if (typeInfo == .@"struct") {
                 return comptime Self.generateHelpMessageStruct(T);
             } else if (typeInfo == .@"union") {
-                return "    " ++ comptime Self.generateHelpMessageTaggedUnion(T) ++ "\n";
+                return "    " ++ comptime Self.generateHelpMessageTaggedUnion(T, "Commands") ++ "\n";
             }
             unreachable;
         }
@@ -263,7 +258,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                     if (fieldTypeInfo.@"union".tag_type == null) {
                         @compileError("Union has to be tagged.");
                     }
-                    helpMessage[i] = "    " ++ comptime Self.generateHelpMessageTaggedUnion(field.type);
+                    helpMessage[i] = "    " ++ comptime Self.generateHelpMessageTaggedUnion(field.type, field.name);
                 } else {
                     if (comptime commandParserUtils.hasAbreviation(T, i - 1)) {
                         helpMessage[i] = helpMessage[i] ++ "-" ++ field.name[0..1] ++ ", ";
@@ -292,8 +287,8 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             return assembledHelpMessage;
         }
 
-        pub fn generateHelpMessageTaggedUnion(comptime T: type) []const u8 {
-            comptime var message: []const u8 = commandParserUtils.typeBaseName(T) ++ ": ";
+        pub fn generateHelpMessageTaggedUnion(comptime T: type, comptime name: []const u8) []const u8 {
+            comptime var message: []const u8 = name ++ ": ";
 
             const tagTypeInfo = @typeInfo(@typeInfo(T).@"union".tag_type.?);
             if (tagTypeInfo != .@"enum") {

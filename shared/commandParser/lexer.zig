@@ -113,8 +113,8 @@ pub const Lexer = struct {
         return self.command[position..self.position];
     }
 
-    fn isLetter(char: u8) bool {
-        return ('a' <= char and char <= 'z') or ('A' <= char and char <= 'Z') and char == '_';
+    pub fn isLetter(char: u8) bool {
+        return ('a' <= char and char <= 'z') or ('A' <= char and char <= 'Z') or char == '_';
     }
 
     fn readString(self: *Self) ![]const u8 {
