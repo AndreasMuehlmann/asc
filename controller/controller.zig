@@ -22,6 +22,8 @@ const c = @cImport({
 });
 
 const esp = @cImport({
+    @cInclude("nvs.h");
+    @cInclude("nvs_flash.h");
     @cInclude("server.h");
     @cInclude("esp_system.h");
     @cInclude("esp_log.h");
@@ -122,8 +124,28 @@ pub const Controller = struct {
 
         switch (command) {
             .setWifi => |s| {
-                const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.ssid}) catch unreachable;
-                _ = c.printf("ssid: %s\n", buffer.ptr);
+                var nvsHandle: esp.nvs_handle_t = undefined;
+                const nvs_err = esp.nvs_open("storage", esp.NVS_READWRITE, &nvsHandle);
+                if (nvs_err != esp.ESP_OK) {
+                    utils.espLog(esp.ESP_LOG_ERROR, tag, "Error opening flash memory handle: %s", esp.esp_err_to_name(nvs_err));
+                    @panic("Error while opening handle for flash memory in uart console.");
+                }
+                defer esp.nvs_close(nvsHandle);
+                const nullTerminatedSsid = std.fmt.bufPrintZ(&array, "{s}", .{s.ssid}) catch unreachable;
+                const nullTerminatedPassword = std.fmt.bufPrintZ(array[@divTrunc(array.len, 2)..], "{s}", .{s.password}) catch unreachable;
+
+                var err = esp.nvs_set_str(nvsHandle, "ssid", nullTerminatedSsid);
+                if (err != esp.ESP_OK) {
+                    utils.espLog(esp.ESP_LOG_ERROR, tag, "Error setting ssid: %s", esp.esp_err_to_name(err));
+                    err = esp.nvs_set_str(nvsHandle, "password", nullTerminatedPassword);
+                    if (err != esp.ESP_OK) {
+                        utils.espLog(esp.ESP_LOG_ERROR, tag, "Error setting password: %s", esp.esp_err_to_name(err));
+                        err = esp.nvs_commit(nvsHandle);
+                        if (err != esp.ESP_OK) {
+                            utils.espLog(esp.ESP_LOG_ERROR, tag, "Error commiting ssid and password to flash memory: %s", esp.esp_err_to_name(err));
+                        }
+                    }
+                }
                 self.allocator.free(s.ssid);
                 self.allocator.free(s.password);
             },
@@ -147,7 +169,7 @@ pub const Controller = struct {
                 self.allocator.free(s.mode);
             },
             .restart => |_| {
-                _ = c.printf("restart\n");
+                return error.RestartCommand;
             },
             .config => |configCommand| {
                 switch (configCommand.configCommands) {

@@ -7,6 +7,7 @@ const Gui = guiApi.Gui;
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 const rl = @import("raylib");
+const Track = @import("track").Track;
 
 const commandParserMod = @import("commandParser");
 const CommandParser = commandParserMod.CommandParser;
@@ -138,17 +139,10 @@ pub const Client = struct {
         try self.gui.addPoints("Acceleration", "Acceleration z", &array);
     }
 
-    // TODO: make this shared and remove this
-    fn angularDelta(from: f32, to: f32) f32 {
-        var d = @mod(to - from, 360.0);
-        if (d >= 180.0) d -= 360.0;
-        return d;
-    }
-
     pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
         if (self.prevTrackPoint) |prevTrackPoint| {
             const diffDistance = trackPoint.distance - prevTrackPoint.distance;
-            const delta = angularDelta(prevTrackPoint.heading, trackPoint.heading);
+            const delta = Track.angularDelta(prevTrackPoint.heading, trackPoint.heading);
             const averageHeading = prevTrackPoint.heading + delta * 0.5;
 
             const currentPosition = rl.Vector2{

@@ -75,7 +75,9 @@ Vision:
 
 
 - Console
-- Config 
+- Measure voltage
+- Store Config in persistent memory
+- Answer getters for config
 - Track on client and controller
 - Sending messages with arbitrary size (to for exmaple send the whole track back to the controlleer)
 - Add point after every milimeter

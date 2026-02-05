@@ -28,6 +28,7 @@ pub fn build(b: *std.Build) void {
     const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("shared/kdTree/kdTree.zig") });
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("shared/icp/icp.zig") });
     const trackModule = b.addModule("track", .{ .root_source_file = b.path("shared/track/track.zig") });
+    trackModule.addImport("kdTree", kdTreeModule);
     const configModule = b.addModule("config", .{ .root_source_file = b.path("shared/config/config.zig") });
     serverContractModule.addImport("config", configModule);
 
@@ -58,7 +59,6 @@ pub fn build(b: *std.Build) void {
     controllerLib.root_module.addImport("decode", decodeModule);
     controllerLib.root_module.addImport("serverContract", serverContractModule);
     controllerLib.root_module.addImport("clientContract", clientContractModule);
-    controllerLib.root_module.addImport("kdTree", kdTreeModule);
     controllerLib.root_module.addImport("icp", icpModule);
     controllerLib.root_module.addImport("track", trackModule);
     controllerLib.root_module.addImport("config", configModule);
@@ -162,6 +162,7 @@ pub fn build(b: *std.Build) void {
     clientExe.root_module.addImport("clientContract", clientContractModule);
     clientExe.root_module.addImport("clap", clap.module("clap"));
     clientExe.root_module.addImport("commandParser", commandParserModule);
+    clientExe.root_module.addImport("track", trackModule);
 
     b.installArtifact(clientExe);
 
