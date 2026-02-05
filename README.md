@@ -72,12 +72,23 @@ Vision:
 
 ## TODO
 
+
+
+- Store all data
+- Console
+- Config 
+- Track on client and controller
+- Sending messages with arbitrary size (to for exmaple send the whole track back to the controlleer)
+- Add point after every milimeter
+- DistanceMeter -> TachoMeter
+
 - Go to track after fixing distance measurement
 - Positioning
 - Collect data in user drive
 - try to fit model in positioningTest
 
 - Use Vec2D every where
+
 - Controller: Endmapping fails
 - Controller: Not only sending commands from client to sever but also from server to client to for example reset the track map
 - Client: Console with more features for example arrow up and ctrl backspace, better cursor.

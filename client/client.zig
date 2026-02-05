@@ -128,7 +128,6 @@ pub const Client = struct {
         var array = [_]rl.Vector2{rl.Vector2.init(measurement.time, measurement.heading)};
         try self.gui.addPoints("Yaw", "Heading", &array);
 
-        // std.debug.print("distance: {d}\n", .{measurement.accelerationX});
         array[0] = rl.Vector2.init(measurement.time, measurement.accelerationX);
         try self.gui.addPoints("Acceleration", "Acceleration x", &array);
 
@@ -139,10 +138,18 @@ pub const Client = struct {
         try self.gui.addPoints("Acceleration", "Acceleration z", &array);
     }
 
+    // TODO: make this shared and remove this
+    fn angularDelta(from: f32, to: f32) f32 {
+        var d = @mod(to - from, 360.0);
+        if (d >= 180.0) d -= 360.0;
+        return d;
+    }
+
     pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
         if (self.prevTrackPoint) |prevTrackPoint| {
             const diffDistance = trackPoint.distance - prevTrackPoint.distance;
-            const averageHeading = (trackPoint.heading + prevTrackPoint.heading) / 2.0;
+            const delta = angularDelta(prevTrackPoint.heading, trackPoint.heading);
+            const averageHeading = prevTrackPoint.heading + delta * 0.5;
 
             const currentPosition = rl.Vector2{
                 .x = self.prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,

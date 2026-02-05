@@ -2,6 +2,7 @@
 #include "driver/gptimer.h"
 #include "esp_attr.h"
 #include "esp_err.h"
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "esp_rom_sys.h"
@@ -48,4 +49,12 @@ float ptGetPeriod() {
     }
     
     return (float)(endPeriod - startPeriod) / 1e6;
+}
+
+bool ptUpdatedPeriod() {
+    return startPeriod != endPeriod;
+}
+
+void ptResetPeriod() {
+    startPeriod = endPeriod;
 }

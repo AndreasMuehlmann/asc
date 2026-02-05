@@ -16,7 +16,6 @@ const rtos = @cImport(@cInclude("rtos.h"));
 const utils = @cImport(@cInclude("utils.h"));
 const i2c = @cImport(@cInclude("i2c.h"));
 const pt = @cImport(@cInclude("pt.h"));
-const rmt = @cImport(@cInclude("rmt.h"));
 
 const c = @cImport({
     @cInclude("stdio.h");

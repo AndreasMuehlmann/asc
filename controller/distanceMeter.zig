@@ -25,17 +25,19 @@ pub const DistanceMeter = struct {
     }
 
     pub fn update(self: *Self) !void {
+        if (!pt.ptUpdatedPeriod()) {
+            return;
+        }
+
         const timeDiffMicros: f32 = @floatFromInt(utilsZig.timestampMicros() - self.measurementTime);
+        self.measurementTime = utilsZig.timestampMicros();
         const period: f32 = pt.ptGetPeriod();
-        const periodF64: f32 = @floatCast(period);
-        _ = periodF64;
-        //_ = c.printf("period %f\n", periodF64);
+        pt.ptResetPeriod();
         if (period == 0.0) {
             return;
         }
         self.degreesPerSecond = (360 / self.pulsesPerRotation.*) / period;
         self.distance += self.degreesPerSecond * timeDiffMicros / 1_000_000 / 360.0 * self.tireCircumferenceMm.* / 1_000;
-        self.distance = period;
     }
 
     pub fn reset(self: *Self) void {
