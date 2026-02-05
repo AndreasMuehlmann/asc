@@ -7,11 +7,9 @@ pub const ParserError = error{
     MultipleSameOption,
     UnknownOption,
     OptionWithoutValue,
-    CommandNameInvalid,
     UnknownSubcommand,
-    UnionUntagged,
-    TagTypeHasToBeEnum,
     HelpMessage,
+    MissingSubCommand,
 };
 
 pub const FieldDescription = struct {
@@ -82,6 +80,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
             var arr: [typeInfo.@"struct".fields.len]bool = undefined;
             const found = &arr;
             @memset(found, false);
+            var foundUnion = false;
 
             while (true) {
                 const tok = try self.handleErrorNextToken();
@@ -109,6 +108,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                             const fieldTypeInfo = @typeInfo(field.type);
                             if (fieldTypeInfo == .@"union" and fieldTypeInfo.@"union".tag_type != null) {
                                 @field(parsedStruct, field.name) = try self.parseTaggedUnion(field.type, tok);
+                                foundUnion = true;
                                 break;
                             }
                         }
@@ -157,7 +157,12 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
                         @field(parsedStruct, field.name) = @as(field.type, default_value);
                     } else if (field.type == bool) {
                         @field(parsedStruct, field.name) = false;
-                    } else if (@typeInfo(field.type) == .@"union" and @typeInfo(field.type).@"union".tag_type != null) {} else {
+                    } else if (@typeInfo(field.type) == .@"union" and @typeInfo(field.type).@"union".tag_type != null) {
+                        if (!foundUnion) {
+                            self.message = "Expected a subcommand for " ++ field.name ++ ", but was not found.";
+                            return ParserError.MissingSubCommand;
+                        }
+                    } else {
                         self.message = "Required option --" ++ field.name ++ " was not found.";
                         return ParserError.MissingRequiredOption;
                     }
