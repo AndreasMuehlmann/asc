@@ -95,10 +95,6 @@ pub const Gui = struct {
         return self.console.getCommand();
     }
 
-    pub fn resetCommand(self: *Self) void {
-        self.console.resetCommand();
-    }
-
     pub fn deinit(self: *Self) void {
         for (self.plots) |*plot| {
             plot.deinit();
