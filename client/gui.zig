@@ -53,7 +53,7 @@ pub const Gui = struct {
         plots[1] = Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack);
         plots[2] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
 
-        const console = try Console.init(allocator, rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0.5, 0.5), 20, windowWidthF, windowHeightF);
+        const console = try Console.init(allocator, rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0.5, 0.5), 0, windowWidthF, windowHeightF);
 
         return .{ .allocator = allocator, .plots = plots, .console = console };
     }

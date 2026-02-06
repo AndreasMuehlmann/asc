@@ -50,6 +50,7 @@ pub const Console = struct {
     rightOfCursor: std.ArrayList(u8),
     commands: std.ArrayList([]const u8),
     toFetchCommand: usize,
+    historyIndex: usize,
     leftTrigger: KeyTrigger,
     rightTrigger: KeyTrigger,
     upTrigger: KeyTrigger,
@@ -79,6 +80,7 @@ pub const Console = struct {
             .rightOfCursor = try std.ArrayList(u8).initCapacity(allocator, 10),
             .commands = try std.ArrayList([]const u8).initCapacity(allocator, 10),
             .toFetchCommand = 0,
+            .historyIndex = 0,
             .leftTrigger = KeyTrigger.init(rl.KeyboardKey.left),
             .rightTrigger = KeyTrigger.init(rl.KeyboardKey.right),
             .downTrigger = KeyTrigger.init(rl.KeyboardKey.down),
@@ -148,10 +150,25 @@ pub const Console = struct {
                 try self.moveRight();
             }
 
+            if (self.upTrigger.trigger() and self.historyIndex != 0) {
+                self.historyIndex -= 1;
+                self.leftOfCursor.clearAndFree(self.allocator);
+                try self.leftOfCursor.appendSlice(self.allocator, self.commands.items[self.historyIndex]);
+                self.rightOfCursor.clearAndFree(self.allocator);
+            }
+
+            if (self.downTrigger.trigger() and self.historyIndex < self.commands.items.len - 1) {
+                self.historyIndex += 1;
+                self.leftOfCursor.clearAndFree(self.allocator);
+                try self.leftOfCursor.appendSlice(self.allocator, self.commands.items[self.historyIndex]);
+                self.rightOfCursor.clearAndFree(self.allocator);
+            }
+
             if (rl.isKeyPressed(rl.KeyboardKey.enter)) {
                 try self.leftOfCursor.appendSlice(self.allocator, self.rightOfCursor.items);
                 const command = try self.leftOfCursor.toOwnedSlice(self.allocator);
                 try self.commands.append(self.allocator, command);
+                self.historyIndex = self.commands.items.len;
 
                 self.leftOfCursor = try std.ArrayList(u8).initCapacity(self.allocator, 10);
                 self.rightOfCursor.clearAndFree(self.allocator);
