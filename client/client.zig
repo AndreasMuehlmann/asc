@@ -62,7 +62,6 @@ pub const Client = struct {
             };
 
             if (self.gui.getCommand()) |commandStr| {
-                defer self.gui.resetCommand();
                 var commandParser = commandParserT.init(self.allocator, commandStr);
                 defer commandParser.deinit();
                 const command = commandParser.parse() catch |err| {

@@ -91,7 +91,7 @@ pub const Gui = struct {
         return GuiError.UnkownPlotName;
     }
 
-    pub fn getCommand(self: Self) ?[]const u8 {
+    pub fn getCommand(self: *Self) ?[]const u8 {
         return self.console.getCommand();
     }
 
