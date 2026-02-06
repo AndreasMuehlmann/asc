@@ -2,6 +2,41 @@ const std = @import("std");
 
 const rl = @import("raylib");
 
+pub const KeyTrigger = struct {
+    const Self = @This();
+
+    const ticksToRepetitionState: u32 = 30;
+    const ticksBetweenRepetitions: u32 = 3;
+
+    key: rl.KeyboardKey,
+    ticksSincePressed: u32,
+
+    pub fn init(key: rl.KeyboardKey) Self {
+        return .{
+            .key = key,
+            .ticksSincePressed = 0,
+        };
+    }
+
+    pub fn trigger(self: *Self) bool {
+        if (!rl.isKeyDown(self.key)) {
+            self.ticksSincePressed = 0;
+            return false;
+        }
+        self.ticksSincePressed += 1;
+        if (self.ticksSincePressed == 1) {
+            return true;
+        }
+        if (self.ticksSincePressed >= ticksToRepetitionState) {
+            if (self.ticksSincePressed >= ticksToRepetitionState + ticksBetweenRepetitions) {
+                self.ticksSincePressed = ticksToRepetitionState;
+            }
+            return self.ticksSincePressed == ticksToRepetitionState;
+        }
+        return false;
+    }
+};
+
 pub const Console = struct {
     allocator: std.mem.Allocator,
     relativeTopLeft: rl.Vector2,
@@ -15,6 +50,11 @@ pub const Console = struct {
     rightOfCursor: std.ArrayList(u8),
     commands: std.ArrayList([]const u8),
     toFetchCommand: usize,
+    leftTrigger: KeyTrigger,
+    rightTrigger: KeyTrigger,
+    upTrigger: KeyTrigger,
+    downTrigger: KeyTrigger,
+    backspaceTrigger: KeyTrigger,
 
     const Self = @This();
 
@@ -39,6 +79,11 @@ pub const Console = struct {
             .rightOfCursor = try std.ArrayList(u8).initCapacity(allocator, 10),
             .commands = try std.ArrayList([]const u8).initCapacity(allocator, 10),
             .toFetchCommand = 0,
+            .leftTrigger = KeyTrigger.init(rl.KeyboardKey.left),
+            .rightTrigger = KeyTrigger.init(rl.KeyboardKey.right),
+            .downTrigger = KeyTrigger.init(rl.KeyboardKey.down),
+            .upTrigger = KeyTrigger.init(rl.KeyboardKey.up),
+            .backspaceTrigger = KeyTrigger.init(rl.KeyboardKey.backspace),
         };
         self.resize(windowWidth, windowHeight);
         return self;
@@ -68,20 +113,39 @@ pub const Console = struct {
                 key = rl.getCharPressed();
             }
 
-            if (rl.isKeyPressed(rl.KeyboardKey.backspace)) {
+            const ctrlHeld = rl.isKeyDown(rl.KeyboardKey.right_control) or rl.isKeyDown(rl.KeyboardKey.left_control);
+            if (ctrlHeld and self.backspaceTrigger.trigger()) {
+                while (self.leftOfCursor.items.len > 0 and isWhitespace(self.leftOfCursor.items[self.leftOfCursor.items.len - 1])) {
+                    _ = self.leftOfCursor.pop();
+                }
+                while (self.leftOfCursor.items.len > 0 and !isWhitespace(self.leftOfCursor.items[self.leftOfCursor.items.len - 1])) {
+                    _ = self.leftOfCursor.pop();
+                }
+            } else if (self.backspaceTrigger.trigger()) {
                 _ = self.leftOfCursor.pop();
             }
 
-            if (rl.isKeyPressed(rl.KeyboardKey.left)) {
-                const popped = self.leftOfCursor.pop();
-                if (popped) |char| {
-                    try self.rightOfCursor.insert(self.allocator, 0, char);
+            if (ctrlHeld and self.leftTrigger.trigger()) {
+                while (self.leftOfCursor.items.len > 0 and isWhitespace(self.leftOfCursor.items[self.leftOfCursor.items.len - 1])) {
+                    try self.moveLeft();
                 }
+                while (self.leftOfCursor.items.len > 0 and !isWhitespace(self.leftOfCursor.items[self.leftOfCursor.items.len - 1])) {
+                    try self.moveLeft();
+                }
+            } else if (self.leftTrigger.trigger()) {
+                try self.moveLeft();
             }
 
-            if (rl.isKeyPressed(rl.KeyboardKey.right) and self.rightOfCursor.items.len > 0) {
-                const removed = self.rightOfCursor.orderedRemove(0);
-                try self.leftOfCursor.append(self.allocator, removed);
+
+            if (ctrlHeld and self.rightTrigger.trigger() and self.rightOfCursor.items.len > 0) {
+                while (self.rightOfCursor.items.len > 0 and isWhitespace(self.rightOfCursor.items[self.rightOfCursor.items.len - 1])) {
+                    try self.moveRight();
+                }
+                while (self.rightOfCursor.items.len > 0 and !isWhitespace(self.rightOfCursor.items[self.rightOfCursor.items.len - 1])) {
+                    try self.moveRight();
+                }
+            } else if (self.rightTrigger.trigger() and self.rightOfCursor.items.len > 0) {
+                try self.moveRight();
             }
 
             if (rl.isKeyPressed(rl.KeyboardKey.enter)) {
@@ -96,27 +160,43 @@ pub const Console = struct {
             rl.setMouseCursor(rl.MouseCursor.default);
         }
 
-        const textBoxI32X: i32 = @intFromFloat(textBox.x);
-        const textBoxI32Y: i32 = @intFromFloat(textBox.y);
-        rl.drawRectangleRec(textBox, rl.Color.light_gray);
-        if (mouseOnText) {
-            rl.drawRectangleLines(textBoxI32X, textBoxI32Y, @intFromFloat(textBox.width), @intFromFloat(textBox.height), rl.Color.black);
-        } else {
-            rl.drawRectangleLines(textBoxI32X, textBoxI32Y, @intFromFloat(textBox.width), @intFromFloat(textBox.height), rl.Color.dark_gray);
+        rl.drawRectangleRec(textBox, rl.Color.ray_white);
+
+        const seperatorY = @max(try self.drawCommand(), self.topLeftText.y + lineOffset);
+        const color = if (mouseOnText) rl.Color.black else rl.Color.dark_gray;
+        rl.drawLineEx(self.topLeft, rl.Vector2.init(self.topLeft.x + self.size.x, self.topLeft.y), 1.0, color);
+        rl.drawLineEx(self.topLeft, rl.Vector2.init(self.topLeft.x, self.topLeft.y + self.size.y), 1.0, color);
+        rl.drawLineEx(rl.Vector2.init(self.topLeft.x, seperatorY), rl.Vector2.init(self.topLeft.x + self.size.x, seperatorY), 1.0, color);
+    }
+
+    fn isWhitespace(char: u8) bool {
+        return char == '\n' or char == '\t' or char == ' ';
+    }
+
+    fn moveLeft(self: *Self) !void {
+        const popped = self.leftOfCursor.pop();
+        if (popped) |char| {
+            try self.rightOfCursor.insert(self.allocator, 0, char);
         }
-        _ = try self.drawCommand();
+    }
+
+    fn moveRight(self: *Self) !void {
+        const removed = self.rightOfCursor.orderedRemove(0);
+        try self.leftOfCursor.append(self.allocator, removed);
     }
 
     fn drawCommand(self: *Self) !f32 {
-        const cursorPosition = try drawWrappedText(self, self.leftOfCursor.items, self.topLeftText);
+        var cursorPosition = try drawWrappedText(self, "# ", self.topLeftText);
+        cursorPosition = try drawWrappedText(self, self.leftOfCursor.items, rl.Vector2.init(cursorPosition.x + spacing, cursorPosition.y));
         rl.drawRectangle(
             @intFromFloat(cursorPosition.x),
             @intFromFloat(cursorPosition.y),
             @intFromFloat(cursorWidth),
             @intFromFloat(consoleFontSize),
-            rl.Color.white,
+            rl.Color.light_gray,
         );
-        const endPosition = try drawWrappedText(self, self.rightOfCursor.items, rl.Vector2.init(cursorPosition.x + spacing, cursorPosition.y));
+        const space: f32 = if (self.leftOfCursor.items.len > 0) spacing else 0.0;
+        const endPosition = try drawWrappedText(self, self.rightOfCursor.items, rl.Vector2.init(cursorPosition.x + space, cursorPosition.y));
         return endPosition.y + lineOffset;
     }
 
