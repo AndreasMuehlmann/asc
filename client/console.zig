@@ -56,15 +56,19 @@ pub const Console = struct {
     upTrigger: KeyTrigger,
     downTrigger: KeyTrigger,
     backspaceTrigger: KeyTrigger,
+    output: std.ArrayList(u8),
+    lines: [][:0]u8,
+    font: rl.Font,
 
     const Self = @This();
 
     const marginText = 10.0;
     const consoleFontSize = 20.0;
     const lineSpacing = 4.0;
-    const lineOffset = consoleFontSize + lineSpacing;
+    const lineOffset: f32 = consoleFontSize + lineSpacing;
     const cursorWidth = 4.0;
-    const spacing = 2.0;
+    const consoleSpacing = 2.0;
+    const maxOutputSize: usize = 100000;
 
     pub fn init(allocator: std.mem.Allocator, relativeTopLeft: rl.Vector2, relativeSize: rl.Vector2, margin: f32, windowWidth: f32, windowHeight: f32) !Self {
         var self: Self = .{
@@ -86,6 +90,9 @@ pub const Console = struct {
             .downTrigger = KeyTrigger.init(rl.KeyboardKey.down),
             .upTrigger = KeyTrigger.init(rl.KeyboardKey.up),
             .backspaceTrigger = KeyTrigger.init(rl.KeyboardKey.backspace),
+            .output = try std.ArrayList(u8).initCapacity(allocator, 10),
+            .lines = &.{},
+            .font = try rl.getFontDefault(),
         };
         self.resize(windowWidth, windowHeight);
         return self;
@@ -184,6 +191,9 @@ pub const Console = struct {
         rl.drawLineEx(self.topLeft, rl.Vector2.init(self.topLeft.x + self.size.x, self.topLeft.y), 1.0, color);
         rl.drawLineEx(self.topLeft, rl.Vector2.init(self.topLeft.x, self.topLeft.y + self.size.y), 1.0, color);
         rl.drawLineEx(rl.Vector2.init(self.topLeft.x, seperatorY), rl.Vector2.init(self.topLeft.x + self.size.x, seperatorY), 1.0, color);
+
+        self.drawBufferWithLineBounds(self.lines, rl.Vector2.init(self.topLeftText.x, seperatorY + lineOffset));
+        //_ = try self.drawWrappedText(self.output.items, rl.Vector2.init(self.topLeftText.x, seperatorY + lineOffset));
     }
 
     fn isWhitespace(char: u8) bool {
@@ -202,9 +212,21 @@ pub const Console = struct {
         try self.leftOfCursor.append(self.allocator, removed);
     }
 
+    pub fn writeToOutput(self: *Self, text: []const u8) !void {
+        if (self.output.items.len + text.len > maxOutputSize) {
+            try self.output.replaceRange(self.allocator, 0, self.output.items.len + text.len - maxOutputSize, &.{});
+        }
+        try self.output.appendSlice(self.allocator, text);
+        for (self.lines) |line| {
+            self.allocator.free(line);
+        }
+        self.allocator.free(self.lines);
+        self.lines = try textToLines(self.allocator, self.output.items, self.font, consoleFontSize, consoleSpacing, self.sizeText.x);
+    }
+
     fn drawCommand(self: *Self) !f32 {
         var cursorPosition = try drawWrappedText(self, "# ", self.topLeftText);
-        cursorPosition = try drawWrappedText(self, self.leftOfCursor.items, rl.Vector2.init(cursorPosition.x + spacing, cursorPosition.y));
+        cursorPosition = try drawWrappedText(self, self.leftOfCursor.items, rl.Vector2.init(cursorPosition.x + consoleSpacing, cursorPosition.y));
         rl.drawRectangle(
             @intFromFloat(cursorPosition.x),
             @intFromFloat(cursorPosition.y),
@@ -212,7 +234,7 @@ pub const Console = struct {
             @intFromFloat(consoleFontSize),
             rl.Color.light_gray,
         );
-        const space: f32 = if (self.leftOfCursor.items.len > 0) spacing else 0.0;
+        const space: f32 = if (self.leftOfCursor.items.len > 0) consoleSpacing else 0.0;
         const endPosition = try drawWrappedText(self, self.rightOfCursor.items, rl.Vector2.init(cursorPosition.x + space, cursorPosition.y));
         return endPosition.y + lineOffset;
     }
@@ -225,50 +247,115 @@ pub const Console = struct {
         var y = startingPos.y;
         var start: usize = 0;
 
-        var current = try std.ArrayList(u8).initCapacity(self.allocator, 10);
-        defer current.deinit(self.allocator);
+        var textCopy: []u8 = try self.allocator.alloc(u8, text.len + 1);
+        @memcpy(textCopy[0..text.len], text);
+        defer self.allocator.free(textCopy);
         for (1..text.len + 1) |i| {
-            current.clearRetainingCapacity();
-            try current.appendSlice(self.allocator, text[start..i]);
-            try current.append(self.allocator, 0);
-            
-            const textSize = rl.measureTextEx(try rl.getFontDefault(), current.items[0 .. current.items.len - 1 :0], consoleFontSize, spacing).x;
+            textCopy[i] = 0;
+            const next = textCopy[start..i :0];
+            const textSize = rl.measureTextEx(self.font, next, consoleFontSize, consoleSpacing).x;
+            if (i < text.len) {
+                textCopy[i] = text[i];
+            }
             if (textSize < self.sizeText.x + self.topLeftText.x - x) {
                 continue;
             }
-            _ = current.pop();
-            _ = current.pop();
-            try current.append(self.allocator, 0);
+
+            textCopy[i - 1] = 0;
+            const current = textCopy[start..i - 1 :0];
 
             rl.drawTextEx(
-                try rl.getFontDefault(),
-                current.items[0 .. current.items.len - 1 :0],
+                self.font,
+                current,
                 rl.Vector2.init(x, y),
                 consoleFontSize,
-                spacing,
+                consoleSpacing,
                 rl.Color.black,
             );
 
+            textCopy[i - 1] = text[i - 1];
             x = self.topLeftText.x;
             y += lineOffset;
             start = i - 1;
         }
         if (text.len - start != 0) {
-            current.clearRetainingCapacity();
-            try current.appendSlice(self.allocator, text[start..]);
-            try current.append(self.allocator, 0);
+            textCopy[textCopy.len - 1] = 0;
+            const current = textCopy[start..text.len :0];
             rl.drawTextEx(
-                try rl.getFontDefault(),
-                current.items[0 .. current.items.len - 1 :0],
+                self.font,
+                current,
                 rl.Vector2.init(x, y),
                 consoleFontSize,
-                spacing,
+                consoleSpacing,
                 rl.Color.black,
             );
-            const textSize: f32 = rl.measureTextEx(try rl.getFontDefault(), current.items[0 .. current.items.len - 1 :0], consoleFontSize, spacing).x;
+            const textSize: f32 = rl.measureTextEx(self.font, current, consoleFontSize, consoleSpacing).x;
             x += textSize;
         }
         return rl.Vector2.init(x, y);
+    }
+
+
+    fn glyphAdvance(font: rl.Font, fontSize: f32, spacing: f32, char: u8) f32 {
+        const g = rl.getGlyphInfo(font, @intCast(char));
+        const atlasRec = rl.getGlyphAtlasRec(font, @intCast(char));
+        const advanceXF32: f32 = @floatFromInt(g.advanceX);
+        const baseSizeF32: f32 = @floatFromInt(font.baseSize);
+        const offsetXF32: f32 = @floatFromInt(g.offsetX);
+        const scale = fontSize / baseSizeF32;
+        return if (g.advanceX > 0) advanceXF32 * scale + spacing else (atlasRec.width + offsetXF32) * scale + spacing;
+    }
+
+    fn textToLines(allocator: std.mem.Allocator, text: []u8, font: rl.Font, fontSize: f32, spacing: f32, maxWidth: f32) ![][:0]u8 {
+        if (text.len == 0) {
+            return &.{};
+        }
+
+        var start: usize = 0;
+        var lines = try std.ArrayList([:0]u8).initCapacity(allocator, 10);
+        var lineWidth: f32 = 0.0;
+        for (0..text.len) |i| {
+            if (text[i] == '\n') {
+                const line = try allocator.dupeZ(u8, text[start..i]);
+                try lines.append(allocator, line);
+                start = i + 1;
+                lineWidth = 0.0;
+                continue;
+            }
+            const charWidth = glyphAdvance(font, fontSize, spacing, text[i]);
+            lineWidth += charWidth;
+            if (lineWidth < maxWidth) {
+                continue;
+            }
+
+            const line = try allocator.dupeZ(u8, text[start..i]);
+            try lines.append(allocator, line);
+
+            start = i;
+            lineWidth = charWidth;
+        }
+        if (text.len - start != 0) {
+            const line = try allocator.dupeZ(u8, text[start..]);
+            try lines.append(allocator, line);
+        }
+        return try lines.toOwnedSlice(allocator);
+    }
+
+    fn drawBufferWithLineBounds(self: *Self, lines: [][:0]u8, startingPos: rl.Vector2) void {
+        if (lines.len == 0) {
+            return;
+        }
+        for (lines, 0..) |line, i| {
+            const iF32: f32 = @floatFromInt(i);
+            rl.drawTextEx(
+                self.font,
+                line,
+                rl.Vector2.init(startingPos.x, startingPos.y + iF32 * lineOffset),
+                consoleFontSize,
+                consoleSpacing,
+                rl.Color.black,
+            );
+        }
     }
 
     pub fn getCommand(self: *Self) ?[]const u8 {
@@ -286,5 +373,9 @@ pub const Console = struct {
             self.allocator.free(command);
         }
         self.commands.deinit(self.allocator);
+        for (self.lines) |line| {
+            self.allocator.free(line);
+        }
+        self.allocator.free(self.lines);
     }
 };

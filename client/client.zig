@@ -66,8 +66,14 @@ pub const Client = struct {
                 defer commandParser.deinit();
                 const command = commandParser.parse() catch |err| {
                     if (commandParser.message.len == 0) {
+                        const str = try std.fmt.allocPrint(self.allocator, "Error: {s}\n", .{@errorName(err)});
+                        try self.gui.console.writeToOutput(str);
+                        self.allocator.free(str);
                         std.debug.print("Error: {s}\n", .{@errorName(err)});
                     } else {
+                        const str = try std.fmt.allocPrint(self.allocator, "{s}\n", .{commandParser.message});
+                        try self.gui.console.writeToOutput(str);
+                        self.allocator.free(str);
                         std.debug.print("{s}\n", .{commandParser.message});
                     }
                     continue;
