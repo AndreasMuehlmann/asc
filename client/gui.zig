@@ -77,7 +77,7 @@ pub const Gui = struct {
             try self.plots[i].draw();
         }
 
-        self.console.resize(windowWidth, windowHeight);
+        try self.console.resize(windowWidth, windowHeight);
         try self.console.update();
     }
 
