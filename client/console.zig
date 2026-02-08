@@ -68,7 +68,7 @@ pub const Console = struct {
     const lineOffset: f32 = consoleFontSize + lineSpacing;
     const cursorWidth = 4.0;
     const consoleSpacing = 2.0;
-    const maxOutputSize: usize = 100000;
+    const maxOutputSize: usize = 10000;
 
     pub fn init(allocator: std.mem.Allocator, relativeTopLeft: rl.Vector2, relativeSize: rl.Vector2, margin: f32, windowWidth: f32, windowHeight: f32) !Self {
         var self: Self = .{
@@ -344,5 +344,6 @@ pub const Console = struct {
             self.allocator.free(line);
         }
         self.allocator.free(self.lines);
+        self.output.deinit(self.allocator);
     }
 };
