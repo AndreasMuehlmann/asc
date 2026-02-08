@@ -193,7 +193,6 @@ pub const Console = struct {
         rl.drawLineEx(rl.Vector2.init(self.topLeft.x, seperatorY), rl.Vector2.init(self.topLeft.x + self.size.x, seperatorY), 1.0, color);
 
         self.drawBufferWithLineBounds(self.lines, rl.Vector2.init(self.topLeftText.x, seperatorY + lineOffset));
-        //_ = try self.drawWrappedText(self.output.items, rl.Vector2.init(self.topLeftText.x, seperatorY + lineOffset));
     }
 
     fn isWhitespace(char: u8) bool {
@@ -225,8 +224,29 @@ pub const Console = struct {
     }
 
     fn drawCommand(self: *Self) !f32 {
-        var cursorPosition = try drawWrappedText(self, "# ", self.topLeftText);
-        cursorPosition = try drawWrappedText(self, self.leftOfCursor.items, rl.Vector2.init(cursorPosition.x + consoleSpacing, cursorPosition.y));
+        var commandLine = try std.ArrayList(u8).initCapacity(self.allocator, 2 + self.leftOfCursor.items.len + self.rightOfCursor.items.len);
+        defer commandLine.deinit(self.allocator);
+        try commandLine.appendSlice(self.allocator, "# ");
+        try commandLine.appendSlice(self.allocator, self.leftOfCursor.items);
+        const leftOfCursorLines = try textToLines(self.allocator, commandLine.items, self.font, consoleFontSize, consoleSpacing, self.sizeText.x);
+        const lastLine = if (leftOfCursorLines.len == 0) "" else leftOfCursorLines[leftOfCursorLines.len - 1];
+        var lastLineLength: f32 = 0.0; 
+        for (lastLine) |char| {
+            lastLineLength += glyphAdvance(self.font, consoleFontSize, consoleSpacing, char);
+        }
+        const lineCountLeftOfCursor: f32 = @floatFromInt(leftOfCursorLines.len);
+        const cursorPosition = self.topLeftText.add(rl.Vector2.init(lastLineLength, (@max(1, lineCountLeftOfCursor) - 1) * lineOffset));
+        for (leftOfCursorLines) |line| {
+            self.allocator.free(line);
+        }
+        self.allocator.free(leftOfCursorLines);
+
+        try commandLine.appendSlice(self.allocator, self.rightOfCursor.items);
+
+        const lines = try textToLines(self.allocator, commandLine.items, self.font, consoleFontSize, consoleSpacing, self.sizeText.x);
+        const lineCount: f32 = @floatFromInt(lines.len);
+        const seperatorY = self.topLeftText.y + @max(1, lineCount) * lineOffset;
+
         rl.drawRectangle(
             @intFromFloat(cursorPosition.x),
             @intFromFloat(cursorPosition.y),
@@ -234,67 +254,14 @@ pub const Console = struct {
             @intFromFloat(consoleFontSize),
             rl.Color.light_gray,
         );
-        const space: f32 = if (self.leftOfCursor.items.len > 0) consoleSpacing else 0.0;
-        const endPosition = try drawWrappedText(self, self.rightOfCursor.items, rl.Vector2.init(cursorPosition.x + space, cursorPosition.y));
-        return endPosition.y + lineOffset;
+        self.drawBufferWithLineBounds(lines, self.topLeftText);
+
+        for (lines) |line| {
+            self.allocator.free(line);
+        }
+        self.allocator.free(lines);
+        return seperatorY;
     }
-
-    fn drawWrappedText(self: *Self, text: []const u8, startingPos: rl.Vector2) !rl.Vector2 {
-        if (text.len == 0) {
-            return startingPos;
-        }
-        var x = startingPos.x;
-        var y = startingPos.y;
-        var start: usize = 0;
-
-        var textCopy: []u8 = try self.allocator.alloc(u8, text.len + 1);
-        @memcpy(textCopy[0..text.len], text);
-        defer self.allocator.free(textCopy);
-        for (1..text.len + 1) |i| {
-            textCopy[i] = 0;
-            const next = textCopy[start..i :0];
-            const textSize = rl.measureTextEx(self.font, next, consoleFontSize, consoleSpacing).x;
-            if (i < text.len) {
-                textCopy[i] = text[i];
-            }
-            if (textSize < self.sizeText.x + self.topLeftText.x - x) {
-                continue;
-            }
-
-            textCopy[i - 1] = 0;
-            const current = textCopy[start..i - 1 :0];
-
-            rl.drawTextEx(
-                self.font,
-                current,
-                rl.Vector2.init(x, y),
-                consoleFontSize,
-                consoleSpacing,
-                rl.Color.black,
-            );
-
-            textCopy[i - 1] = text[i - 1];
-            x = self.topLeftText.x;
-            y += lineOffset;
-            start = i - 1;
-        }
-        if (text.len - start != 0) {
-            textCopy[textCopy.len - 1] = 0;
-            const current = textCopy[start..text.len :0];
-            rl.drawTextEx(
-                self.font,
-                current,
-                rl.Vector2.init(x, y),
-                consoleFontSize,
-                consoleSpacing,
-                rl.Color.black,
-            );
-            const textSize: f32 = rl.measureTextEx(self.font, current, consoleFontSize, consoleSpacing).x;
-            x += textSize;
-        }
-        return rl.Vector2.init(x, y);
-    }
-
 
     fn glyphAdvance(font: rl.Font, fontSize: f32, spacing: f32, char: u8) f32 {
         const g = rl.getGlyphInfo(font, @intCast(char));
@@ -306,7 +273,7 @@ pub const Console = struct {
         return if (g.advanceX > 0) advanceXF32 * scale + spacing else (atlasRec.width + offsetXF32) * scale + spacing;
     }
 
-    fn textToLines(allocator: std.mem.Allocator, text: []u8, font: rl.Font, fontSize: f32, spacing: f32, maxWidth: f32) ![][:0]u8 {
+    fn textToLines(allocator: std.mem.Allocator, text: []const u8, font: rl.Font, fontSize: f32, spacing: f32, maxWidth: f32) ![][:0]u8 {
         if (text.len == 0) {
             return &.{};
         }
