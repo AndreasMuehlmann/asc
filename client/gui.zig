@@ -95,6 +95,10 @@ pub const Gui = struct {
         return self.console.getCommand();
     }
 
+    pub fn writeToConsole(self: *Self, text: []const u8) !void {
+        try self.console.writeToOutput(text);
+    }
+
     pub fn deinit(self: *Self) void {
         for (self.plots) |*plot| {
             plot.deinit();

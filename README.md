@@ -74,11 +74,14 @@ Vision:
 
 
 
-- Console
-- Measure voltage
-- Store Config in persistent memory
+- log messages from server to client
 - Answer getters for config
 - Track on client and controller
+- Filter and other positioningTest stuff to main prog
+
+- Console ctrl c, ctrl v
+- Measure voltage
+- Store Config in persistent memory
 - Sending messages with arbitrary size (to for exmaple send the whole track back to the controlleer)
 - Add point after every milimeter
 

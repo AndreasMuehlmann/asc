@@ -9,6 +9,7 @@ pub const MessageFormatError = error{
     WrongTerminationByte,
     MessageLargerThenExpected,
     TagTooLarge,
+    NotSupportedDataType,
 };
 
 pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime handlerT: type) type {
@@ -163,6 +164,12 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 }
                 return decodeUnion;
             }
+            if (typeInfo == .@"enum") {
+                const tag = buffer[index.*];
+                index.* += 1;
+                const enumWithTag: T = @enumFromInt(tag);
+                return enumWithTag;
+            }
             if (T == u8) {
                 const number = buffer[index.*];
                 index.* += 1;
@@ -177,7 +184,7 @@ pub fn Decoder(comptime contractEnumT: type, comptime contractT: type, comptime 
                 index.* += byteSize;
                 return number.*;
             }
-            unreachable;
+            return MessageFormatError.NotSupportedDataType;
         }
     };
 }

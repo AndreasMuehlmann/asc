@@ -4,6 +4,7 @@ pub const MAX_MESSAGE_LENGTH = 1000;
 pub const TERMINATION_BYTE = 0xAA;
 
 pub const MessageFormatError = error{
+    NotSupportedDataType,
     MessageToLong,
     ListTooLong,
     WrongTerminationByte,
@@ -68,8 +69,14 @@ pub fn Encoder(contractT: type) type {
                     if (i == tag) {
                         try encodeType(field.type, @field(value, field.name), buffer, index);
                     }
-
                 }
+            } else if (typeInfo == .@"enum") {
+                if (typeInfo.@"enum".tag_type != u8) {
+                    @compileError("The underlying type of the Enum " ++ @typeName(T) ++ "should be a u8");
+                }
+                const tag: u8 = @intFromEnum(value);
+                buffer[index.*] = tag;
+                index.* += 1;
             } else if (T == u8) {
                 buffer[index.*] = value;
                 index.* += 1;
@@ -79,7 +86,7 @@ pub fn Encoder(contractT: type) type {
                 @memcpy(buffer[index.* .. index.* + byteSize], bytes);
                 index.* += byteSize;
             } else {
-                unreachable;
+                return MessageFormatError.NotSupportedDataType;
             }
         }
     };

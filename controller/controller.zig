@@ -117,6 +117,12 @@ pub const Controller = struct {
             .distance = self.tacho.distance,
         };
         try self.netServer.send(clientContract.Measurement, measurement);
+
+        const log: clientContract.Log = .{
+            .level = clientContract.LogLevel.info,
+            .message = "Hello World!",
+        };
+        try self.netServer.send(clientContract.Log, log);
     }
 
     pub fn handleCommand(self: *Self, command: serverContract.command) !void {

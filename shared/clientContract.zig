@@ -13,12 +13,25 @@ pub const TrackPoint = struct {
     heading: f32,
 };
 
+pub const LogLevel = enum(u8) {
+    info,
+    warning,
+    err,
+};
+
+pub const Log = struct {
+    level: LogLevel,
+    message: []const u8,
+};
+
 pub const ClientContractEnum = enum(u8) {
     measurement,
     trackPoint,
+    log,
 };
 
 pub const ClientContract = union(ClientContractEnum) {
     measurement: Measurement,
     trackPoint: TrackPoint,
+    log: Log,
 };

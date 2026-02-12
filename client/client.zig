@@ -69,12 +69,10 @@ pub const Client = struct {
                         const str = try std.fmt.allocPrint(self.allocator, "Error: {s}\n", .{@errorName(err)});
                         try self.gui.console.writeToOutput(str);
                         self.allocator.free(str);
-                        std.debug.print("Error: {s}\n", .{@errorName(err)});
                     } else {
                         const str = try std.fmt.allocPrint(self.allocator, "{s}\n", .{commandParser.message});
                         try self.gui.console.writeToOutput(str);
                         self.allocator.free(str);
-                        std.debug.print("{s}\n", .{commandParser.message});
                     }
                     continue;
                 };
@@ -160,5 +158,20 @@ pub const Client = struct {
             try self.gui.addPoints("Track", "Track", &array);
         }
         self.prevTrackPoint = trackPoint;
+    }
+
+    pub fn handleLog(self: *Self, log: clientContract.Log) !void {
+        defer self.allocator.free(log.message);
+        var text = try std.ArrayList(u8).initCapacity(self.allocator, log.message.len + 20);
+        defer text.deinit(self.allocator);
+        const prefix = switch (log.level) {
+            clientContract.LogLevel.info => "Info: ",
+            clientContract.LogLevel.warning => "Warning: ",
+            clientContract.LogLevel.err => "Error: ",
+        };
+        try text.appendSlice(self.allocator, prefix);
+        try text.appendSlice(self.allocator, log.message);
+        try text.append(self.allocator, '\n');
+        try self.gui.writeToConsole(text.items);
     }
 };
