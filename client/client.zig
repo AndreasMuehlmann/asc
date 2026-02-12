@@ -62,6 +62,8 @@ pub const Client = struct {
             };
 
             if (self.gui.getCommand()) |commandStr| {
+                try self.gui.writeToConsole(commandStr);
+                try self.gui.writeToConsole("\n");
                 var commandParser = commandParserT.init(self.allocator, commandStr);
                 defer commandParser.deinit();
                 const command = commandParser.parse() catch |err| {

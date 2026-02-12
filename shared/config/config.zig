@@ -1,5 +1,6 @@
 const std = @import("std");
 
+
 pub const Config = struct {
     const Self = @This();
 
@@ -26,25 +27,8 @@ pub const Config = struct {
             .tireCircumferenceMm = 74.01,
         };
     }
-
-    pub fn handleConfigCommands(self: *Self, configCommands: @typeInfo(configCommand()).@"struct".fields[0].type) void {
-        const tagName = @tagName(configCommands);
-        // TODO: send response for getters
-        if (std.mem.eql(u8, "get ", tagName[0..3])) {
-            return;
-        }
-        const typeInfo = @typeInfo(Config);
-        inline for (typeInfo.@"struct".fields) |field| {
-            const upperFirst: [1]u8 = comptime .{ std.ascii.toUpper(field.name[0]) };
-            const setterName = "set" ++ upperFirst ++ field.name[1..];
-            if (std.mem.eql(u8, tagName, setterName)) {
-                @field(self, field.name) = @field(@field(configCommands, setterName), field.name);
-                break;
-            }
-        }
-    }
 };
-
+    
 pub fn configCommand() type {
     const typeInfo = @typeInfo(Config).@"struct";
 
@@ -68,7 +52,7 @@ pub fn configCommand() type {
                         .alignment = @alignOf(field.type),
                     },
                 },
-                .decls = &[_]std.builtin.Type.Declaration{},
+                .decls = &.{},
                 .is_tuple = false,
             },
         });
@@ -76,16 +60,8 @@ pub fn configCommand() type {
         const getterStruct = @Type(.{
             .@"struct" = .{
                 .layout = .auto,
-                .fields = &[_]std.builtin.Type.StructField{
-                    .{
-                        .name = field.name,
-                        .type = field.type,
-                        .default_value_ptr = null,
-                        .is_comptime = false,
-                        .alignment = @alignOf(field.type),
-                    },
-                },
-                .decls = &[_]std.builtin.Type.Declaration{},
+                .fields = &.{},
+                .decls = &.{},
                 .is_tuple = false,
             },
         });

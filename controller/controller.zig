@@ -117,13 +117,53 @@ pub const Controller = struct {
             .distance = self.tacho.distance,
         };
         try self.netServer.send(clientContract.Measurement, measurement);
-
-        const log: clientContract.Log = .{
-            .level = clientContract.LogLevel.info,
-            .message = "Hello World!",
-        };
-        try self.netServer.send(clientContract.Log, log);
     }
+
+    fn toMessage(comptime T: type, fieldName: []const u8, value: T, buffer: []u8) ![]u8 {
+        const typeInfo = @typeInfo(T);
+        var array: [255]u8 = undefined;
+        const buf = try std.fmt.bufPrintZ(&array, "{s}", .{fieldName});
+        if (typeInfo == .@"float" or typeInfo == .@"int") {
+            const length: usize = @intCast(c.snprintf(buffer.ptr, buffer.len, "%s = %f", buf.ptr, value));
+            return buffer[0..length];
+        } else {
+            return error.NotSupportedDataTypeConvertingToString;
+        }
+    }
+
+    pub fn handleConfigCommands(self: *Self, configCommands: @typeInfo(configMod.configCommand()).@"struct".fields[0].type) !void {
+        const tagName = @tagName(configCommands);
+        const typeInfo = @typeInfo(Config);
+        if (std.mem.eql(u8, "get", tagName[0..3])) {
+            inline for (typeInfo.@"struct".fields) |field| {
+                const upperFirst: [1]u8 = comptime .{ std.ascii.toUpper(field.name[0]) };
+                const getterName = "get" ++ upperFirst ++ field.name[1..];
+                if (std.mem.eql(u8, tagName, getterName)) {
+                    var array: [255]u8 = undefined;
+                    const log: clientContract.Log = .{
+                        .level = clientContract.LogLevel.info,
+                        .message = try toMessage(field.type, field.name, @field(self.config, field.name), &array),
+                    };
+                    try self.netServer.send(clientContract.Log, log);
+                    return;
+                }
+            }
+            return error.UnknownConfigField;
+        } else if (std.mem.eql(u8, "set", tagName[0..3])) {
+            inline for (typeInfo.@"struct".fields) |field| {
+                const upperFirst: [1]u8 = comptime .{ std.ascii.toUpper(field.name[0]) };
+                const setterName = "set" ++ upperFirst ++ field.name[1..];
+                if (std.mem.eql(u8, tagName, setterName)) {
+                    @field(self.config, field.name) = @field(@field(configCommands, setterName), field.name);
+                    break;
+                }
+                return error.UnknownConfigField;
+            }
+        } else {
+            @panic("config command has to start with \"set\" or \"get\".");
+        }
+    }
+
 
     pub fn handleCommand(self: *Self, command: serverContract.command) !void {
         var array: [250]u8 = undefined;
@@ -180,7 +220,7 @@ pub const Controller = struct {
             .config => |configCommand| {
                 switch (configCommand.configCommands) {
                     else => {
-                        self.config.handleConfigCommands(configCommand.configCommands);
+                        try self.handleConfigCommands(configCommand.configCommands);
                     },
                 }
             },
