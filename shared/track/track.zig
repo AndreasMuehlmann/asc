@@ -148,11 +148,11 @@ pub fn Track(comptime buildKdTree: bool) type {
         }
 
         pub fn distanceToPosition(self: Self, distance: f32) Position {
-            const lastPoint = self.distancePositions.items[self.distancePositions.items.len - 1];
+            const lastPoint = self.distancePositions[self.distancePositions.len - 1];
             if (distance > lastPoint.distance) {
                 return lastPoint.position;
             }
-            for (self.distancePositions.items[0..self.distancePositions.items.len - 1], self.distancePositions.items[1..]) |prevDistancePosition, distancePosition| {
+            for (self.distancePositions[0..self.distancePositions.len - 1], self.distancePositions[1..]) |prevDistancePosition, distancePosition| {
                 if (prevDistancePosition.distance <= distance and distance <= distancePosition.distance) {
                     const t = self.minDifferenceDistances(distance, prevDistancePosition.distance) / self.minDifferenceDistances(distancePosition.distance, prevDistancePosition.distance);
                     return .{

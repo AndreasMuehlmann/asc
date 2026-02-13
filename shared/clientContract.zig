@@ -41,6 +41,7 @@ pub const endMapping = struct {};
 pub const ClientContractEnum = enum(u8) {
     measurement,
     trackPoint,
+    carTrackPoint,
     log,
     command,
 };
@@ -48,6 +49,7 @@ pub const ClientContractEnum = enum(u8) {
 pub const ClientContract = union(ClientContractEnum) {
     measurement: Measurement,
     trackPoint: TrackPoint,
+    carTrackPoint: TrackPoint,
     log: Log,
     command: command,
 };

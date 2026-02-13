@@ -166,6 +166,14 @@ pub const Client = struct {
         try self.gui.addPoints("Track", "Track", &array);
     }
 
+    pub fn handleCarTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
+        if (self.track) |track| {
+            const position = track.distanceToPosition(trackPoint.distance);
+            _ = position;
+            // TODO: mark the position in the gui
+        }
+    }
+
     pub fn handleLog(self: *Self, log: clientContract.Log) !void {
         defer self.allocator.free(log.message);
         var text = try std.ArrayList(u8).initCapacity(self.allocator, log.message.len + 20);
@@ -187,6 +195,12 @@ pub const Client = struct {
                 const trackPoints = try self.trackPoints.toOwnedSlice(self.allocator);
                 self.track = try Track.init(self.allocator, trackPoints);
                 self.trackPoints = try std.ArrayList(TrackPoint).initCapacity(self.allocator, 10);
+                // TODO: reset plot
+                var positions = try self.allocator.alloc(rl.Vector2, self.track.?.distancePositions.len);
+                for (self.track.?.distancePositions, 0..) |distancePosition, i| {
+                    positions[i] = rl.Vector2.init(distancePosition.position.x, distancePosition.position.y);
+                }
+                try self.gui.addPoints("Track", "Track", positions);
             },
             .resetMapping => {
                 if (self.track) |*track| {
@@ -194,6 +208,7 @@ pub const Client = struct {
                     self.track = null;
                 }
                 self.trackPoints.clearAndFree(self.allocator);
+                // TODO: reset plot
             },
         }
     }

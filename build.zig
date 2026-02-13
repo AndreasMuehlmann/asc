@@ -30,7 +30,10 @@ pub fn build(b: *std.Build) void {
     const trackModule = b.addModule("track", .{ .root_source_file = b.path("shared/track/track.zig") });
     trackModule.addImport("kdTree", kdTreeModule);
     const configModule = b.addModule("config", .{ .root_source_file = b.path("shared/config/config.zig") });
+    const vectorModule = b.addModule("vector", .{ .root_source_file = b.path("shared/vector/vector.zig") });
     serverContractModule.addImport("config", configModule);
+    clientContractModule.addImport("vector", vectorModule);
+    serverContractModule.addImport("vector", vectorModule);
 
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
 
