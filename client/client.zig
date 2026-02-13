@@ -169,8 +169,7 @@ pub const Client = struct {
     pub fn handleCarTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
         if (self.track) |track| {
             const position = track.distanceToPosition(trackPoint.distance);
-            _ = position;
-            // TODO: mark the position in the gui
+            self.gui.carPositionAndHeading = .{ .position = .{ .x = position.x, .y = position.y }, .heading = trackPoint.heading };
         }
     }
 
@@ -195,7 +194,7 @@ pub const Client = struct {
                 const trackPoints = try self.trackPoints.toOwnedSlice(self.allocator);
                 self.track = try Track.init(self.allocator, trackPoints);
                 self.trackPoints = try std.ArrayList(TrackPoint).initCapacity(self.allocator, 10);
-                // TODO: reset plot
+                try self.gui.clear("Track", "Track");
                 var positions = try self.allocator.alloc(rl.Vector2, self.track.?.distancePositions.len);
                 for (self.track.?.distancePositions, 0..) |distancePosition, i| {
                     positions[i] = rl.Vector2.init(distancePosition.position.x, distancePosition.position.y);
@@ -208,7 +207,7 @@ pub const Client = struct {
                     self.track = null;
                 }
                 self.trackPoints.clearAndFree(self.allocator);
-                // TODO: reset plot
+                try self.gui.clear("Track", "Track");
             },
         }
     }

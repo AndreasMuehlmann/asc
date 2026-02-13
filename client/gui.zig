@@ -7,6 +7,7 @@ const Plot = p.Plot;
 const DataSet = p.DataSet;
 const c = @import("console.zig");
 const Console = c.Console;
+const TrackMapPlot = @import("trackMapPlot.zig").TrackMapPlot;
 
 pub const GuiError = error{
     UnkownDataSetName,
@@ -14,12 +15,19 @@ pub const GuiError = error{
     Quit,
 };
 
+pub const PositionAndHeading = struct {
+    heading: f32,
+    position: rl.Vector2,
+};
+
 pub const Gui = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
     plots: []Plot,
+    trackMapPlot: TrackMapPlot,
     console: Console,
+    carPositionAndHeading: ?PositionAndHeading,
 
     pub fn init(allocator: std.mem.Allocator) !Self {
         const windowWidth = rl.getScreenWidth();
@@ -47,15 +55,15 @@ pub const Gui = struct {
         var dataSetsTrack = try allocator.alloc(DataSet, 1);
         dataSetsTrack[0] = .{ .points = try std.ArrayList(rl.Vector2).initCapacity(allocator, 10), .name = "Track", .color = rl.Color.pink, .lineWidth = 3.0 };
 
-        var plots = try allocator.alloc(Plot, 3);
+        var plots = try allocator.alloc(Plot, 2);
         plots[0] = Plot.init(allocator, "Yaw", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, 0.0), rl.Vector2.init(5.0, 360.0), 30, windowWidthF, windowHeightF, dataSetsYaw);
-        // Min coord doesnt make sense
-        plots[1] = Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack);
-        plots[2] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+        plots[1] = Plot.init(allocator, "Acceleration", "Time in s", rl.Color.black, true, rl.Vector2.init(0.0, 0.5), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0, -15.0), rl.Vector2.init(5.0, 15.0), 30, windowWidthF, windowHeightF, dataSetsAcceleration);
+
+        const trackMapPlot = try TrackMapPlot.init(Plot.init(allocator, "Track", "x in m", rl.Color.black, false, rl.Vector2.init(0.5, 0.0), rl.Vector2.init(0.5, 0.5), rl.Vector2.init(-0.1, -0.1), rl.Vector2.init(0.1, 0.1), 30, windowWidthF, windowHeightF, dataSetsTrack));
 
         const console = try Console.init(allocator, rl.Vector2.init(0.5, 0.5), rl.Vector2.init(0.5, 0.5), 0, windowWidthF, windowHeightF);
 
-        return .{ .allocator = allocator, .plots = plots, .console = console };
+        return .{ .allocator = allocator, .plots = plots, .console = console, .trackMapPlot = trackMapPlot, .carPositionAndHeading = null };
     }
 
     pub fn update(self: *Self) !void {
@@ -77,6 +85,12 @@ pub const Gui = struct {
             try self.plots[i].draw();
         }
 
+        self.trackMapPlot.resize(windowWidth, windowHeight);
+        try self.trackMapPlot.draw();
+        if (self.carPositionAndHeading) |carPositionAndHeading| {
+            self.trackMapPlot.drawCar(carPositionAndHeading.heading, carPositionAndHeading.position);
+        }
+
         try self.console.resize(windowWidth, windowHeight);
         try self.console.update();
     }
@@ -88,7 +102,29 @@ pub const Gui = struct {
                 return;
             }
         }
+        if (std.mem.eql(u8, plotName, self.trackMapPlot.plot.name)) {
+            try self.trackMapPlot.addPoints(dataSetName, points);
+            return;
+        }
         return GuiError.UnkownPlotName;
+    }
+
+    pub fn clear(self: *Self, plotName: []const u8, dataSetName: []const u8) !void {
+        for (0..self.plots.len) |i| {
+            if (std.mem.eql(u8, plotName, self.plots[i].name)) {
+                try self.plots[i].clear(dataSetName);
+                return;
+            }
+        }
+        if (std.mem.eql(u8, plotName, self.trackMapPlot.plot.name)) {
+            try self.trackMapPlot.clear(dataSetName);
+            return;
+        }
+        return GuiError.UnkownPlotName;
+    }
+
+    pub fn setCarPositionAndHeading(self: *Self, heading: f32, position: rl.Vector2) void {
+        self.carPositionAndHeading = .{ .heading = heading, .position = position };
     }
 
     pub fn getCommand(self: *Self) ?[]const u8 {
@@ -104,6 +140,7 @@ pub const Gui = struct {
             plot.deinit();
         }
         self.console.deinit();
+        self.trackMapPlot.deinit();
         self.allocator.free(self.plots);
 
         rl.closeWindow();
