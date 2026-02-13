@@ -1,3 +1,5 @@
+pub const TrackPoint = @import("track").TrackPoint;
+
 pub const Measurement = struct {
     time: f32,
     heading: f32,
@@ -6,11 +8,6 @@ pub const Measurement = struct {
     accelerationZ: f32,
     distance: f32,
     velocity: f32,
-};
-
-pub const TrackPoint = struct {
-    distance: f32,
-    heading: f32,
 };
 
 pub const LogLevel = enum(u8) {

@@ -14,6 +14,9 @@ const Bmi = @import("bmi.zig").Bmi;
 const Tacho = @import("tacho.zig").Tacho;
 const configMod = @import("config");
 const Config = configMod.Config;
+const trackMod = @import("track");
+const Track = trackMod.Track(true);
+const TrackPoint = trackMod.TrackPoint;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -60,7 +63,7 @@ pub const Controller = struct {
     stop: Stop,
 
     initTime: i64,
-    trackPoints: ?std.ArrayList(clientContract.TrackPoint),
+    track: ?Track,
 
     pub fn init(allocator: std.mem.Allocator, config: *Config, bmi: Bmi, tacho: Tacho, netServer: NetServerT) !Self {
         return .{
@@ -79,7 +82,7 @@ pub const Controller = struct {
             .stop = Stop.init(),
 
             .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
-            .trackPoints = null,
+            .track = null,
         };
     }
 
@@ -198,16 +201,12 @@ pub const Controller = struct {
             .setMode => |s| {
                 if (std.mem.eql(u8, s.mode, "stop")) {
                     try self.changeState(&self.stop.controllerState);
-                    _ = c.printf("Setting mode to \"stop\"\n");
                 } else if (std.mem.eql(u8, s.mode, "selfdrive")) {
                     try self.changeState(&self.selfDrive.controllerState);
-                    _ = c.printf("Setting mode to \"selfdrive\"\n");
                 } else if (std.mem.eql(u8, s.mode, "userdrive")) {
                     try self.changeState(&self.userDrive.controllerState);
-                    _ = c.printf("Setting mode to \"userdrive\"\n");
                 } else if (std.mem.eql(u8, s.mode, "maptrack")) {
                     try self.changeState(&self.mapTrack.controllerState);
-                    _ = c.printf("Setting mode to \"maptrack\"\n");
                 } else {
                     const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.mode}) catch unreachable;
                     utils.espLog(esp.ESP_LOG_WARN, tag, "Mode \"%s\"doesn't exist", buffer.ptr);

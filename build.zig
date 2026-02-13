@@ -31,8 +31,9 @@ pub fn build(b: *std.Build) void {
     trackModule.addImport("kdTree", kdTreeModule);
     const configModule = b.addModule("config", .{ .root_source_file = b.path("shared/config/config.zig") });
     const vectorModule = b.addModule("vector", .{ .root_source_file = b.path("shared/vector/vector.zig") });
-    serverContractModule.addImport("config", configModule);
     clientContractModule.addImport("vector", vectorModule);
+    clientContractModule.addImport("track", trackModule);
+    serverContractModule.addImport("config", configModule);
     serverContractModule.addImport("vector", vectorModule);
 
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });

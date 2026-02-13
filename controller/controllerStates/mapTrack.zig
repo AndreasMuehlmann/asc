@@ -5,7 +5,10 @@ const c = @import("controllerState.zig");
 const ControllerState = c.ControllerState;
 const ControllerStateError = c.ControllerStateError;
 const serverContract = @import("serverContract");
-const TrackPoint = @import("clientContract").TrackPoint;
+const clientContract = @import("clientContract");
+const trackMod = @import("track");
+const Track = trackMod.Track(true);
+const TrackPoint = trackMod.TrackPoint;
 
 pub const MapTrack = struct {
     const Self = @This();
@@ -22,10 +25,11 @@ pub const MapTrack = struct {
 
     pub fn start(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
-        if (controller.trackPoints) |*controllerTrackPoints| {
-            controllerTrackPoints.deinit(controller.allocator);
+        if (controller.track) |*track| {
+            track.deinit();
         }
         self.trackPoints = std.ArrayList(TrackPoint).initCapacity(controller.allocator, 100) catch return ControllerStateError.OutOfMemory;
+        controller.netServer.send(clientContract.resetMapping, .{});
     }
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
@@ -45,7 +49,7 @@ pub const MapTrack = struct {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
         switch (command) {
             .endMapping => {
-                controller.trackPoints = self.trackPoints;
+                controller.track = Track.init(controller.allocator, self.trackPoints.toOwnedSlice(controller.allocator) catch return ControllerStateError.OutOfMemory) catch return ControllerStateError.TrackCreationFailed;
                 try controller.changeState(&controller.stop.controllerState);
             },
             else => {},

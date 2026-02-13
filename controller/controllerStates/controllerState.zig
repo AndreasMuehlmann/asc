@@ -5,6 +5,7 @@ const serverContract = @import("serverContract");
 pub const ControllerStateError = error{
     OutOfMemory,
     SendFailed,
+    TrackCreationFailed,
 };
 
 
