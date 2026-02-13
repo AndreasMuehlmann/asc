@@ -7,7 +7,9 @@ const Gui = guiApi.Gui;
 const clientContract = @import("clientContract");
 const serverContract = @import("serverContract");
 const rl = @import("raylib");
-const Track = @import("track").Track;
+const trackMod = @import("track");
+const Track = trackMod.Track(false);
+const TrackPoint = trackMod.TrackPoint;
 
 const commandParserMod = @import("commandParser");
 const CommandParser = commandParserMod.CommandParser;
@@ -24,8 +26,9 @@ pub const Client = struct {
     netClient: NetClientT,
     gui: Gui,
     file: std.fs.File,
-    prevTrackPoint: ?clientContract.TrackPoint,
+    trackPoints: std.ArrayList(TrackPoint),
     prevPosition: rl.Vector2,
+    track: ?Track,
 
     const Self = @This();
     const NetClientT = NetClient(clientContract.ClientContractEnum, clientContract.ClientContract, Self, serverContract.ServerContract);
@@ -44,8 +47,9 @@ pub const Client = struct {
             .netClient = netClient,
             .gui = gui,
             .file = file,
-            .prevTrackPoint = null,
+            .trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 10),
             .prevPosition = rl.Vector2.init(0, 0),
+            .track = null,
         };
     }
 
@@ -116,12 +120,6 @@ pub const Client = struct {
         }
     }
 
-    pub fn deinit(self: *Self) void {
-        self.netClient.deinit();
-        self.gui.deinit();
-        self.file.close();
-    }
-
     pub fn handleMeasurement(self: *Self, measurement: clientContract.Measurement) !void {
         const buffer = try std.fmt.allocPrint(
             self.allocator,
@@ -145,21 +143,27 @@ pub const Client = struct {
     }
 
     pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
-        if (self.prevTrackPoint) |prevTrackPoint| {
-            const diffDistance = trackPoint.distance - prevTrackPoint.distance;
-            const delta = Track.angularDelta(prevTrackPoint.heading, trackPoint.heading);
-            const averageHeading = prevTrackPoint.heading + delta * 0.5;
-
-            const currentPosition = rl.Vector2{
-                .x = self.prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
-                .y = self.prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
-            };
-            self.prevPosition = currentPosition;
-
-            const array = [_]rl.Vector2{currentPosition};
+        try self.trackPoints.append(self.allocator, .{ .distance = trackPoint.distance, .heading = trackPoint.heading});
+        if (self.trackPoints.items.len == 0) {
+            const array = [_]rl.Vector2{self.prevPosition};
             try self.gui.addPoints("Track", "Track", &array);
+            return;
         }
-        self.prevTrackPoint = trackPoint;
+
+        const prevTrackPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
+
+        const diffDistance = trackPoint.distance - prevTrackPoint.distance;
+        const delta = Track.angularDelta(prevTrackPoint.heading, trackPoint.heading);
+        const averageHeading = prevTrackPoint.heading + delta * 0.5;
+
+        const currentPosition = rl.Vector2{
+            .x = self.prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
+            .y = self.prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
+        };
+        self.prevPosition = currentPosition;
+
+        const array = [_]rl.Vector2{currentPosition};
+        try self.gui.addPoints("Track", "Track", &array);
     }
 
     pub fn handleLog(self: *Self, log: clientContract.Log) !void {
@@ -175,5 +179,32 @@ pub const Client = struct {
         try text.appendSlice(self.allocator, log.message);
         try text.append(self.allocator, '\n');
         try self.gui.writeToConsole(text.items);
+    }
+
+    pub fn handleCommand(self: *Self, command: clientContract.command) !void {
+        switch (command) {
+            .endMapping => {
+                const trackPoints = try self.trackPoints.toOwnedSlice(self.allocator);
+                self.track = try Track.init(self.allocator, trackPoints);
+                self.trackPoints = try std.ArrayList(TrackPoint).initCapacity(self.allocator, 10);
+            },
+            .resetMapping => {
+                if (self.track) |*track| {
+                    track.deinit();
+                    self.track = null;
+                }
+                self.trackPoints.clearAndFree(self.allocator);
+            },
+        }
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.netClient.deinit();
+        self.gui.deinit();
+        self.file.close();
+        self.trackPoints.deinit(self.allocator);
+        if (self.track) |*track| {
+            track.deinit();
+        }
     }
 };

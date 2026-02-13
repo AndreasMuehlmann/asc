@@ -24,14 +24,30 @@ pub const Log = struct {
     message: []const u8,
 };
 
+pub const CommandsEnum = enum(u8) {
+    endMapping,
+    resetMapping,
+};
+
+
+pub const command = union(CommandsEnum) {
+    endMapping: endMapping,
+    resetMapping: resetMapping,
+};
+
+pub const resetMapping = struct {};
+pub const endMapping = struct {};
+
 pub const ClientContractEnum = enum(u8) {
     measurement,
     trackPoint,
     log,
+    command,
 };
 
 pub const ClientContract = union(ClientContractEnum) {
     measurement: Measurement,
     trackPoint: TrackPoint,
     log: Log,
+    command: command,
 };
