@@ -33,7 +33,6 @@ const esp = @cImport({
 
 const pwm = @cImport(@cInclude("pwm.h"));
 const tag = "app main";
-var array: [250]u8 = undefined;
 
 pub fn panic(msg: []const u8, _: ?*@import("std").builtin.StackTrace, _: ?usize) noreturn {
     utils.espLog(esp.ESP_LOG_ERROR, "panic handler", "PANIC: caused by: \"%s\" - timestamp: %ul\n", msg.ptr, esp.esp_log_timestamp());
@@ -64,7 +63,8 @@ export fn app_main() callconv(.c) void {
     var i2cBusHandle: esp.i2c_master_bus_handle_t = null;
     i2c.i2c_bus_init(&i2cBusHandle);
     const bmi = Bmi.init(&i2cBusHandle) catch |err| {
-        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        const buffer = std.fmt.allocPrintSentinel(allocator, "{s}", .{@errorName(err)}, 0) catch @panic("Out of memory");
+        defer allocator.free(buffer);
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing bmi failed with error: %s", buffer.ptr);
         return;
     };
@@ -82,7 +82,8 @@ export fn app_main() callconv(.c) void {
         port,
         &controller,
     ) catch |err| {
-        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        const buffer = std.fmt.allocPrintSentinel(allocator, "{s}", .{@errorName(err)}, 0) catch @panic("Out of memory");
+        defer allocator.free(buffer);
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
         return;
     };
@@ -90,7 +91,8 @@ export fn app_main() callconv(.c) void {
     utils.espLog(esp.ESP_LOG_INFO, tag, "Client connected");
 
     controller = Controller.init(allocator, &config, bmi, tacho, netServer) catch |err| {
-        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        const buffer = std.fmt.allocPrintSentinel(allocator, "{s}", .{@errorName(err)}, 0) catch @panic("Out of memory");
+        defer allocator.free(buffer);
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Initializing controller failed with error: %s", buffer.ptr);
         return;
     };
@@ -98,7 +100,8 @@ export fn app_main() callconv(.c) void {
     defer controller.deinit();
 
     controller.run() catch |err| {
-        const buffer = std.fmt.bufPrintZ(&array, "{s}", .{@errorName(err)}) catch unreachable;
+        const buffer = std.fmt.allocPrintSentinel(allocator, "{s}", .{@errorName(err)}, 0) catch @panic("Out of memory");
+        defer allocator.free(buffer);
         utils.espLog(esp.ESP_LOG_ERROR, tag, "Running controller failed with error: %s", buffer.ptr);
     };
 

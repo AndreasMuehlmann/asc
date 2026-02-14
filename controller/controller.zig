@@ -49,6 +49,7 @@ pub const Controller = struct {
     const NetServerT = NetServer(serverContract.ServerContractEnum, serverContract.ServerContract, Controller, clientContract.ClientContract);
 
     allocator: std.mem.Allocator,
+    arena: std.heap.ArenaAllocator,
 
     config: *Config,
     bmi: Bmi,
@@ -68,6 +69,7 @@ pub const Controller = struct {
     pub fn init(allocator: std.mem.Allocator, config: *Config, bmi: Bmi, tacho: Tacho, netServer: NetServerT) !Self {
         return .{
             .allocator = allocator,
+            .arena = std.heap.ArenaAllocator.init(allocator),
 
             .config = config,
             .bmi = bmi,
@@ -99,7 +101,7 @@ pub const Controller = struct {
             };
 
             try self.step();
-
+            _ = self.arena.reset(.{ .retain_with_limit = 1000});
             rtos.rtosVTaskDelayUntil(&lastWake, rtos.rtosMillisToTicks(10));
         }
     }
@@ -122,12 +124,13 @@ pub const Controller = struct {
         try self.netServer.send(clientContract.Measurement, measurement);
     }
 
-    fn toMessage(comptime T: type, fieldName: []const u8, value: T, buffer: []u8) ![]u8 {
+    fn toMessage(comptime T: type, arenaAllocator: std.mem.Allocator, fieldName: []const u8, value: T) ![]u8 {
         const typeInfo = @typeInfo(T);
-        var array: [255]u8 = undefined;
-        const buf = try std.fmt.bufPrintZ(&array, "{s}", .{fieldName});
+        const buf = try std.fmt.allocPrintSentinel(arenaAllocator, "{s}", .{fieldName}, 0);
         if (typeInfo == .@"float" or typeInfo == .@"int") {
-            const length: usize = @intCast(c.snprintf(buffer.ptr, buffer.len, "%s = %f", buf.ptr, value));
+            const length: usize = @intCast(c.snprintf(null, 0, "%s = %f", buf.ptr, value));
+            var buffer = try arenaAllocator.alloc(u8, length);
+            _ = c.snprintf(buffer.ptr, buffer.len, "%s = %f", buf.ptr, value);
             return buffer[0..length];
         } else {
             return error.NotSupportedDataTypeConvertingToString;
@@ -142,10 +145,9 @@ pub const Controller = struct {
                 const upperFirst: [1]u8 = comptime .{ std.ascii.toUpper(field.name[0]) };
                 const getterName = "get" ++ upperFirst ++ field.name[1..];
                 if (std.mem.eql(u8, tagName, getterName)) {
-                    var array: [255]u8 = undefined;
                     const log: clientContract.Log = .{
                         .level = clientContract.LogLevel.info,
-                        .message = try toMessage(field.type, field.name, @field(self.config, field.name), &array),
+                        .message = try toMessage(field.type, self.arena.allocator(), field.name, @field(self.config, field.name)),
                     };
                     try self.netServer.send(clientContract.Log, log);
                     return;
@@ -169,8 +171,6 @@ pub const Controller = struct {
 
 
     pub fn handleCommand(self: *Self, command: serverContract.command) !void {
-        var array: [250]u8 = undefined;
-
         switch (command) {
             .setWifi => |s| {
                 var nvsHandle: esp.nvs_handle_t = undefined;
@@ -180,8 +180,8 @@ pub const Controller = struct {
                     @panic("Error while opening handle for flash memory in uart console.");
                 }
                 defer esp.nvs_close(nvsHandle);
-                const nullTerminatedSsid = std.fmt.bufPrintZ(&array, "{s}", .{s.ssid}) catch unreachable;
-                const nullTerminatedPassword = std.fmt.bufPrintZ(array[@divTrunc(array.len, 2)..], "{s}", .{s.password}) catch unreachable;
+                const nullTerminatedSsid = try std.fmt.allocPrintSentinel(self.arena.allocator(), "{s}", .{s.ssid}, 0);
+                const nullTerminatedPassword = try std.fmt.allocPrintSentinel(self.arena.allocator(), "{s}", .{s.password}, 0);
 
                 var err = esp.nvs_set_str(nvsHandle, "ssid", nullTerminatedSsid);
                 if (err != esp.ESP_OK) {
@@ -208,7 +208,7 @@ pub const Controller = struct {
                 } else if (std.mem.eql(u8, s.mode, "maptrack")) {
                     try self.changeState(&self.mapTrack.controllerState);
                 } else {
-                    const buffer = std.fmt.bufPrintZ(&array, "{s}", .{s.mode}) catch unreachable;
+                    const buffer = try std.fmt.allocPrintSentinel(self.arena.allocator(), "{s}", .{s.mode}, 0);
                     utils.espLog(esp.ESP_LOG_WARN, tag, "Mode \"%s\"doesn't exist", buffer.ptr);
                 }
                 self.allocator.free(s.mode);
