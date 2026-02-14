@@ -11,6 +11,7 @@ pub const Measurement = struct {
 };
 
 pub const LogLevel = enum(u8) {
+    debug,
     info,
     warning,
     err,

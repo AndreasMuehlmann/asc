@@ -144,13 +144,14 @@ pub const Client = struct {
 
     pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
         try self.trackPoints.append(self.allocator, .{ .distance = trackPoint.distance, .heading = trackPoint.heading});
-        if (self.trackPoints.items.len == 0) {
+
+        if (self.trackPoints.items.len <= 1) {
             const array = [_]rl.Vector2{self.prevPosition};
             try self.gui.addPoints("Track", "Track", &array);
             return;
         }
 
-        const prevTrackPoint = self.trackPoints.items[self.trackPoints.items.len - 1];
+        const prevTrackPoint = self.trackPoints.items[self.trackPoints.items.len - 2];
 
         const diffDistance = trackPoint.distance - prevTrackPoint.distance;
         const delta = Track.angularDelta(prevTrackPoint.heading, trackPoint.heading);
@@ -178,6 +179,7 @@ pub const Client = struct {
         var text = try std.ArrayList(u8).initCapacity(self.allocator, log.message.len + 20);
         defer text.deinit(self.allocator);
         const prefix = switch (log.level) {
+            clientContract.LogLevel.debug => "Debug: ",
             clientContract.LogLevel.info => "Info: ",
             clientContract.LogLevel.warning => "Warning: ",
             clientContract.LogLevel.err => "Error: ",
@@ -196,6 +198,7 @@ pub const Client = struct {
                 self.trackPoints = try std.ArrayList(TrackPoint).initCapacity(self.allocator, 10);
                 try self.gui.clear("Track", "Track");
                 var positions = try self.allocator.alloc(rl.Vector2, self.track.?.distancePositions.len);
+                defer self.allocator.free(positions);
                 for (self.track.?.distancePositions, 0..) |distancePosition, i| {
                     positions[i] = rl.Vector2.init(distancePosition.position.x, distancePosition.position.y);
                 }

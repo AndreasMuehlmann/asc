@@ -15,11 +15,13 @@ pub const MapTrack = struct {
 
     controllerState: ControllerState,
     trackPoints: std.ArrayList(TrackPoint),
+    initialTrackPoint: ?TrackPoint,
 
     pub fn init() Self {
         return .{
             .controllerState = .{ .startFn = start, .stepFn = step, .handleCommandFn = handleCommand, .resetFn = reset },
             .trackPoints = undefined,
+            .initialTrackPoint = null
         };
     }
 
@@ -29,15 +31,31 @@ pub const MapTrack = struct {
             track.deinit();
         }
         self.trackPoints = std.ArrayList(TrackPoint).initCapacity(controller.allocator, 100) catch return ControllerStateError.OutOfMemory;
-        controller.netServer.send(clientContract.command, clientContract.command{.resetMapping = .{}}) catch return ControllerStateError.SendFailed;
+        controller.netServer.send(clientContract.command, clientContract.command{.resetMapping = clientContract.resetMapping{}}) catch return ControllerStateError.SendFailed;
+        self.initialTrackPoint = null;
     }
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
-        const trackPoint = TrackPoint{
-            .distance = controller.tacho.distance,
-            .heading = controller.bmi.heading,
-        };
+        var trackPoint: TrackPoint = undefined;
+
+        if (self.initialTrackPoint) |initialTrackPoint| {
+            if (controller.tacho.distance - initialTrackPoint.distance < controller.config.minTrackPointDistanceMm / 1_000_000 + self.trackPoints.items[self.trackPoints.items.len - 1].distance) {
+                return;
+            }
+
+            trackPoint = TrackPoint{
+                .distance = controller.tacho.distance - initialTrackPoint.distance,
+                .heading = @mod(controller.bmi.heading - initialTrackPoint.heading, 360),
+            };
+        } else {
+            self.initialTrackPoint = TrackPoint{
+                .distance = controller.tacho.distance,
+                .heading = controller.bmi.heading,
+            };
+            trackPoint = .{.distance = 0.0, .heading = 0.0};
+        }
+        
         self.trackPoints.append(
             controller.allocator,
             trackPoint,
@@ -49,7 +67,14 @@ pub const MapTrack = struct {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
         switch (command) {
             .endMapping => {
-                controller.track = Track.init(controller.allocator, self.trackPoints.toOwnedSlice(controller.allocator) catch return ControllerStateError.OutOfMemory) catch return ControllerStateError.TrackCreationFailed;
+                if (self.trackPoints.items.len <= 3) {
+                    controller.netServer.send(clientContract.Log, clientContract.Log{.level = clientContract.LogLevel.warning, .message = "There must be at least three trackPoints to create a track. The track mapping will be reset and the mode is set to stop."}) catch return ControllerStateError.SendFailed;
+                    controller.netServer.send(clientContract.command, clientContract.command{.resetMapping = clientContract.resetMapping{}}) catch return ControllerStateError.SendFailed;
+                    self.trackPoints.deinit(controller.allocator);
+                } else {
+                    controller.track = Track.init(controller.allocator, self.trackPoints.toOwnedSlice(controller.allocator) catch return ControllerStateError.OutOfMemory) catch return ControllerStateError.TrackCreationFailed;
+                    controller.netServer.send(clientContract.command, clientContract.command{.endMapping = clientContract.endMapping{}}) catch return ControllerStateError.SendFailed;
+                }
                 try controller.changeState(&controller.stop.controllerState);
             },
             else => {},

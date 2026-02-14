@@ -74,9 +74,15 @@ Vision:
 
 
 
-- log messages from server to client
-- Answer getters for config
-- Track on client and controller
+
+                if (trackPoints.len > 0) {
+                    const initialDistance = trackPoints[0].distance;
+                    for (trackPoints) |*trackPoint| {
+                        trackPoint.distance = @max(initialDistance, trackPoint.distance) - initialDistance;
+                    }
+                }
+- arena
+- create TrackPoint after certain distance
 - Filter and other positioningTest stuff to main prog
 
 - Console ctrl c, ctrl v
