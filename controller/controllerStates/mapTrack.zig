@@ -9,6 +9,7 @@ const clientContract = @import("clientContract");
 const trackMod = @import("track");
 const Track = trackMod.Track(true);
 const TrackPoint = trackMod.TrackPoint;
+const KalmanFilter = @import("../kalmanFilter.zig").KalmanFilter;
 
 pub const MapTrack = struct {
     const Self = @This();
@@ -30,6 +31,8 @@ pub const MapTrack = struct {
         if (controller.track) |*track| {
             track.deinit();
         }
+        controller.track = null;
+        controller.kalmanFilter = null;
         self.trackPoints = std.ArrayList(TrackPoint).initCapacity(controller.allocator, 100) catch return ControllerStateError.OutOfMemory;
         controller.netServer.send(clientContract.command, clientContract.command{.resetMapping = clientContract.resetMapping{}}) catch return ControllerStateError.SendFailed;
         self.initialTrackPoint = null;
@@ -73,6 +76,7 @@ pub const MapTrack = struct {
                     self.trackPoints.deinit(controller.allocator);
                 } else {
                     controller.track = Track.init(controller.allocator, self.trackPoints.toOwnedSlice(controller.allocator) catch return ControllerStateError.OutOfMemory) catch return ControllerStateError.TrackCreationFailed;
+                    controller.kalmanFilter = KalmanFilter.init(controller, &controller.track.?);
                     controller.netServer.send(clientContract.command, clientContract.command{.endMapping = clientContract.endMapping{}}) catch return ControllerStateError.SendFailed;
                 }
                 try controller.changeState(&controller.stop.controllerState);

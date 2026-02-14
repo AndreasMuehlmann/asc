@@ -14,6 +14,7 @@ pub const Config = struct {
     tireCircumferenceMm: f32,
     userDriveMaxPwm: f32,
     minTrackPointDistanceMm: f32,
+    deltaTimeMs: u32,
 
     pub fn init() Self {
         return .{
@@ -27,6 +28,7 @@ pub const Config = struct {
             .pulsesPerRotation = 5.0,
             .tireCircumferenceMm = 74.01,
             .minTrackPointDistanceMm = 10.0,
+            .deltaTimeMs = 10,
         };
     }
 };

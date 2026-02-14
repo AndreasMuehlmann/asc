@@ -72,41 +72,16 @@ Vision:
 
 ## TODO
 
-
-
-
-                if (trackPoints.len > 0) {
-                    const initialDistance = trackPoints[0].distance;
-                    for (trackPoints) |*trackPoint| {
-                        trackPoint.distance = @max(initialDistance, trackPoint.distance) - initialDistance;
-                    }
-                }
-- arena
-- create TrackPoint after certain distance
-- Filter and other positioningTest stuff to main prog
+- Controller State self drive with kalmanfilter usage and sending position to client
 
 - Console ctrl c, ctrl v
 - Measure voltage
 - Store Config in persistent memory
-- Sending messages with arbitrary size (to for exmaple send the whole track back to the controlleer)
-- Add point after every milimeter
 
-- Go to track after fixing distance measurement
-- Positioning
 - Collect data in user drive
 - try to fit model in positioningTest
 
 - Use Vec2D every where
-
-- Controller: Endmapping fails
-- Controller: Not only sending commands from client to sever but also from server to client to for example reset the track map
-- Client: Console with more features for example arrow up and ctrl backspace, better cursor.
-- Client: Output from command parser or responses from server or previous commands displayed in the console.
-- Controller: Responses from server to client when client sends commands that lead to an error.
-
-- Fix distance calculation
-- not necessarily, needs more research: new pcb with c6 instead of c3
-
 
 - write documentation
 - Dont know if this is still a thing: Fix error in command parser for quoted strings?? Not sure if this is even a problem

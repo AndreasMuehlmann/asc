@@ -17,6 +17,7 @@ const Config = configMod.Config;
 const trackMod = @import("track");
 const Track = trackMod.Track(true);
 const TrackPoint = trackMod.TrackPoint;
+const KalmanFilter = @import("kalmanFilter.zig").KalmanFilter;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -65,6 +66,7 @@ pub const Controller = struct {
 
     initTime: i64,
     track: ?Track,
+    kalmanFilter: ?KalmanFilter,
 
     pub fn init(allocator: std.mem.Allocator, config: *Config, bmi: Bmi, tacho: Tacho, netServer: NetServerT) !Self {
         return .{
@@ -85,6 +87,7 @@ pub const Controller = struct {
 
             .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
             .track = null,
+            .kalmanFilter = null,
         };
     }
 
@@ -102,7 +105,7 @@ pub const Controller = struct {
 
             try self.step();
             _ = self.arena.reset(.{ .retain_with_limit = 1000});
-            rtos.rtosVTaskDelayUntil(&lastWake, rtos.rtosMillisToTicks(10));
+            rtos.rtosVTaskDelayUntil(&lastWake, rtos.rtosMillisToTicks(self.config.deltaTimeMs));
         }
     }
 
