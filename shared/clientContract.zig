@@ -35,6 +35,11 @@ pub const command = union(CommandsEnum) {
 pub const resetMapping = struct {};
 pub const endMapping = struct {};
 
+pub const CarTrackPoint = struct {
+    distance: f32,   
+    heading: f32,
+};
+
 pub const ClientContractEnum = enum(u8) {
     measurement,
     trackPoint,
@@ -46,7 +51,7 @@ pub const ClientContractEnum = enum(u8) {
 pub const ClientContract = union(ClientContractEnum) {
     measurement: Measurement,
     trackPoint: TrackPoint,
-    carTrackPoint: TrackPoint,
+    carTrackPoint: CarTrackPoint,
     log: Log,
     command: command,
 };

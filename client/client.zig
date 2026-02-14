@@ -166,7 +166,7 @@ pub const Client = struct {
         try self.gui.addPoints("Track", "Track", &array);
     }
 
-    pub fn handleCarTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
+    pub fn handleCarTrackPoint(self: *Self, trackPoint: clientContract.CarTrackPoint) !void {
         if (self.track) |track| {
             const position = track.distanceToPosition(trackPoint.distance);
             self.gui.carPositionAndHeading = .{ .position = .{ .x = position.x, .y = position.y }, .heading = trackPoint.heading };

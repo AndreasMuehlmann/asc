@@ -29,7 +29,7 @@ pub const MapTrack = struct {
             track.deinit();
         }
         self.trackPoints = std.ArrayList(TrackPoint).initCapacity(controller.allocator, 100) catch return ControllerStateError.OutOfMemory;
-        controller.netServer.send(clientContract.resetMapping, .{}) catch return ControllerStateError.SendFailed;
+        controller.netServer.send(clientContract.command, clientContract.command{.resetMapping = .{}}) catch return ControllerStateError.SendFailed;
     }
 
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
