@@ -163,6 +163,7 @@ pub const Client = struct {
         };
         self.prevPosition = currentPosition;
 
+
         const array = [_]rl.Vector2{currentPosition};
         try self.gui.addPoints("Track", "Track", &array);
     }
@@ -170,7 +171,6 @@ pub const Client = struct {
     pub fn handleCarTrackPoint(self: *Self, trackPoint: clientContract.CarTrackPoint) !void {
         if (self.track) |track| {
             const position = track.distanceToPosition(trackPoint.distance);
-            std.debug.print("position {d}, {d}\n", .{position.x, position.y});
             self.gui.carPositionAndHeading = .{ .position = .{ .x = position.x, .y = position.y }, .heading = trackPoint.heading };
         }
     }
@@ -196,8 +196,6 @@ pub const Client = struct {
             .endMapping => {
                 const trackPoints = try self.trackPoints.toOwnedSlice(self.allocator);
                 self.track = try Track.init(self.allocator, trackPoints);
-                const trackPointsLenF32: f32 = @floatFromInt(trackPoints.len);
-                std.debug.print("avgDist: {d}\n", .{self.track.?.getTrackLength() / trackPointsLenF32});
                 self.trackPoints = try std.ArrayList(TrackPoint).initCapacity(self.allocator, 10);
                 try self.gui.clear("Track", "Track");
                 var positions = try self.allocator.alloc(rl.Vector2, self.track.?.distancePositions.len);

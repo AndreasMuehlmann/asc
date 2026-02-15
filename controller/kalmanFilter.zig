@@ -5,10 +5,6 @@ const TrackPoint = trackMod.TrackPoint;
 const Controller = @import("controller.zig").Controller;
 const mat = @import("matrixUtils.zig");
 
-const cc = @cImport({
-    @cInclude("stdio.h");
-});
-
 
 pub const KalmanFilter = struct {
     const Self = @This();
@@ -58,9 +54,8 @@ pub const KalmanFilter = struct {
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
         const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
 
-        const closestDist: f64 = @floatCast(closest.distance);
-        _ = cc.printf("closest distance: %f\n", closestDist);
-        return closest.distance;
+        const direction: f32 = if (closest.distance >= xVecPred[0]) 1.0 else -1.0;
+        return xVecPred[0] + direction * self.track.signedDifferenceDistance(self.distance, xVecPred[0]) * 0.5;
     }
 
     pub fn update(self: *Self) void {
@@ -81,11 +76,6 @@ pub const KalmanFilter = struct {
 
         const yVec: [2]f32 = [2]f32{ self.distanceMeasurementThroughHeading(xVecPred) - predictedMeasurements[0], self.controller.tacho.velocity - predictedMeasurements[1] };
         const adjustedYVec = mat.vectorMultiply(2, 2, kMat, yVec);
-
-        const adjustedYVec0F64: f64 = @floatCast(adjustedYVec[0]);
-        const distanceF64: f64 = @floatCast(self.distance);
-        const distancePredF64: f64 = @floatCast(xVecPred[0]);
-        _ = cc.printf("distancePred: %f, distance: %f, adjustedYVec0: %f\n", distancePredF64, distanceF64, adjustedYVec0F64);
         self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
         self.velocity = xVecPred[1] + adjustedYVec[1];
 

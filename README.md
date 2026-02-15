@@ -72,7 +72,7 @@ Vision:
 
 ## TODO
 
-- Controller State self drive with kalmanfilter usage and sending position to client
+- weird corner at the start after remaking the track map
 
 - Console ctrl c, ctrl v
 - Measure voltage

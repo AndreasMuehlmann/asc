@@ -169,6 +169,16 @@ pub fn Track(comptime buildKdTree: bool) type {
             return @min(d, @max(0, self.getTrackLength() - d));
         }
 
+        pub fn signedDifferenceDistance(self: Self, from: f32, to: f32) f32 {
+            var diff = @mod(to - from, self.getTrackLength());
+
+            if (diff > self.getTrackLength() / 2.0) {
+                diff -= self.getTrackLength();
+            }
+
+            return diff;
+        }
+
         pub fn angularDistance(a: f32, b: f32) f32 {
             const d = @abs(a - b);
             return @min(d, 360.0 - d);
