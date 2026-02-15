@@ -15,6 +15,8 @@ pub const Config = struct {
     userDriveMaxPwm: f32,
     minTrackPointDistanceMm: f32,
     deltaTimeMs: u32,
+    dutyMapTrack: u32,
+
 
     pub fn init() Self {
         return .{
@@ -27,8 +29,9 @@ pub const Config = struct {
             .configAssumedVelocityMPerS = 1.0,
             .pulsesPerRotation = 5.0,
             .tireCircumferenceMm = 74.01,
-            .minTrackPointDistanceMm = 10.0,
+            .minTrackPointDistanceMm = 1.0,
             .deltaTimeMs = 10,
+            .dutyMapTrack = 500,
         };
     }
 };

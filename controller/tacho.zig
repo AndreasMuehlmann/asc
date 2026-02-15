@@ -25,11 +25,12 @@ pub const Tacho = struct {
     }
 
     pub fn update(self: *Self) !void {
+        const timeDiffMicros: f32 = @floatFromInt(utilsZig.timestampMicros() - self.measurementTime);
         if (!pt.ptUpdatedPeriod()) {
+            self.velocity = @min(self.velocity, self.tireCircumferenceMm.* / 1_000.0 / timeDiffMicros / 1_000_000.0);
             return;
         }
 
-        const timeDiffMicros: f32 = @floatFromInt(utilsZig.timestampMicros() - self.measurementTime);
         self.measurementTime = utilsZig.timestampMicros();
         const period: f32 = pt.ptGetPeriod();
         pt.ptResetPeriod();

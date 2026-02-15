@@ -10,6 +10,7 @@ const trackMod = @import("track");
 const Track = trackMod.Track(true);
 const TrackPoint = trackMod.TrackPoint;
 const KalmanFilter = @import("../kalmanFilter.zig").KalmanFilter;
+const pwm = @cImport(@cInclude("pwm.h"));
 
 pub const MapTrack = struct {
     const Self = @This();
@@ -41,9 +42,10 @@ pub const MapTrack = struct {
     pub fn step(controllerState: *ControllerState, controller: *Controller) ControllerStateError!void {
         const self: *MapTrack = @fieldParentPtr("controllerState", controllerState);
         var trackPoint: TrackPoint = undefined;
+        pwm.setDuty(controller.config.dutyMapTrack);
 
         if (self.initialTrackPoint) |initialTrackPoint| {
-            if (controller.tacho.distance - initialTrackPoint.distance < controller.config.minTrackPointDistanceMm / 1_000_000 + self.trackPoints.items[self.trackPoints.items.len - 1].distance) {
+            if (controller.tacho.distance - initialTrackPoint.distance < controller.config.minTrackPointDistanceMm / 1_000 + self.trackPoints.items[self.trackPoints.items.len - 1].distance) {
                 return;
             }
 

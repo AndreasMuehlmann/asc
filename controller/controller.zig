@@ -42,6 +42,7 @@ const MapTrack = @import("controllerStates/mapTrack.zig").MapTrack;
 const SelfDrive = @import("controllerStates/selfDrive.zig").SelfDrive;
 const UserDrive = @import("controllerStates/userDrive.zig").UserDrive;
 const Stop = @import("controllerStates/stop.zig").Stop;
+const OptimalSelfDrive = @import("controllerStates/optimalSelfDrive.zig").OptimalSelfDrive;
 
 const tag = "controller";
 
@@ -63,6 +64,7 @@ pub const Controller = struct {
     userDrive: UserDrive,
     mapTrack: MapTrack,
     stop: Stop,
+    optimalSelfDrive: OptimalSelfDrive,
 
     initTime: i64,
     track: ?Track,
@@ -84,6 +86,7 @@ pub const Controller = struct {
             .userDrive = UserDrive.init(),
             .mapTrack = MapTrack.init(),
             .stop = Stop.init(),
+            .optimalSelfDrive = OptimalSelfDrive.init(),
 
             .initTime = @divTrunc(utilsZig.timestampMicros(), 1000),
             .track = null,
@@ -112,6 +115,9 @@ pub const Controller = struct {
     fn step(self: *Self) !void {
         try self.bmi.update();
         try self.tacho.update();
+        if (self.kalmanFilter) |*kalmanFilter| {
+            kalmanFilter.update();
+        }
         try self.state.step(self);
 
         const time: f32 = @floatFromInt(@divTrunc(utilsZig.timestampMicros(), 1000) - self.initTime);
@@ -210,6 +216,8 @@ pub const Controller = struct {
                     try self.changeState(&self.userDrive.controllerState);
                 } else if (std.mem.eql(u8, s.mode, "maptrack")) {
                     try self.changeState(&self.mapTrack.controllerState);
+                } else if (std.mem.eql(u8, s.mode, "optimalselfdrive")) {
+                    try self.changeState(&self.optimalSelfDrive.controllerState);
                 } else {
                     const buffer = try std.fmt.allocPrintSentinel(self.arena.allocator(), "{s}", .{s.mode}, 0);
                     utils.espLog(esp.ESP_LOG_WARN, tag, "Mode \"%s\"doesn't exist", buffer.ptr);

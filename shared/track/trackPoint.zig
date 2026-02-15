@@ -1,4 +1,4 @@
-const Track = @import("track.zig").Track;
+const Track = @import("track.zig").Track(false);
 
 pub const TrackPoint = struct {
     distance: f32,
