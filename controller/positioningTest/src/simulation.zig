@@ -1,6 +1,6 @@
 const std = @import("std");
-const t = @import("track.zig");
-const Track = t.Track;
+const t = @import("track");
+const Track = t.Track(true);
 const TrackPoint = t.TrackPoint;
 
 pub const Simulation = struct {

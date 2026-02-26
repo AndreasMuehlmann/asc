@@ -231,6 +231,46 @@ pub fn Track(comptime buildKdTree: bool) type {
             return self.kdTree.nearestNeighbor(point).?;
         }
 
+        fn projectTrackPoint(self: Self, from: TrackPoint, to: TrackPoint, toProject: TrackPoint) TrackPoint {
+            const direction: TrackPoint = .{ .distance = to.distance - from.distance, .heading = angularDelta(from.heading, to.heading) };
+            const toProjectRelativeOrigin: TrackPoint = .{ .distance = toProject.distance - from.distance, .heading = angularDelta(from.heading, toProject.heading) };
+
+            // TODO: Clamp to segment
+            const scalar = (direction.distance * toProjectRelativeOrigin.distance + direction.heading * toProjectRelativeOrigin.heading) 
+                           / (direction.distance * direction.distance + direction.heading * direction.heading);
+            return .{ .distance = @mod(from.distance + scalar * direction.distance, self.getTrackLength()), .heading = @mod(from.heading + scalar * direction.heading, 360.0) };
+            
+        }
+
+        pub fn getClosestPointInterpolated(self: Self, point: TrackPoint) TrackPoint {
+            const closest: TrackPoint = self.getClosestPoint(point);
+
+            const compareFn = struct {
+                    fn compare(target: TrackPoint, item: TrackPoint) std.math.Order {
+                        return std.math.order(target.distance, item.distance);
+                    }
+                }.compare;
+            const index = std.sort.binarySearch(TrackPoint, self.trackPoints, closest, compareFn).?;
+
+            if (index == 0) {
+                return self.projectTrackPoint(self.trackPoints[index], self.trackPoints[index + 1], point);
+            } else if (index >= self.trackPoints.len - 1) {
+                return self.projectTrackPoint(self.trackPoints[index - 1], self.trackPoints[index], point);
+            } else {
+                const prevPoint = self.trackPoints[index - 1]; 
+                const nextPoint = self.trackPoints[index + 1]; 
+
+                const prevProjection = self.projectTrackPoint(prevPoint, closest, point);
+                const nextProjection = self.projectTrackPoint(closest, nextPoint, point);
+                // TODO: Look at if this is a problem if point is right in the middle
+                if (prevProjection.distanceNoRoot(point) + 0.1 < nextProjection.distanceNoRoot(point)) {
+                    return prevProjection;
+                } else {
+                    return nextProjection;
+                }
+            }
+        }
+
         pub fn getOffsetIcp(self: Self, points: []TrackPoint) f32 {
             if (!buildKdTree) {
                 @compileError("Getting icp offset is not implemented when kdTree is not built.");

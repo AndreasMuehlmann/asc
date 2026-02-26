@@ -17,7 +17,10 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("kdTree", kdTreeModule);
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("../../shared/icp/icp.zig") });
     icpModule.addImport("kdTree", kdTreeModule);
-    exe.root_module.addImport("icp", icpModule);
+    const trackModule = b.addModule("track", .{ .root_source_file = b.path("../../shared/track/track.zig") });
+    trackModule.addImport("kdTree", kdTreeModule);
+    trackModule.addImport("icp", icpModule);
+    exe.root_module.addImport("track", trackModule);
 
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);

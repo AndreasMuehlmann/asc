@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const Track = @import("track.zig").Track;
-const TrackPoint = @import("trackPoint.zig").TrackPoint;
-const Position = @import("track.zig").Position;
+const Track = @import("track").Track(true);
+const TrackPoint = @import("track").TrackPoint;
+const Position = @import("track").Position;
 const Simulation = @import("simulation.zig").Simulation;
 const Controller = @import("controller.zig").Controller;
 
@@ -22,14 +22,15 @@ pub fn main() !void {
     const pointCount: usize = 721;
     const density: f32 = 10.0;
     const densityUsize: usize = @intFromFloat(density);
-    var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
+    var trackPointsArrayList = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
     for (0..pointCount * densityUsize + 1) |i| {
         const iF32: f32 = @floatFromInt(i);
-        try trackPoints.append(allocator, .{
+        try trackPointsArrayList.append(allocator, .{
             .distance = iF32 * 0.01 / density,
             .heading = @mod(std.math.sin(iF32 / density / 360 * 2 * std.math.pi) * 150 + 360, 360),
         });
     }
+    const trackPoints = try trackPointsArrayList.toOwnedSlice(allocator);
     var track = try Track.init(allocator, trackPoints);
     defer track.deinit();
 
@@ -44,14 +45,14 @@ pub fn main() !void {
     var simulation = Simulation.init(&track, 0.0, 1.0, 0.01, 0.01, 0.01, 0.001, 0.1, &rng);
     var gui = try Gui.init(allocator);
 
-    var positions = try allocator.alloc(rl.Vector2, track.distancePositions.items.len);
-    for (track.distancePositions.items, 0..) |distancePosition, i| {
+    var positions = try allocator.alloc(rl.Vector2, track.distancePositions.len);
+    for (track.distancePositions, 0..) |distancePosition, i| {
         positions[i] = rl.Vector2.init(distancePosition.position.x, distancePosition.position.y);
     }
     try gui.addPoints("Track", "Track", positions);
 
-    var trackPointsGui = try allocator.alloc(rl.Vector2, track.trackPoints.items.len);
-    for (track.trackPoints.items, 0..) |trackPoint, i| {
+    var trackPointsGui = try allocator.alloc(rl.Vector2, track.trackPoints.len);
+    for (track.trackPoints, 0..) |trackPoint, i| {
         trackPointsGui[i] = rl.Vector2.init(trackPoint.distance, trackPoint.heading);
     }
     try gui.addPoints("TrackDistance", "TrackDistance", trackPointsGui);

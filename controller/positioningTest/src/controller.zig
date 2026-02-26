@@ -1,7 +1,7 @@
 const std = @import("std");
 const Simulation = @import("simulation.zig").Simulation;
-const Track = @import("track.zig").Track;
-const TrackPoint = @import("trackPoint.zig").TrackPoint;
+const Track = @import("track").Track(true);
+const TrackPoint = @import("track").TrackPoint;
 const mat = @import("matrixUtils.zig");
 const RingBuffer = @import("ringBuffer.zig").RingBuffer;
 
@@ -87,13 +87,21 @@ pub const Controller = struct {
         self.icpOffset = self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
         const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
-        const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
+        //const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
         const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
+        _ = icpDistanceGuess;
+
         //std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, closest.distance - icpDistanceGuess});
-        if (self.prevDistances.len == self.prevDistances.capacity) {
-            return 0.0 * icpDistanceGuess + 1.0 * closest.distance;
-        }
-        return closest.distance;
+       //if (self.prevDistances.len == self.prevDistances.capacity) {
+       //    return 0.0 * icpDistanceGuess + 1.0 * closest.distance;
+       //}
+
+       //const direction: f32 = if (closest.distance >= xVecPred[0]) 1.0 else -1.0;
+       //std.debug.print("{d}, {d}, {d}, {d}\n", .{closest.distance, xVecPred[0], direction, direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5});
+       //return xVecPred[0] + direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5;
+        
+        return self.track.getClosestPointInterpolated(trackPoint).distance;
+        //return closest.distance;
     }
 
     pub fn update(self: *Self) void {

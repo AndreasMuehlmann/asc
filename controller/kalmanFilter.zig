@@ -52,10 +52,7 @@ pub const KalmanFilter = struct {
         const dtMs: f32 = @floatFromInt(self.controller.config.deltaTimeMs);
         const measuredHeading = @mod(self.heading + self.controller.bmi.prevGyro.z * dtMs / 1000 , 360);
         const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
-        const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
-
-        const direction: f32 = if (closest.distance >= xVecPred[0]) 1.0 else -1.0;
-        return xVecPred[0] + direction * self.track.signedDifferenceDistance(self.distance, xVecPred[0]) * 0.5;
+        return self.track.getClosestPointInterpolated(trackPoint).distance;
     }
 
     pub fn update(self: *Self) void {
