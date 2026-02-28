@@ -45,7 +45,7 @@ pub const Controller = struct {
             .velocity = simulation.velocity,
             .heading = simulation.heading,
             .pMat = [_][2]f32{
-                .{ 0.0001, 0.0 },
+                .{ 0.5, 0.0 },
                 .{ 0.0, 0.0001 },
             },
             // with acceleration F = [1, dt, 1/2 dt*dt; 0, 1, dt]
@@ -54,11 +54,11 @@ pub const Controller = struct {
                 .{ 0.0, 1.0 },
             },
             .qMat = [_][2]f32{
-                .{ 0.1, 0.0 },
+                .{ 1.1, 0.0 },
                 .{ 0.0, 0.01 },
             },
             .rMat = [_][2]f32{
-                .{ simulation.angularRateNoise * simulation.angularRateNoise, 0.0 },
+                .{ 1.1, 0.0 },
                 .{ 0.0, simulation.velocityNoise * simulation.velocityNoise },
             },
         };
@@ -100,7 +100,11 @@ pub const Controller = struct {
        //std.debug.print("{d}, {d}, {d}, {d}\n", .{closest.distance, xVecPred[0], direction, direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5});
        //return xVecPred[0] + direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5;
         
-        return self.track.getClosestPointInterpolated(trackPoint).distance;
+        const h = self.track.distanceToHeading(self.distance);
+        const distanceGuessOld = self.track.getClosestPoint(trackPoint).distance;
+        const distanceGuess = self.track.getClosestPointInterpolated(trackPoint).distance;
+        std.debug.print("diffHeadingAtDistance {d}, diffInterpolated {d:.4}, diff {d:.4}\n", .{measuredHeading - h, distanceGuess - xVecPred[0], distanceGuessOld - xVecPred[0]});
+        return distanceGuess;
         //return closest.distance;
     }
 

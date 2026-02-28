@@ -21,6 +21,7 @@ pub fn build(b: *std.Build) void {
     icpModule.addImport("kdTree", kdTreeModule);
     const trackModule = b.addModule("track", .{ .root_source_file = b.path("../../shared/track/track.zig") });
     trackModule.addImport("kdTree", kdTreeModule);
+    trackModule.addImport("matrix", matrixModule);
     trackModule.addImport("icp", icpModule);
     exe.root_module.addImport("track", trackModule);
 

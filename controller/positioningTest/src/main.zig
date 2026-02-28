@@ -20,7 +20,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const pointCount: usize = 721;
-    const density: f32 = 10.0;
+    const density: f32 = 1.0;
     const densityUsize: usize = @intFromFloat(density);
     var trackPointsArrayList = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
     for (0..pointCount * densityUsize + 1) |i| {
@@ -42,7 +42,7 @@ pub fn main() !void {
     });
     var rng: std.Random = prng.random();
 
-    var simulation = Simulation.init(&track, 0.0, 1.0, 0.01, 0.01, 0.01, 0.001, 0.1, &rng);
+    var simulation = Simulation.init(&track, 0.0, 1.0, 0.01, 0.01, 0.01, 0.001, 0.01, &rng);
     var gui = try Gui.init(allocator);
 
     var positions = try allocator.alloc(rl.Vector2, track.distancePositions.len);

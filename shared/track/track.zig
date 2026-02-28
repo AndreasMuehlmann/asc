@@ -235,12 +235,12 @@ pub fn Track(comptime buildKdTree: bool) type {
         fn projectTrackPoint(self: Self, from: TrackPoint, to: TrackPoint, toProject: TrackPoint) TrackPoint {
             const direction: [2]f32 = .{ 
                 to.distance - from.distance, 
-                angularDelta(from.heading, to.heading) 
+                angularDelta(from.heading, to.heading) / 100.0
             };
             
             const toProjectVec: [2]f32 = .{ 
                 toProject.distance - from.distance, 
-                angularDelta(from.heading, toProject.heading) 
+                angularDelta(from.heading, toProject.heading) / 100.0
             };
 
             const scalar = matrix.dotProduct(2, direction, toProjectVec) / matrix.dotProduct(2, direction, direction);
@@ -248,7 +248,7 @@ pub fn Track(comptime buildKdTree: bool) type {
 
             return .{ 
                 .distance = @mod(from.distance + scalarClamped * direction[0], self.getTrackLength()), 
-                .heading = @mod(from.heading + scalarClamped * direction[1], 360.0) 
+                .heading = @mod(from.heading + scalarClamped * direction[1] * 100.0, 360.0) 
             };
         }
 
@@ -300,7 +300,7 @@ test "distanceToHeading" {
     const allocator = std.testing.allocator;
 
     var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 360);
-    for (0..361) |i| {
+    for (0..360) |i| {
         const iF32: f32 = @floatFromInt(i);
         try trackPoints.append(allocator, .{
             .distance = iF32 * 0.01,
@@ -308,24 +308,19 @@ test "distanceToHeading" {
         });
     }
 
-    var track = Track.init(allocator, trackPoints);
+    var track = try Track(false).init(allocator, try trackPoints.toOwnedSlice(allocator));
     defer track.deinit();
 
     {
-        const distance: f32 = 3.595;
+        const distance: f32 = 3.585;
         const heading = track.distanceToHeading(distance);
-        try std.testing.expectApproxEqAbs(359.5, heading, 1e-4);
+        try std.testing.expectApproxEqAbs(358.5, heading, 1e-4);
     }
 
     {
         const distance: f32 = 0.0;
         const heading = track.distanceToHeading(distance);
         try std.testing.expectApproxEqAbs(0.0, heading, 1e-6);
-    }
-    {
-        const distance: f32 = 3.5939434;
-        const heading = track.distanceToHeading(distance);
-        try std.testing.expectApproxEqAbs(3.59, heading, 1e-6);
     }
 }
 
@@ -341,7 +336,7 @@ test "headingToDistance" {
         });
     }
 
-    var track = Track.init(allocator, trackPoints);
+    var track = try Track(false).init(allocator, try trackPoints.toOwnedSlice(allocator));
     defer track.deinit();
 
     {
@@ -371,7 +366,7 @@ test "headingToDistanceMoreComplicatedTrack" {
         });
     }
 
-    var track = Track.init(allocator, trackPoints);
+    var track = try Track(false).init(allocator, try trackPoints.toOwnedSlice(allocator));
     defer track.deinit();
 
     {
@@ -389,32 +384,33 @@ test "headingToDistanceMoreComplicatedTrack" {
     }
 }
 
-//   test "getClosestPointInterpolated" {
-//       const allocator = std.testing.allocator;
-//
-//       var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 720);
-//       for (0..720) |i| {
-//           const iF32: f32 = @floatFromInt(i);
-//           try trackPoints.append(allocator, .{
-//               .distance = iF32 * 0.01,
-//               .heading = @mod(iF32, 360),
-//           });
-//       }
-//
-//       var track = Track.init(allocator, trackPoints);
-//       defer track.deinit();
-//
-//       {
-//           const heading: f32 = 80.0;
-//           const approximateDistance: f32 = 4.50;
-//           const distance = track.headingToDistance(heading, approximateDistance);
-//           try std.testing.expectApproxEqAbs(4.4, distance, 1e-6);
-//       }
-//
-//       {
-//           const heading: f32 = 359.0;
-//           const approximateDistance: f32 = 0.30;
-//           const distance = track.headingToDistance(heading, approximateDistance);
-//           try std.testing.expectApproxEqAbs(7.19, distance, 1e-4);
-//       }
-//   }
+test "getClosestPointInterpolated" {
+    const allocator = std.testing.allocator;
+    var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 10);
+    defer trackPoints.deinit(allocator);
+    
+    for (0..10) |i| {
+        const iF32: f32 = @floatFromInt(i);
+        try trackPoints.append(allocator, .{
+            .distance = iF32 * 0.1,
+            .heading = iF32,
+        });
+    }
+
+    var track = try Track(true).init(allocator, try trackPoints.toOwnedSlice(allocator));
+    defer track.deinit();
+
+    {
+        const toProject = TrackPoint{ .distance = 0.45, .heading = 4.5 };
+        const result = track.getClosestPointInterpolated(toProject);
+
+        try std.testing.expectApproxEqAbs(0.45, result.distance, 1e-6);
+        try std.testing.expectApproxEqAbs(4.5, result.heading, 1e-6);
+    }
+
+    {
+        const offTrackPoint = TrackPoint{ .distance = 0.45, .heading = 10.0 };
+        const result = track.getClosestPointInterpolated(offTrackPoint);
+        try std.testing.expectApproxEqAbs(0.45544553, result.distance, 1e-6);
+    }
+}

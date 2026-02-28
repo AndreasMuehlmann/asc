@@ -28,8 +28,8 @@ pub const KalmanFilter = struct {
             .velocity = 0.0,
             .heading = 0.0,
             .pMat = [_][2]f32{
-                .{ 0.0001, 0.0 },
-                .{ 0.0, 0.0001 },
+                .{ 0.5, 0.0 },
+                .{ 0.0, 0.1 },
             },
             // with acceleration F = [1, dt, 1/2 dt*dt; 0, 1, dt]
             .fMat = [_][2]f32{
@@ -38,12 +38,12 @@ pub const KalmanFilter = struct {
             },
             // TODO: tune
             .qMat = [_][2]f32{
-                .{ 0.01, 0.0 },
-                .{ 0.0, 0.01 },
+                .{ 0.5, 0.0 },
+                .{ 0.0, 0.1 },
             },
             .rMat = [_][2]f32{
-                .{ 0.0001, 0.0 }, 
-                .{ 0.0, 0.01 },
+                .{ 0.5, 0.0 }, 
+                .{ 0.0, 0.1 },
             },
         };
     }

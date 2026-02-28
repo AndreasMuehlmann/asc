@@ -89,32 +89,6 @@ fn nearestNeighborSlice(points: []Point, point: Point) ?Point {
     return nn;
 }
 
-pub fn main() !void {
-    const maxLength = 1000;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var points: [maxLength]Point = undefined;
-    for (0..1) |_| {
-        const length = std.crypto.random.uintAtMost(usize, maxLength);
-        if (length == 0) {
-            continue;
-        }
-        for (0..length) |i| {
-            points[i] = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
-        }
-        var kdTree = try kdTreeT.init(gpa.allocator(), points[0..length]);
-        defer kdTree.deinit();
-
-        const point = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
-        const nn: Point = kdTree.nearestNeighbor(point).?;
-        const nnSlice: Point = nearestNeighborSlice(points[0..length], point).?;
-        if (nnSlice.x != nn.x or nnSlice.y != nn.y) {
-            try kdTree.print();
-            std.log.err("point: {d:.1}, {d:.1}, nnSlice: {d:.1}, {d:.1}; nn {d:.1}, {d:.1}", .{point.x, point.y, nnSlice.x, nnSlice.y, nn.x, nn.y});
-            return;
-        }
-    }
-}
-
 test "initAndInsert" {
     var points = [_]Point{
         .{ .x = -1, .y = 1 },
@@ -185,7 +159,7 @@ test "nearestNeighborAgainstSliceNearestNeighbor" {
         var kdTree = try kdTreeT.init(testing.allocator, points[0..length]);
         defer kdTree.deinit();
 
-        const point = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
+        const point: Point = .{ .x = std.crypto.random.float(f64) * 100.0, .y = std.crypto.random.float(f64) * 100.0};
         const nn: Point = kdTree.nearestNeighbor(point).?;
         const nnSlice: Point = nearestNeighborSlice(points[0..length], point).?;
         try testing.expectEqual(nnSlice.x, nn.x);

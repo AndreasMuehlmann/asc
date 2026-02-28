@@ -12,19 +12,11 @@ pub fn build(b: *std.Build) void {
 
     const clientTarget = b.standardTargetOptions(.{});
 
+
     const encodeModule = b.addModule("encode", .{ .root_source_file = b.path("shared/messageFormat/encode.zig") });
     const decodeModule = b.addModule("decode", .{ .root_source_file = b.path("shared/messageFormat/decode.zig") });
     const serverContractModule = b.addModule("encode", .{ .root_source_file = b.path("shared/serverContract.zig") });
     const clientContractModule = b.addModule("decode", .{ .root_source_file = b.path("shared/clientContract.zig") });
-
-    const testEncodeDecodeMod = b.addModule("testEncodeDecodeMod", .{
-        .root_source_file = b.path("shared/messageFormat/testEncodeDecode.zig"),
-        .target = clientTarget,
-    });
-    const unitTestsMessageFormat = b.addTest(.{ .root_module = testEncodeDecodeMod });
-    const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
-
-
     const matrixModule = b.addModule("matrix", .{ .root_source_file = b.path("shared/matrix/matrix.zig") });
     const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("shared/kdTree/kdTree.zig") });
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("shared/icp/icp.zig") });
@@ -37,17 +29,7 @@ pub fn build(b: *std.Build) void {
     clientContractModule.addImport("track", trackModule);
     serverContractModule.addImport("config", configModule);
     serverContractModule.addImport("vector", vectorModule);
-
     const commandParserModule = b.addModule("commandParser", .{ .root_source_file = b.path("shared/commandParser/commandParser.zig") });
-
-    const testCommandParser = b.addModule("testCommandParser", .{
-        .root_source_file = b.path("shared/commandParser/commandParser.zig"),
-        .target = clientTarget,
-    });
-    const unitTestsCommandParser = b.addTest(.{
-        .root_module = testCommandParser,
-    });
-    const runUnitTestsCommandParser = b.addRunArtifact(unitTestsCommandParser);
 
     const clap = b.dependency("clap", .{});
 
@@ -182,19 +164,40 @@ pub fn build(b: *std.Build) void {
     const runClientStep = b.step("runClient", "Run the client");
     runClientStep.dependOn(&runClientCmd.step);
 
-    const unitTestsClientMod = b.addModule("unitTestsClient", .{
-        .root_source_file = b.path("client/main.zig"),
-        .target = clientTarget,
-    });
-    const unitTestsClient = b.addTest(.{
-        .root_module = unitTestsClientMod,
-    });
-    const runUnitTestsClient = b.addRunArtifact(unitTestsClient);
+    const toUnitTestModules = [_]*std.Build.Module{
+        encodeModule,
+        decodeModule,
+        serverContractModule,
+        clientContractModule,
+        matrixModule,
+        kdTreeModule,
+        icpModule,
+        trackModule,
+        configModule,
+        vectorModule,
+        commandParserModule,
+        clientExe.root_module,
+    };
 
     const testStep = b.step("test", "Run unit tests");
-    testStep.dependOn(&runUnitTestsClient.step);
-    testStep.dependOn(&runUnitTestsMessageFormat.step);
-    testStep.dependOn(&runUnitTestsCommandParser.step);
+    for (toUnitTestModules) |toUnitTestModule| {
+        const testModule = b.addModule("testModule", .{
+            .root_source_file = toUnitTestModule.root_source_file,
+            .target = clientTarget,
+            .optimize = optimize,
+        });
+        var importIterator = toUnitTestModule.import_table.iterator();
+        while (importIterator.next()) |entry| {
+            testModule.addImport(entry.key_ptr.*, entry.value_ptr.*);
+        }
+        const unitTest = b.addTest(.{
+            .root_module = testModule,
+        });
+
+        const runUnitTest = b.addRunArtifact(unitTest);
+
+        testStep.dependOn(&runUnitTest.step);
+    }
 
     const idfBuildCmd = b.addSystemCommand(&[_][]const u8{"idf.py"});
     idfBuildCmd.addArg("build");
