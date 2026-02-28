@@ -1,3 +1,15 @@
+pub fn dotProduct(
+    comptime C: usize,
+    a: [C]f32,
+    b: [C]f32,
+) f32 {
+    var sum: f32 = 0.0;
+    for (0..C) |i| {
+        sum += a[i] * b[i];
+    }
+    return sum;
+}
+
 pub fn vectorMultiply(
     comptime R: usize,
     comptime C: usize,

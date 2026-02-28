@@ -2,7 +2,7 @@ const std = @import("std");
 const Simulation = @import("simulation.zig").Simulation;
 const Track = @import("track").Track(true);
 const TrackPoint = @import("track").TrackPoint;
-const mat = @import("matrixUtils.zig");
+const mat = @import("matrix");
 const RingBuffer = @import("ringBuffer.zig").RingBuffer;
 
 

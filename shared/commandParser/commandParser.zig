@@ -293,7 +293,7 @@ pub fn CommandParser(comptime commandT: type, comptime descriptions: []const Fie
         }
 
         pub fn generateHelpMessageTaggedUnion(comptime T: type, comptime name: []const u8) []const u8 {
-            comptime var message: []const u8 = name ++ ": ";
+            comptime var message: []const u8 = [_]u8{ std.ascii.toUpper(name[0]) } ++ name[1..] ++ ": ";
 
             const tagTypeInfo = @typeInfo(@typeInfo(T).@"union".tag_type.?);
             if (tagTypeInfo != .@"enum") {
@@ -481,7 +481,7 @@ test "TestGenerateHelpMessageMultipleCommands" {
         try testing.expectError(ParserError.HelpMessage, commandParser.parse());
     }
     const expectHelpMessage =
-        \\    SubCommands: red, blue
+        \\    Commands: red, blue
         \\
     ;
     var commandParser = commandParserT.init(

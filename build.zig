@@ -25,10 +25,12 @@ pub fn build(b: *std.Build) void {
     const runUnitTestsMessageFormat = b.addRunArtifact(unitTestsMessageFormat);
 
 
+    const matrixModule = b.addModule("matrix", .{ .root_source_file = b.path("shared/matrix/matrix.zig") });
     const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("shared/kdTree/kdTree.zig") });
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("shared/icp/icp.zig") });
     const trackModule = b.addModule("track", .{ .root_source_file = b.path("shared/track/track.zig") });
     trackModule.addImport("kdTree", kdTreeModule);
+    trackModule.addImport("matrix", matrixModule);
     const configModule = b.addModule("config", .{ .root_source_file = b.path("shared/config/config.zig") });
     const vectorModule = b.addModule("vector", .{ .root_source_file = b.path("shared/vector/vector.zig") });
     clientContractModule.addImport("vector", vectorModule);
@@ -59,6 +61,7 @@ pub fn build(b: *std.Build) void {
         .root_module = controllerLibMod,
     });
 
+    controllerLib.root_module.addImport("matrix", matrixModule);
     controllerLib.root_module.addImport("encode", encodeModule);
     controllerLib.root_module.addImport("decode", decodeModule);
     controllerLib.root_module.addImport("serverContract", serverContractModule);

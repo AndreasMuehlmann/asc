@@ -13,8 +13,10 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
+    const matrixModule = b.addModule("matrix", .{ .root_source_file = b.path("../../shared/matrix/matrix.zig") });
     const kdTreeModule = b.addModule("kdTree", .{ .root_source_file = b.path("../../shared/kdTree/kdTree.zig") });
     exe.root_module.addImport("kdTree", kdTreeModule);
+    exe.root_module.addImport("matrix", matrixModule);
     const icpModule = b.addModule("icp", .{ .root_source_file = b.path("../../shared/icp/icp.zig") });
     icpModule.addImport("kdTree", kdTreeModule);
     const trackModule = b.addModule("track", .{ .root_source_file = b.path("../../shared/track/track.zig") });

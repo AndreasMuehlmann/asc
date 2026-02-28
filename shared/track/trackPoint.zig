@@ -30,7 +30,7 @@ pub const TrackPoint = struct {
 
     pub fn distanceNoRoot(self: Self, point: Self) f64 {
         const distanceDiff = minDifferenceDistances(point.distance, self.distance);
-        var headingDiff = Track.angularDistance(point.heading, self.heading);
+        var headingDiff = Track.minDifferenceAngle(point.heading, self.heading);
         headingDiff *= 0.1;
         return distanceDiff * distanceDiff + headingDiff * headingDiff;
     }

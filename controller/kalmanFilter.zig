@@ -3,7 +3,7 @@ const trackMod = @import("track");
 const Track = trackMod.Track(true);
 const TrackPoint = trackMod.TrackPoint;
 const Controller = @import("controller.zig").Controller;
-const mat = @import("matrixUtils.zig");
+const mat = @import("matrix");
 
 
 pub const KalmanFilter = struct {

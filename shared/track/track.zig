@@ -4,6 +4,7 @@ const kdTreeMod = @import("kdTree");
 const KdTree = kdTreeMod.KdTree(TrackPoint, 2);
 const icpMod = @import("icp");
 const Icp = icpMod.Icp(TrackPoint);
+const matrix = @import("matrix");
 
 pub const Position = struct {
     x: f32,
@@ -169,7 +170,7 @@ pub fn Track(comptime buildKdTree: bool) type {
             return @min(d, @max(0, self.getTrackLength() - d));
         }
 
-        pub fn signedDifferenceDistance(self: Self, from: f32, to: f32) f32 {
+        pub fn distanceDelta(self: Self, from: f32, to: f32) f32 {
             var diff = @mod(to - from, self.getTrackLength());
 
             if (diff > self.getTrackLength() / 2.0) {
@@ -179,7 +180,7 @@ pub fn Track(comptime buildKdTree: bool) type {
             return diff;
         }
 
-        pub fn angularDistance(a: f32, b: f32) f32 {
+        pub fn minDifferenceAngle(a: f32, b: f32) f32 {
             const d = @abs(a - b);
             return @min(d, 360.0 - d);
         }
@@ -191,7 +192,7 @@ pub fn Track(comptime buildKdTree: bool) type {
         }
         
         fn isInSegment(start: f32, end: f32, heading: f32) bool {
-            return @abs((angularDistance(start, heading) + angularDistance(heading, end)) - angularDistance(start, end)) < 1e-5;
+            return @abs((minDifferenceAngle(start, heading) + minDifferenceAngle(heading, end)) - minDifferenceAngle(start, end)) < 1e-5;
         }
 
         pub fn headingToDistance(self: Self, heading: f32, approximateDistance: f32) f32 {
@@ -232,14 +233,23 @@ pub fn Track(comptime buildKdTree: bool) type {
         }
 
         fn projectTrackPoint(self: Self, from: TrackPoint, to: TrackPoint, toProject: TrackPoint) TrackPoint {
-            const direction: TrackPoint = .{ .distance = to.distance - from.distance, .heading = angularDelta(from.heading, to.heading) };
-            const toProjectRelativeOrigin: TrackPoint = .{ .distance = toProject.distance - from.distance, .heading = angularDelta(from.heading, toProject.heading) };
-
-            // TODO: Clamp to segment
-            const scalar = (direction.distance * toProjectRelativeOrigin.distance + direction.heading * toProjectRelativeOrigin.heading) 
-                           / (direction.distance * direction.distance + direction.heading * direction.heading);
-            return .{ .distance = @mod(from.distance + scalar * direction.distance, self.getTrackLength()), .heading = @mod(from.heading + scalar * direction.heading, 360.0) };
+            const direction: [2]f32 = .{ 
+                to.distance - from.distance, 
+                angularDelta(from.heading, to.heading) 
+            };
             
+            const toProjectVec: [2]f32 = .{ 
+                toProject.distance - from.distance, 
+                angularDelta(from.heading, toProject.heading) 
+            };
+
+            const scalar = matrix.dotProduct(2, direction, toProjectVec) / matrix.dotProduct(2, direction, direction);
+            const scalarClamped = @max(0.0, @min(1.0, scalar));
+
+            return .{ 
+                .distance = @mod(from.distance + scalarClamped * direction[0], self.getTrackLength()), 
+                .heading = @mod(from.heading + scalarClamped * direction[1], 360.0) 
+            };
         }
 
         pub fn getClosestPointInterpolated(self: Self, point: TrackPoint) TrackPoint {
@@ -262,8 +272,7 @@ pub fn Track(comptime buildKdTree: bool) type {
 
                 const prevProjection = self.projectTrackPoint(prevPoint, closest, point);
                 const nextProjection = self.projectTrackPoint(closest, nextPoint, point);
-                // TODO: Look at if this is a problem if point is right in the middle
-                if (prevProjection.distanceNoRoot(point) + 0.1 < nextProjection.distanceNoRoot(point)) {
+                if (prevProjection.distanceNoRoot(point) < nextProjection.distanceNoRoot(point)) {
                     return prevProjection;
                 } else {
                     return nextProjection;
@@ -379,3 +388,33 @@ test "headingToDistanceMoreComplicatedTrack" {
         try std.testing.expectApproxEqAbs(7.19, distance, 1e-4);
     }
 }
+
+//   test "getClosestPointInterpolated" {
+//       const allocator = std.testing.allocator;
+//
+//       var trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 720);
+//       for (0..720) |i| {
+//           const iF32: f32 = @floatFromInt(i);
+//           try trackPoints.append(allocator, .{
+//               .distance = iF32 * 0.01,
+//               .heading = @mod(iF32, 360),
+//           });
+//       }
+//
+//       var track = Track.init(allocator, trackPoints);
+//       defer track.deinit();
+//
+//       {
+//           const heading: f32 = 80.0;
+//           const approximateDistance: f32 = 4.50;
+//           const distance = track.headingToDistance(heading, approximateDistance);
+//           try std.testing.expectApproxEqAbs(4.4, distance, 1e-6);
+//       }
+//
+//       {
+//           const heading: f32 = 359.0;
+//           const approximateDistance: f32 = 0.30;
+//           const distance = track.headingToDistance(heading, approximateDistance);
+//           try std.testing.expectApproxEqAbs(7.19, distance, 1e-4);
+//       }
+//   }
