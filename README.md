@@ -72,6 +72,16 @@ Vision:
 
 ## TODO
 
+- when maptrack to long it just fails, maybe because of stack
+- sometimes there is a jump in the distance measurement
+- Send a Warning if a mode doesn't exist.
+- pwm has a lot of a latency
+- maptrack first has to stop and then build the kdTree
+- dump errors when panicing or when an error is unhandled
+- maptrack ist spiegelverkert
+- distance measurement is not good enough
+
+
 - weird corner at the start after remaking the track map
 
 - Console ctrl c, ctrl v

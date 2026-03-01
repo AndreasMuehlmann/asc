@@ -26,6 +26,7 @@ pub const Client = struct {
     netClient: NetClientT,
     gui: Gui,
     file: std.fs.File,
+    trackFile: std.fs.File,
     trackPoints: std.ArrayList(TrackPoint),
     prevPosition: rl.Vector2,
     track: ?Track,
@@ -38,8 +39,13 @@ pub const Client = struct {
             "measurement.csv",
             .{},
         );
-
         try file.writeAll("time,heading,accelerationX,accelerationY,accelerationZ,velocity,distance\n");
+
+        const trackFile = try std.fs.cwd().createFile(
+            "track.csv",
+            .{},
+        );
+        try trackFile.writeAll("distance,heading\n");
         const gui = try Gui.init(allocator);
 
         return .{
@@ -47,6 +53,7 @@ pub const Client = struct {
             .netClient = netClient,
             .gui = gui,
             .file = file,
+            .trackFile = trackFile,
             .trackPoints = try std.ArrayList(TrackPoint).initCapacity(allocator, 10),
             .prevPosition = rl.Vector2.init(0, 0),
             .track = null,
@@ -143,6 +150,13 @@ pub const Client = struct {
     }
 
     pub fn handleTrackPoint(self: *Self, trackPoint: clientContract.TrackPoint) !void {
+        const buffer = try std.fmt.allocPrint(
+            self.allocator,
+            "{d},{d}\n",
+            .{ trackPoint.distance, trackPoint.heading },
+        );
+        try self.trackFile.writeAll(buffer);
+        self.allocator.free(buffer);
         try self.trackPoints.append(self.allocator, .{ .distance = trackPoint.distance, .heading = trackPoint.heading});
 
         if (self.trackPoints.items.len <= 1) {
