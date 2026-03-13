@@ -72,7 +72,7 @@ pub fn Track(comptime buildKdTree: bool) type {
                 const averageHeading = (trackPoint.heading + prevTrackPoint.heading) / 2.0;
 
                 const currentPosition: Position = .{
-                    .x = prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
+                    .x = prevPosition.x + std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
                     .y = prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
                 };
                 try distancePositions.append(allocator, .{.distance = trackPoint.distance, .position = currentPosition});
@@ -97,9 +97,9 @@ pub fn Track(comptime buildKdTree: bool) type {
 
                 const midHeading = beforeMid.heading + angularDelta(beforeMid.heading, afterMid.heading) * (midDistance -  beforeMid.distance) / (afterMid.distance - beforeMid.distance);
                 
-                const xFa = -std.math.cos(trackPoints[i].heading * std.math.pi / 180.0);
-                const xFab = -std.math.cos(midHeading * std.math.pi / 180.0);
-                const xFb = -std.math.cos(trackPoints[i + 2].heading * std.math.pi / 180.0);
+                const xFa = std.math.cos(trackPoints[i].heading * std.math.pi / 180.0);
+                const xFab = std.math.cos(midHeading * std.math.pi / 180.0);
+                const xFb = std.math.cos(trackPoints[i + 2].heading * std.math.pi / 180.0);
                 const xDiff = diffDistance / 6.0 * (xFa + 4 * xFab + xFb);
 
                 const yFa = std.math.sin(trackPoints[i].heading * std.math.pi / 180.0);

@@ -3,7 +3,7 @@ const t = @import("track");
 const Track = t.Track(true);
 const TrackPoint = t.TrackPoint;
 
-pub const Simulation = struct {
+pub const SimulationArtificial = struct {
     const Self = @This();
 
     track: *Track,
@@ -18,7 +18,6 @@ pub const Simulation = struct {
     angularRateNoise: f32,
     angularRateBias: f32,
     deltaTime: f32,
-    time: f32,
     rng: *std.Random,
 
     pub fn init(track: *Track, initialDistance: f32, velocity: f32, deltaTime: f32, angularRateNoise: f32, angularRateBias: f32, velocityNoise: f32, velocityBias: f32, rng: *std.Random) Self {
@@ -30,7 +29,6 @@ pub const Simulation = struct {
             .velocityNoise = velocityNoise,
             .velocityBias = velocityBias,
             .deltaTime = deltaTime,
-            .time = 0.0,
             .heading = track.distanceToHeading(initialDistance),
             .angularRate = 0.0,
             .measuredAngularRate = 0.0,
@@ -41,7 +39,6 @@ pub const Simulation = struct {
     }
 
     pub fn update(self: *Self) void {
-        self.time += self.deltaTime;
         self.distance = @mod(self.distance + self.velocity * self.deltaTime, self.track.getTrackLength());
         const newHeading = self.track.distanceToHeading(self.distance);
         self.angularRate = Track.angularDelta(self.heading, newHeading) / self.deltaTime;

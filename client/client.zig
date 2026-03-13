@@ -172,7 +172,7 @@ pub const Client = struct {
         const averageHeading = prevTrackPoint.heading + delta * 0.5;
 
         const currentPosition = rl.Vector2{
-            .x = self.prevPosition.x + -std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
+            .x = self.prevPosition.x + std.math.cos(averageHeading * std.math.pi / 180.0) * diffDistance,
             .y = self.prevPosition.y + std.math.sin(averageHeading * std.math.pi / 180.0) * diffDistance,
         };
         self.prevPosition = currentPosition;

@@ -90,7 +90,7 @@ pub const Plot = struct {
 
     pub fn headingToGlobal(self: Self, heading: f32) f32 {
         const dx = std.math.cos(std.math.degreesToRadians(heading)) / self.scaling.x;
-        const dy = std.math.sin(std.math.degreesToRadians(heading)) / self.scaling.y;
+        const dy = -std.math.sin(std.math.degreesToRadians(heading)) / self.scaling.y;
         return std.math.radiansToDegrees(std.math.atan2(dy, dx));
     }
 
