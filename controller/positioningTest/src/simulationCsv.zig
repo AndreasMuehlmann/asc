@@ -73,7 +73,6 @@ pub const SimulationCsv = struct {
     }
 
     pub fn update(self: *Self) void {
-        std.debug.print("index: {d}\n", .{self.index});
         self.index = (self.index + 1) % self.steps.len;
         self.updateHelper();
     }

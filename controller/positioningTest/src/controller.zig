@@ -4,8 +4,6 @@ const TrackPoint = @import("track").TrackPoint;
 const mat = @import("matrix");
 const RingBuffer = @import("ringBuffer.zig").RingBuffer;
 
-
-
 pub fn Controller(simulationT: type) type {
     return struct {
         const Self = @This();
@@ -68,14 +66,14 @@ pub fn Controller(simulationT: type) type {
             const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
             self.icpSource[self.prevDistances.len] = .{ .distance = distancePrediction, .heading = measuredHeading };
             for (0..self.prevDistances.len) |i| {
-                self.icpSource[i] = .{.distance = self.prevDistances.get(i), .heading = self.prevHeadings.get(i)};
+                self.icpSource[i] = .{ .distance = self.prevDistances.get(i), .heading = self.prevHeadings.get(i) };
             }
             self.icpSourceLen = self.prevDistances.len + 1;
-           //std.debug.print("TrackPoints: ", .{});
-           //for (self.icpSource.items) |trackPoint| {
-           //    std.debug.print("d {d:.2}, h {d:.2}; ", .{trackPoint.distance, trackPoint.heading});
-           //}
-           //std.debug.print("\n", .{});
+            //std.debug.print("TrackPoints: ", .{});
+            //for (self.icpSource.items) |trackPoint| {
+            //    std.debug.print("d {d:.2}, h {d:.2}; ", .{trackPoint.distance, trackPoint.heading});
+            //}
+            //std.debug.print("\n", .{});
         }
 
         fn updateRingBuffers(self: *Self) void {
@@ -86,23 +84,29 @@ pub fn Controller(simulationT: type) type {
         fn distanceMeasurementThroughHeading(self: *Self, xVecPred: [2]f32) f32 {
             self.icpOffset = self.track.getOffsetIcp(self.icpSource[0..self.icpSourceLen]);
             const measuredHeading = @mod(self.heading + self.simulation.measuredAngularRate * self.simulation.deltaTime, 360);
-            const trackPoint: TrackPoint = .{.distance = xVecPred[0], .heading = measuredHeading};
+            const trackPoint: TrackPoint = .{ .distance = xVecPred[0], .heading = measuredHeading };
             //const closest: TrackPoint = self.track.getClosestPoint(trackPoint);
             const icpDistanceGuess = @mod(xVecPred[0] + self.icpOffset, self.track.getTrackLength());
             _ = icpDistanceGuess;
 
             //std.debug.print("icpOffset: {d:.7}, icpDistanceGuess: {d:.2}, actualDistanceGuess: {d:2}, offset: {d:.6}\n", .{self.icpOffset, icpDistanceGuess, closest.distance, closest.distance - icpDistanceGuess});
-           //if (self.prevDistances.len == self.prevDistances.capacity) {
-           //    return 0.0 * icpDistanceGuess + 1.0 * closest.distance;
-           //}
+            //if (self.prevDistances.len == self.prevDistances.capacity) {
+            //    return 0.0 * icpDistanceGuess + 1.0 * closest.distance;
+            //}
 
-           //const direction: f32 = if (closest.distance >= xVecPred[0]) 1.0 else -1.0;
-           //std.debug.print("{d}, {d}, {d}, {d}\n", .{closest.distance, xVecPred[0], direction, direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5});
-           //return xVecPred[0] + direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5;
-            
+            //const direction: f32 = if (closest.distance >= xVecPred[0]) 1.0 else -1.0;
+            //std.debug.print("{d}, {d}, {d}, {d}\n", .{closest.distance, xVecPred[0], direction, direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5});
+            //return xVecPred[0] + direction * self.track.minDifferenceDistances(self.distance, xVecPred[0]) * 0.5;
+
             //const h = self.track.distanceToHeading(self.distance);
             //const distanceGuessOld = self.track.getClosestPoint(trackPoint).distance;
             const distanceGuess = self.track.getClosestPointInterpolated(trackPoint).distance;
+            std.debug.print("closest dist, heading: {d:.2}, {d:.2}; trackPoint: {d:.2}, {d:.2}\n", .{
+                distanceGuess,
+                self.track.getClosestPointInterpolated(trackPoint).heading,
+                trackPoint.distance,
+                trackPoint.heading,
+            });
             //std.debug.print("diffHeadingAtDistance {d}, diffInterpolated {d:.4}, diff {d:.4}\n", .{measuredHeading - h, distanceGuess - xVecPred[0], distanceGuessOld - xVecPred[0]});
             return distanceGuess;
             //return closest.distance;
@@ -125,17 +129,36 @@ pub fn Controller(simulationT: type) type {
             const predictedMeasurements: [2]f32 = xVecPred;
 
             self.updateIcpSource(xVecPred[0]);
-            const yVec: [2]f32 = [2]f32{ self.distanceMeasurementThroughHeading(xVecPred) - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1] };
+            const distThroughHeading = self.distanceMeasurementThroughHeading(xVecPred);
+            const yVec: [2]f32 = [2]f32{ distThroughHeading - predictedMeasurements[0], self.simulation.measuredVelocity - predictedMeasurements[1] };
             const adjustedYVec = mat.vectorMultiply(2, 2, kMat, yVec);
-
-           //std.debug.print(
-           //    "pMat:\n  [{d}, {d}]\n  [{d}, {d}]\n",
-           //    .{
-           //        self.pMat[0][0], self.pMat[0][1],
-           //        self.pMat[1][0], self.pMat[1][1],
-           //    },
-           //);
-            //std.debug.print("adjustedYVec: {d:.2}, {d:.2}; yVec: {d:.6}, {d:.2}\n", .{ adjustedYVec[0], adjustedYVec[1], yVec[0], yVec[1] });
+            std.debug.print(
+                "pred dist, vel: {d:.2}, {d:.2}; dist, vel: {d:.2}, {d:.2}\n",
+                .{
+                    xVecPred[0],
+                    xVecPred[1],
+                    self.distance,
+                    self.velocity,
+                },
+            );
+            std.debug.print(
+                "pMat:\n  [{d:.2}, {d:.2}]\n  [{d:.2}, {d:.2}]\n",
+                .{
+                    self.pMat[0][0],
+                    self.pMat[0][1],
+                    self.pMat[1][0],
+                    self.pMat[1][1],
+                },
+            );
+            std.debug.print(
+                "adjustedYVec: {d:.4}, {d:.4}; yVec: {d:.4}, {d:.4}\n\n",
+                .{
+                    adjustedYVec[0],
+                    adjustedYVec[1],
+                    yVec[0],
+                    yVec[1],
+                },
+            );
             self.distance = @mod(xVecPred[0] + adjustedYVec[0], self.track.getTrackLength());
             self.velocity = xVecPred[1] + adjustedYVec[1];
 

@@ -1,5 +1,7 @@
 const std = @import("std");
+
 pub const TrackPoint = @import("trackPoint.zig").TrackPoint;
+var trackLength = &@import("trackPoint.zig").trackLength;
 const kdTreeMod = @import("kdTree");
 const KdTree = kdTreeMod.KdTree(TrackPoint, 2);
 const icpMod = @import("icp");
@@ -15,6 +17,10 @@ pub const DistancePosition = struct {
     distance: f32,
     position: Position,
 };
+
+pub fn setTrackLength(trackLen: f32) void {
+    trackLength.* = trackLen;
+}
 
 
 pub fn Track(comptime buildKdTree: bool) type {

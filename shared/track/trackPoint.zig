@@ -1,5 +1,7 @@
 const Track = @import("track.zig").Track(false);
 
+pub var trackLength: f32 = 0.0;
+
 pub const TrackPoint = struct {
     distance: f32,
     heading: f32,
@@ -21,11 +23,12 @@ pub const TrackPoint = struct {
         return @floatCast(self.heading);
     }
 
-
-    // TODO: distanceNoRoot has to know the trackLength
     pub fn minDifferenceDistances(a: f32, b: f32) f32 {
+        if (trackLength == 0.0) {
+            @panic("trackLength is 0");
+        }
         const d = @abs(a - b);
-        return @min(d, @max(0, 7.21 - d));
+        return @min(d, @max(0, trackLength - d));
     }
 
     pub fn distanceNoRoot(self: Self, point: Self) f64 {

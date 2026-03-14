@@ -1,8 +1,9 @@
 const std = @import("std");
 
-const Track = @import("track").Track(true);
-const TrackPoint = @import("track").TrackPoint;
-const Position = @import("track").Position;
+const t = @import("track");
+const Track = t.Track(true);
+const TrackPoint = t.TrackPoint;
+const Position = t.Position;
 const SimulationArtificial = @import("simulationArtificial.zig").SimulationArtificial;
 const SimulationCsv = @import("simulationCsv.zig").SimulationCsv;
 const Controller = @import("controller.zig").Controller;
@@ -46,22 +47,41 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-   //const pointCount: usize = 721;
-   //const density: f32 = 1.0;
-   //const densityUsize: usize = @intFromFloat(density);
-   //var trackPointsArrayList = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
-   //for (0..pointCount * densityUsize + 1) |i| {
-   //    const iF32: f32 = @floatFromInt(i);
-   //    try trackPointsArrayList.append(allocator, .{
-   //        .distance = iF32 * 0.01 / density,
-   //        .heading = @mod(std.math.sin(iF32 / density / 360 * 2 * std.math.pi) * 150 + 360, 360),
-   //    });
-   //}
-   //const trackPoints = try trackPointsArrayList.toOwnedSlice(allocator);
-    
+    //const pointCount: usize = 721;
+    //const density: f32 = 1.0;
+    //const densityUsize: usize = @intFromFloat(density);
+    //var trackPointsArrayList = try std.ArrayList(TrackPoint).initCapacity(allocator, pointCount * densityUsize + 1);
+    //for (0..pointCount * densityUsize + 1) |i| {
+    //    const iF32: f32 = @floatFromInt(i);
+    //    try trackPointsArrayList.append(allocator, .{
+    //        .distance = iF32 * 0.01 / density,
+    //        .heading = @mod(std.math.sin(iF32 / density / 360 * 2 * std.math.pi) * 150 + 360, 360),
+    //    });
+    //}
+    //const trackPoints = try trackPointsArrayList.toOwnedSlice(allocator);
+
     const trackPoints = try trackPointsFromCsv(allocator, "../../data/trackFirstTry.csv");
     var track = try Track.init(allocator, trackPoints);
+    t.setTrackLength(track.getTrackLength());
     defer track.deinit();
+
+    //closest dist, heading: 20.97, 46.29; trackPoint: 0.72, 45.9
+    const tp: TrackPoint = .{ .distance = 0.72, .heading = 45.9};
+    const closestInterpolated = track.getClosestPointInterpolated(tp);
+    const closest = track.getClosestPoint(tp);
+    const distNoRoot = tp.distanceNoRoot(closest);
+
+    const distanceDiff = track.minDifferenceDistances(tp.distance, closest.distance);
+    const headingDiff = Track.minDifferenceAngle(closest.heading, tp.heading);
+    std.debug.print("distanceDiff: {d:.2}, headingDiff: {d:.2}, distNoRoot: {d:.2}, inter, closest: {d:.2}, {d:.2}; {d:.2}, {d:.2}\n", .{
+        distanceDiff,
+        headingDiff,
+        distNoRoot,
+        closestInterpolated.distance,
+        closestInterpolated.heading,
+        closest.distance,
+        closest.heading,
+    });
 
     //var prng: std.Random.DefaultPrng = std.Random.DefaultPrng.init(blk: {
     //    var seed: u64 = undefined;
@@ -71,7 +91,6 @@ pub fn main() !void {
     //var rng: std.Random = prng.random();
     //var simulation = SimulationArtificial.init(&track, 0.0, 1.0, 0.01, 0.01, 0.01, 0.001, 0.01, &rng);
     //const ControllerT = Controller(SimulationArtificial);
-
 
     var simulation = try SimulationCsv.init(allocator, "../../data/firstMapTrackAttempt.csv", track.getTrackLength());
     defer simulation.deinit(allocator);
